@@ -8,7 +8,7 @@ trim s = head (split "\n" s)
 site_origin = "https://ledatic.org"
 feed_title = "Rail"
 feed_subtitle = "A self-hosting functional language. Updates from ledatic.org."
-feed_author = "zemo-g"
+feed_author = "Ledatic"
 max_entries = 15
 
 -- ── XML escaping ──

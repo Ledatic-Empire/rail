@@ -51,7 +51,7 @@ jobs:
             # drone code is PRIVATE. Drone protection = the tools/uav/ gitignore +
             # the private repo; MAVSDK stays as a flight-code canary. (macOS git
             # grep ignores \b — verify \b-patterns on Linux/CI, not locally.)
-            patterns='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|zemog@|user@100|reillygomez@|ledaticempire@|/Users/ledaticempire|/Users/reillygomez|/Users/user|/home/zemog|\bDetro\b|D0ATHQ1BQD7|\bbrockbro2\b|MAVSDK|Great Lakes|Drive Digital|slack_token[[:space:]]*=|BEACON_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9]|10\.42\.[0-9]{1,3}\.[0-9]{1,3}|10\.(79|87|97|109|115|120)\.[0-9]{1,3}\.[0-9]{1,3}|Lakes (lab|integration|engagement|client)'
+            patterns='100\.(6[4-9]|[7-9][0-9]|1[01][0-9]|12[0-7])\.[0-9]{1,3}\.[0-9]{1,3}|user@100|/Users/user|\bDetro\b|MAVSDK|Great Lakes|Drive Digital|slack_token[[:space:]]*=|BEACON_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9]|10\.42\.[0-9]{1,3}\.[0-9]{1,3}|10\.(79|87|97|109|115|120)\.[0-9]{1,3}\.[0-9]{1,3}|Lakes (lab|integration|engagement|client)'
             # Excludes:
             #   - the guard itself (documents the patterns)
             #   - CHANGELOG.md (records the scrubs)
@@ -70,3 +70,20 @@ jobs:
               exit 1
             fi
             echo "leak guard: clean"
+        - name: Identity scan (patterns in the LEAK_IDENTITY_PATTERNS secret)
+          shell: bash
+          env:
+            IDENTITY_PATTERNS: ${{ secrets.LEAK_IDENTITY_PATTERNS }}
+          run: |
+            # The owner's name, personal addresses, usernames, home paths and chat IDs used to be
+            # spelled out in this public file; since 2026-10-16 they live in a repository secret.
+            # CHANGELOG.md is scanned too: /feed.xml on ledatic.org quotes it. Hits print as
+            # file:line only. A fork PR gets no secrets, so the scan is skipped there.
+            if [ -z "$IDENTITY_PATTERNS" ]; then echo "::warning::identity patterns unavailable (fork PR?); scan skipped"; exit 0; fi
+            hits=$(git grep -InEi "$IDENTITY_PATTERNS" -- ':(exclude)releases/' | grep -v 'leak-guard-allow' | cut -d: -f1,2 || true)
+            if [ -n "$hits" ]; then
+              echo "::error::owner identity string in the public tree (file:line only)"
+              echo "$hits"
+              exit 1
+            fi
+            echo "identity scan: clean"

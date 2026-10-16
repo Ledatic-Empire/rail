@@ -1,6 +1,6 @@
 # PR Description Draft — `github-linguist/linguist`
 
-**READ FIRST — instructions for the human reviewer (you, Reilly):**
+**READ FIRST — instructions for the human reviewer (you):**
 
 This file is the draft of the PR description that will be submitted to `github-linguist/linguist`. Everything below the `---` line is what actually goes into the PR. Sections marked with **[HUMAN:]** are places where you should add your own voice — a sentence or two, not a speech.
 
@@ -17,11 +17,11 @@ https://github.com/zemo-g/linguist/tree/add-rail-language
 
 ## Summary
 
-This PR adds [Rail](https://github.com/zemo-g/rail) as a recognized programming language in Linguist.
+This PR adds [Rail](https://github.com/Ledatic-Empire/rail) as a recognized programming language in Linguist.
 
 Rail is a self-hosting programming language. Its compiler is written in Rail, compiles itself to a ~640KB ARM64 binary, and produces byte-identical output on second-compile (fixed point). Zero C dependencies — the garbage collector and runtime are hand-written ARM64 assembly.
 
-**My name is Reilly Gomez, I built RAIL as a project that will help me build however I want and or need with hopefully, no outside dependencies.**
+**I built RAIL as a project that will help me build however I want and or need with hopefully, no outside dependencies.**
 
 ## Checklist
 
@@ -35,7 +35,7 @@ Rail is a self-hosting programming language. Its compiler is written in Rail, co
 
 ## About the popularity threshold
 
-Linguist's CONTRIBUTING.md asks for ≥200 public repositories using the language. **Rail does not meet this threshold yet** — the main public repo is [zemo-g/rail](https://github.com/zemo-g/rail), a single author project that went public recently.
+Linguist's CONTRIBUTING.md asks for ≥200 public repositories using the language. **Rail does not meet this threshold yet** — the main public repo is [Ledatic-Empire/rail](https://github.com/Ledatic-Empire/rail), a single author project that went public recently.
 
 I'm opening this PR anyway because:
 
@@ -72,10 +72,10 @@ The diversity should give the grammar coverage for comments, strings, numbers, k
 
 ## Related links
 
-- Main repo: https://github.com/zemo-g/rail
+- Main repo: https://github.com/Ledatic-Empire/rail
 - Grammar repo: https://github.com/zemo-g/rail.tmbundle
-- Language design notes: https://github.com/zemo-g/rail/blob/master/README.md
-- EBNF grammar: https://github.com/zemo-g/rail/blob/master/grammar/rail.ebnf
+- Language design notes: https://github.com/Ledatic-Empire/rail/blob/master/README.md
+- EBNF grammar: https://github.com/Ledatic-Empire/rail/blob/master/grammar/rail.ebnf
 
 **Im just looking to have a good start to my learning and this will help greatly. When professionals look at the repo and see it says RAIL, it will make a difference for me. them seeing a toy, vs a language. Thanks!**
 

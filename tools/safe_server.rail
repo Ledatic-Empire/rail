@@ -36,7 +36,7 @@ editor_page _ =
     "<textarea id='src' spellcheck='false'>fib n = if n < 2 then n else fib (n - 1) + fib (n - 2)\n\nmain =\n  let _ = print (show (fib 10))\n  let _ = print (show (fib 20))\n  let _ = print (show (fib 30))\n  0</textarea>",
     "<button id='btn' onclick='compile()'>Compile &amp; Run</button>",
     "<div id='output'>Press Compile &amp; Run to start.</div>",
-    "<div class='info'>Powered by <a href='https://ledatic.org'>Rail</a> — compiled to WASM, executed in your browser sandbox. No server execution. <a href='https://github.com/zemo-g/rail'>Source</a></div>",
+    "<div class='info'>Powered by <a href='https://ledatic.org'>Rail</a> — compiled to WASM, executed in your browser sandbox. No server execution. <a href='https://github.com/Ledatic-Empire/rail'>Source</a></div>",
     "<script>",
     "async function compile()\\{",
     "var btn=document.getElementById('btn');var out=document.getElementById('output');",

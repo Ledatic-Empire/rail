@@ -1076,12 +1076,10 @@ the compiled binary is identical to v4.0.0.
   `tools/fleet/fleet_display.rail`, `tools/apps/control.rail` — replaced
   with `<witness-user>@<witness-host>` / `<peer-user>@<peer-host>`
   placeholders. Callers must supply real values via environment.
-- **Tailscale IPs** (`100.87.231.45`, `100.79.50.108`, `100.120.203.70`,
-  `100.109.107.54`, `100.109.63.37`) replaced with role placeholders
+- **Tailscale IPs** (five tailnet node addresses) replaced with role placeholders
   (`<witness-tailscale-ip>` etc.). Tailscale CGNAT-range addresses aren't
   reachable from the public internet, but they were operational recon.
-- **Home-directory paths** (`/Users/ledaticempire/`, `/Users/user/`,
-  `/home/zemog/`) replaced with `~/` or `<HOME>` placeholders across
+- **Home-directory paths** (the operator macOS and Linux home directories) replaced with `~/` or `<HOME>` placeholders across
   source, docs, `docs/plans/`, training fixtures, and Objective-C dispatchers.
 - **Operator service files** — `tools/fleet/witness.service`,
   `tools/fleet/witness_push.service`, `tools/fleet/com.ledatic.*.plist`
@@ -1093,14 +1091,14 @@ the compiled binary is identical to v4.0.0.
   per-user `.mcp.json` outside the repo.
 - **Slack channel IDs / DM names** in `CHANGELOG.md`, `README.md`,
   `stdlib/slack_client.rail` docblock, `docs/sessions/HANDOFF_v3_6.md` —
-  `D0ATHQ1BQD7` and `brockbro2` replaced with `<DM_CHANNEL_ID>` and
+  the DM channel ID and channel name replaced with `<DM_CHANNEL_ID>` and
   `<test-dm>`. Slack IDs don't grant access on their own, but these
   were the only remaining specific-channel references in the public surface.
 
 ### What was intentionally NOT scrubbed
 
-- `reillygomez13@icloud.com` in `tools/deploy/gen_*.rail` — public
-  contact email rendered onto ledatic.org pages; meant to be public.
+- The contact email in `tools/deploy/gen_*.rail`, rendered onto ledatic.org
+  pages (since 2026-10-16 the company address hello@ledatic.org).
 - Commit messages in the v4.0.0 surface — rewriting history would break
   existing clones for a topology-recon leak, not a credential leak.
   The forward tree is clean; git history retains the originals.
@@ -1109,12 +1107,8 @@ the compiled binary is identical to v4.0.0.
 
 ### Verification
 
-```
-git grep -E "100\.(87|79|109|120)\.|zemog@|user@100|reillygomez@|\
-ledaticempire@|/Users/ledaticempire|/Users/user|/home/zemog|\
-Detro|D0ATHQ1BQD7|brockbro2"
-```
-→ empty across tracked files.
+The pattern scan in `.github/workflows/leak-guard.yml` (its identity patterns
+live in a repository secret since 2026-10-16) → empty across tracked files.
 
 ### Why a patch release
 

@@ -300,7 +300,7 @@ language only:
    `/tmp/rail_self` and is collision-safe.
 
 8. **Don't push without explicit approval.** The branch is
-   `next`, target is `zemo-g/rail:master`. User has approved
+   `next`, target is `Ledatic-Empire/rail:master`. User has approved
    pushes explicitly every release so far.
 
 9. **Explicit `git add <files>`, never `git add -A`.** Working

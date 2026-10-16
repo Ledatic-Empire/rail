@@ -45,7 +45,7 @@ Every one is validated against NIST or RFC test vectors. See `tools/tls/*.rail`.
 If you find a real security issue:
 
 1. **Do not open a public GitHub issue.**
-2. Email the maintainer at `zemo-g@users.noreply.github.com`. A plaintext email is fine — Rail's threat model doesn't yet include encrypted reports as a hard requirement.
+2. Email the maintainer at `hello@ledatic.org`. A plaintext email is fine — Rail's threat model doesn't yet include encrypted reports as a hard requirement.
 3. Include a minimal reproducer. A Rail program that exhibits the bug is ideal; a test vector + expected-vs-actual output is next best.
 4. Expect an acknowledgement within a few days. Fixes land on `master` and get tagged as a point release.
 

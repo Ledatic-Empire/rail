@@ -19,7 +19,7 @@
           <p><xsl:value-of select="atom:subtitle"/></p>
           <div class="feed-note">
             This is an Atom feed. Paste the URL (<code>/feed.xml</code>) into any feed reader to subscribe.
-            Source: <a href="https://github.com/zemo-g/rail/blob/next/CHANGELOG.md">CHANGELOG.md</a>
+            Source: <a href="https://github.com/Ledatic-Empire/rail/blob/next/CHANGELOG.md">CHANGELOG.md</a>
           </div>
         </header>
 

@@ -5,7 +5,7 @@ Rail is a real project with a narrow but honest feature set. Contributions are w
 ## Build + test in 30 seconds
 
 ```bash
-git clone https://github.com/zemo-g/rail
+git clone https://github.com/Ledatic-Empire/rail
 cd rail
 
 ./rail_native test       # 182/182 core tests

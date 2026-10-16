@@ -171,7 +171,7 @@ main =
 Sandboxed compilation via <a href='https://ledatic.org'>Rail</a>.
 WASM runs in your browser &mdash; no server execution.
 <code>shell</code>, <code>read_file</code>, <code>write_file</code> are rejected at the AST level.
-<a href='https://github.com/zemo-g/rail'>Source</a>
+<a href='https://github.com/Ledatic-Empire/rail'>Source</a>
 </div>
 <script>
 var EXAMPLES=[

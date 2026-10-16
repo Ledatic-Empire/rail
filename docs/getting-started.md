@@ -11,7 +11,7 @@ That's the whole list. As of v5.2.0, Rail assembles, links, and code-signs its o
 ## Install
 
 ```bash
-git clone https://github.com/zemo-g/rail
+git clone https://github.com/Ledatic-Empire/rail
 cd rail
 ```
 

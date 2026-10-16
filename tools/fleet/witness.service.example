@@ -1,6 +1,6 @@
 [Unit]
 Description=Entropy beacon witness — signs ledatic.org/entropy pulses with Ed25519
-Documentation=https://github.com/zemo-g/rail/blob/master/tools/fleet/witness.sh
+Documentation=https://github.com/Ledatic-Empire/rail/blob/master/tools/fleet/witness.sh
 After=network-online.target
 Wants=network-online.target
 

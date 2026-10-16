@@ -17,7 +17,7 @@
 - [x] Copy 7 diverse sample files to `samples/Rail/`
 - [x] Push branch to `zemo-g/linguist:add-rail-language`
 - [ ] Run Linguist's test suite locally (ruby rake test — optional, skipped)
-- [x] **Human review of PR description** (Reilly added voice sections)
+- [x] **Human review of PR description** (the author added voice sections)
 - [x] **PR SUBMITTED** → https://github.com/github-linguist/linguist/pull/7905 (2026-04-06)
 
 ## Source of truth

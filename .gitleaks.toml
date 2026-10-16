@@ -1,4 +1,4 @@
-# gitleaks config for zemo-g/rail. Keeps all default rules, allowlists the
+# gitleaks config for Ledatic-Empire/rail. Keeps all default rules, allowlists the
 # verified false positives so a future finding actually means something (usable
 # as a CI gate). Every entry below was traced to a non-secret on 2026-07-02:
 #   - cached RFC spec text (published examples)

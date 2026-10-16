@@ -24,7 +24,7 @@
   <b><a href="#what-rail-does">What Rail does</a></b> ·
   <b><a href="#why-rail">Why Rail</a></b> ·
   <b><a href="CHANGELOG.md">Changelog</a></b> ·
-  <b><a href="https://github.com/zemo-g/rail/releases">Releases</a></b>
+  <b><a href="https://github.com/Ledatic-Empire/rail/releases">Releases</a></b>
 </p>
 
 ---
@@ -58,7 +58,7 @@ them is the most expensive mistake in this repo's history (see
 ## Quick start
 
 ```bash
-git clone https://github.com/zemo-g/rail
+git clone https://github.com/Ledatic-Empire/rail
 cd rail
 ./rail_native run examples/hello.rail
 ```

@@ -12,7 +12,7 @@ directory — it has the engineering analysis behind tonight's stop point.
 
 ## Repo state
 
-- Public repo: `zemo-g/rail` on GitHub
+- Public repo: `Ledatic-Empire/rail` on GitHub
 - Last tagged release: **v4.1.0** (no v5 tag yet — appropriate; v5 is RC quality, not GA)
 - Master HEAD: `165bce7` (v5 Phase 4b)
 - Working clone: `~/projects/rail` is on branch `half-s2-kernels` with

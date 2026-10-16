@@ -9,7 +9,7 @@ This guide assumes Apple Silicon macOS (the primary target). For other hosts, se
 ## 1. Clone
 
 ```bash
-git clone https://github.com/zemo-g/rail
+git clone https://github.com/Ledatic-Empire/rail
 cd rail
 ```
 

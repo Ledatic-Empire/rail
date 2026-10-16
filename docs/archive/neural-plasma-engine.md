@@ -2,7 +2,7 @@
 
 **Date:** 2026-04-05/06
 **Duration:** ~8 hours
-**Commits:** 9 to `zemo-g/rail`
+**Commits:** 9 to `Ledatic-Empire/rail`
 **Language:** Rail (self-hosting), C/Objective-C, Metal Shading Language
 
 ---

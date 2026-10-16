@@ -1,6 +1,6 @@
 [Unit]
 Description=Attestation HTTP signer — POST /sign over Tailscale
-Documentation=https://github.com/zemo-g/rail/blob/master/tools/attest/pi_sign_server.py
+Documentation=https://github.com/Ledatic-Empire/rail/blob/master/tools/attest/pi_sign_server.py
 After=network-online.target witness.service
 Wants=network-online.target
 

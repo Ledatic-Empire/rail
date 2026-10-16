@@ -46,7 +46,7 @@ Each line is a Rail program lowered to IR, emitted as ARM64 bytes, `mmap`ed exec
 | Higher-order functions via `op_apply` | shipped |
 | Builtins: `not`, `&&`, `||`, `read_file` | shipped |
 
-Per-stage history is in [`jit/CHANGELOG.md`](https://github.com/zemo-g/rail/blob/main/jit/CHANGELOG.md).
+Per-stage history is in [`jit/CHANGELOG.md`](https://github.com/Ledatic-Empire/rail/blob/main/jit/CHANGELOG.md).
 
 ## Verify the floor
 
@@ -82,7 +82,7 @@ All six are exit-0 + last-line `PASS`/`OK`-shaped on macOS ARM64.
 | `jit/grade.rail` | Bench grader using JIT for compatible programs |
 | `jit/parity_check.rail` | Differential check: interpreter result vs JIT result |
 
-The IR contract (opcode table, `op_call` packed-arg encoding, block layout) is documented in [`jit/README.md`](https://github.com/zemo-g/rail/blob/main/jit/README.md).
+The IR contract (opcode table, `op_call` packed-arg encoding, block layout) is documented in [`jit/README.md`](https://github.com/Ledatic-Empire/rail/blob/main/jit/README.md).
 
 ## The trampoline trick
 
@@ -92,7 +92,7 @@ A direct-call trampoline (`tools/jit_call.c`, ~20 lines of C) is checked in as a
 
 ## Limitations (honest)
 
-- **List execution blocked.** Cons cells lower and emit; bumping the heap fails because Rail's foreign-pointer ABI returns opaque handles, not real addresses. The lowering machinery is shipped behind the blocker. Three unblock paths are sketched in [`jit/NEXT_STAGES.md`](https://github.com/zemo-g/rail/blob/main/jit/NEXT_STAGES.md).
+- **List execution blocked.** Cons cells lower and emit; bumping the heap fails because Rail's foreign-pointer ABI returns opaque handles, not real addresses. The lowering machinery is shipped behind the blocker. Three unblock paths are sketched in [`jit/NEXT_STAGES.md`](https://github.com/Ledatic-Empire/rail/blob/main/jit/NEXT_STAGES.md).
 - **ARM64 only.** No x86 JIT yet. The encoders, the loader, and the trampoline are all macOS-ARM64-specific.
 - **Subset of the language.** No ADTs, no effect handlers, no full pattern matching. List-pattern `match` is supported. The covered subset is what the bench grader's "lower-hit" set runs JIT-fast; the rest falls back to the regular compiler path.
 

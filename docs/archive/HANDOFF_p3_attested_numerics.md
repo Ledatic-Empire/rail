@@ -20,7 +20,7 @@ ea61a48  P3 C0-A -- forward-mode AD desugar emits f__grad as re-attestable Rail
 
 `origin/master` already contains `dae4985` (the P2 Stage B base these sit on),
 so **pushing is trivial — no rebase**: `git push -u origin feat/p3-attested-numerics`
-puts just these 5 commits atop current public master. Do that ONLY when Reilly
+puts just these 5 commits atop current public master. Do that ONLY when the owner
 says push.
 
 ## The thesis (why this exists)

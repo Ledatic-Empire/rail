@@ -1,7 +1,7 @@
 # Rail — Session Handoff (2026-04-14, v2.1.2)
 
 **Last commit:** `738af7e rail v2.1.2: full dylib GPU coverage + transformer + 3-class training`
-**Tag:** `v2.1.2` (pushed to zemo-g/rail)
+**Tag:** `v2.1.2` (pushed to Ledatic-Empire/rail)
 
 ## One-Line Sanity
 

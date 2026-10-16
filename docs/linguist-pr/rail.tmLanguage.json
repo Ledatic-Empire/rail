@@ -3,7 +3,7 @@
   "name": "Rail",
   "scopeName": "source.rail",
   "fileTypes": ["rail"],
-  "comment": "TextMate grammar for Rail, derived from tools/compile.rail tokenizer (line 15 kw_list) and grammar/rail.ebnf in zemo-g/rail",
+  "comment": "TextMate grammar for Rail, derived from tools/compile.rail tokenizer (line 15 kw_list) and grammar/rail.ebnf in Ledatic-Empire/rail",
   "patterns": [
     { "include": "#comment" },
     { "include": "#string" },

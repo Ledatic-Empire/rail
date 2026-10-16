@@ -17,7 +17,7 @@
     "queries/*",
     "src/**"
   ],
-  "author": "zemo-g",
+  "author": "Ledatic",
   "license": "MIT",
   "dependencies": {
     "node-addon-api": "^7.1.0",

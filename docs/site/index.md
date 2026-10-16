@@ -5,7 +5,7 @@ Rail is a self-hosted ARM64 language with six backends (macOS ARM64, Linux ARM64
 ## Quickstart
 
 ```bash
-git clone https://github.com/zemo-g/rail
+git clone https://github.com/Ledatic-Empire/rail
 cd rail
 ./rail_native run examples/hello.rail
 ```
