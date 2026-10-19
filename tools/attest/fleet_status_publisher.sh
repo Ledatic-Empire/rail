@@ -54,6 +54,7 @@ nodes_json=$(python3 - "$FLEET_TOKEN" "${NODES[@]}" <<'PY'
 import json, subprocess, sys
 token = sys.argv[1]
 nodes = []
+# The bundle is public: name each node, never its tailnet address.
 for spec in sys.argv[2:]:
     name, host = spec.split(":", 1)
     try:
@@ -66,7 +67,7 @@ for spec in sys.argv[2:]:
         if out:
             try:
                 d = json.loads(out)
-                nodes.append({"name": name, "host": host,
+                nodes.append({"name": name,
                               "alive": bool(d.get("alive")),
                               "uptime": d.get("uptime")})
                 continue
@@ -74,7 +75,7 @@ for spec in sys.argv[2:]:
                 pass
     except Exception:
         pass
-    nodes.append({"name": name, "host": host, "alive": False, "uptime": None})
+    nodes.append({"name": name, "alive": False, "uptime": None})
 print(json.dumps(nodes))
 PY
 )
