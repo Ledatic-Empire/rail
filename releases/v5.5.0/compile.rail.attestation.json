@@ -1,0 +1,17 @@
+{
+  "kind": "ledatic.attestation",
+  "version": 1,
+  "artifact": {
+    "name": "compile.rail",
+    "size_bytes": 640908,
+    "sha256": "0e4ec0d777895fd0ec3d7bf6ed0a29b639254312f3fb92077b661c6cd2c5cc62"
+  },
+  "beacon": {
+    "url": "https://ledatic.org/entropy/pulse",
+    "pulse_id": 9085088,
+    "value_hex": "bb0972b2101859dafd2a6440dc5819f44df21b35a0a1fabe908947e68bd998b1",
+    "timestamp_utc": "2026-10-19T16:26:42Z"
+  },
+  "witness": {"kind":"attestation","version":1,"digest_sha256":"0e4ec0d777895fd0ec3d7bf6ed0a29b639254312f3fb92077b661c6cd2c5cc62","pulse_id":9085088,"value_hex":"bb0972b2101859dafd2a6440dc5819f44df21b35a0a1fabe908947e68bd998b1","witnessed_at":1792427203,"sig":"0RFCBxoNGn9RnRktE9jyH/LemZiS1ahZnED7dijQc93e9Z/m/DfvtOlkDj+iZH43Siu7bYFS26SvMMuwVkljAA==","pk_fp":"cac5f21a70564aeb","witness":"fleet0"},
+  "created_at": 1792427203
+}
