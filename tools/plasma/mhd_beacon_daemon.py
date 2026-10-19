@@ -66,6 +66,11 @@ def pack_one():
         m0, e0 = float(m[3]), float(m[4])
         mass, energy = float(m[5]), float(m[6])
         divb, rho_min = float(m[7]), float(m[8])
+        # Lines 10-11 (pulse format 2): the epoch seed and this frame's index in
+        # it. Carried in a fixed trailer so the publisher reads one atomic file.
+        provenance = b""
+        if len(m) >= 11:
+            provenance = struct.pack("<4sIII", b"LDB2", int(m[9]), int(m[10]), frame_id)
 
         with open(PLANES_PATH, "rb") as f:
             planes = f.read()
@@ -104,6 +109,7 @@ def pack_one():
             out.write(planes)
             if chamber_section:
                 out.write(chamber_section)
+            out.write(provenance)
         os.replace(TMP_PATH, OUT_PATH)
     except Exception:
         # Keep the daemon alive across transient errors.  The next

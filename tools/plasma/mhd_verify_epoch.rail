@@ -62,12 +62,14 @@ nth_arg xs i =
   else nth_arg (tail xs) (i - 1)
 
 usage _ =
-  let _ = print "usage: mhd_verify_epoch <seed> <frames> [expected_divB]"
+  let _ = print "usage: mhd_verify_epoch <seed> <frames> [expected_divB|-] [planes.f32]"
   let _ = print "  <seed>   integer from the beacon's reset log line"
   let _ = print "  <frames> beacon frames after that reset (4 LF steps each)"
+  let _ = print "  [planes.f32] write the final frame's float32 planes there; its SHA-256"
+  let _ = print "               is a format 2 pulse's frame.digest at epoch_frame = frames - 1"
   0
 
-report seed frames expect =
+report seed frames expect dump =
   let ph = mk_phase_of_seed seed
   let _ = print "─────────────────────────────────────────────────────────"
   let _ = print (cat ["  epoch seed   ", show seed])
@@ -107,7 +109,12 @@ report seed frames expect =
             print "  WARNING: mass drift above 1e-10; this replay diverged"
           else 0
 
+  let _ = if dump == "" then 0
+          else
+            let _ = mk_dump_primitives_bin final (float_arr_new mk_prim_buffer_size 0.0) dump
+            print (cat ["  planes       written to ", dump])
   if expect == "" then 0
+  else if expect == "-" then 0
   else
     let got = show_float divb
     let _ = print (if got == expect
@@ -123,4 +130,5 @@ main =
     let seed = parse_int (nth_arg a 1)
     let frames = parse_int (nth_arg a 2)
     let expect = if n >= 4 then nth_arg a 3 else ""
-    report seed frames expect
+    let dump = if n >= 5 then nth_arg a 4 else ""
+    report seed frames expect dump
