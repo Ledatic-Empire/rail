@@ -43,7 +43,7 @@ dump_planes state buf =
 -- Metadata block consumed by the packer.  Newline-separated, one value
 -- per line, fixed order.  ASCII keeps things debuggable; the packer
 -- writes binary.
-write_meta frame_id dt sim_time m0 e0 mass energy divb rho_min =
+write_meta frame_id dt sim_time m0 e0 mass energy divb rho_min seed epoch_frame =
   let body = cat [
         show frame_id, "\n",
         show_float dt, "\n",
@@ -53,7 +53,9 @@ write_meta frame_id dt sim_time m0 e0 mass energy divb rho_min =
         show_float mass, "\n",
         show_float energy, "\n",
         show_float divb, "\n",
-        show_float rho_min, "\n"
+        show_float rho_min, "\n",
+        show seed, "\n",
+        show epoch_frame, "\n"
       ]
   write_file beacon_meta body
 
@@ -152,6 +154,7 @@ maybe_reset buffers parity ctx =
     let _ = mk_init_loop (arr_get buffers parity) 0
     let _ = mk_perturb_seed (arr_get buffers parity) seed
     let _ = float_arr_set ctx 8 (to_float seed)
+    let _ = float_arr_set ctx 9 0.0
     0
   else 0
 
@@ -187,7 +190,9 @@ beacon_loop buffers parity ctx buf coeffs fxr fxl fyu fyd frame_id max_frames =
     let divb = float_arr_get ctx 6
     let rho_min = float_arr_get ctx 7
     let _ = dump_planes cur buf
-    let _ = write_meta frame_id dt sim_time m0 e0 mass energy divb rho_min
+    let epoch_frame = to_int (float_arr_get ctx 9)
+    let _ = write_meta frame_id dt sim_time m0 e0 mass energy divb rho_min (to_int (float_arr_get ctx 8)) epoch_frame
+    let _ = float_arr_set ctx 9 (to_float (epoch_frame + 1))
     let _ = run_packer
     let _ = if frame_id % diag_every == 0 then
               print (cat ["beacon: frame ", show frame_id, " t=", show_float sim_time, " dm=", show_float ((mass - m0) / m0), " divB=", show_float divb])
@@ -226,15 +231,26 @@ main =
   --   [1] dt of last step           [5] last energy diagnostic
   --   [2] initial mass m0           [6] last divB diagnostic
   --   [3] initial energy e0         [7] last rho_min diagnostic
-  -- ctx[0..7] as before; ctx[8] carries the current epoch SEED so the
-  -- frame loop can record it alongside the frames it produced.
-  let ctx = float_arr_new 9 0.0
+  -- ctx[0..7] as before; ctx[8] carries the current epoch SEED and ctx[9]
+  -- the frames emitted since that seed's perturbation, so every frame can
+  -- say exactly where in a replayable epoch it sits (pulse format 2).
+  let ctx = float_arr_new 10 0.0
   let _ = float_arr_set ctx 2 m0
   let _ = float_arr_set ctx 3 e0
   -- Seed the diagnostic slots so the first frame's metrics aren't all zero.
   let _ = float_arr_set ctx 4 m0
   let _ = float_arr_set ctx 5 e0
   let _ = float_arr_set ctx 7 (m0 / to_float mk_nn2)
+  -- Seed the FIRST epoch too. Every run used to start from the bare
+  -- initial condition and only draw a seed at the first t > pi reset, so
+  -- each 6000-frame run replayed the previous run's opening ~165 pulses
+  -- exactly: 1,944 of 66,001 pulses (2.95%) repeated an earlier value on
+  -- 2026-10-18. m0/e0 stay those of the unperturbed state, as at a reset.
+  let seed0 = beacon_reset_seed 0
+  let _ = mk_perturb_seed state_a seed0
+  let _ = float_arr_set ctx 8 (to_float seed0)
+  let _ = float_arr_set ctx 9 0.0
+  let _ = print (cat ["beacon: start, seeded with fresh phase ", show (mk_phase_of_seed seed0), " seed=", show seed0])
   -- Reusable plane-write scratch buffer (6 × 128² floats = ~768 KB).
   -- Allocated once; mk_fill_primitives reuses it every frame so we
   -- don't grow the bump arena per dump.

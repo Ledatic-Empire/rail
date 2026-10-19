@@ -177,6 +177,19 @@ All notable changes to Rail are documented here.
   nowhere. `_fopen` now tests the carry flag, as `_fread` already did. `_ftell`, `_fwrite`,
   `_read` and `_fclose` still return a raw errno on failure; they act on descriptors the caller
   already holds. Test t252.
+- **The entropy beacon seeds every run, and each frame says where it sits in its epoch.** Each
+  6,000-frame run of `tools/plasma/mhd_beacon.rail` started from the bare initial condition and
+  drew a seed only at the first reset, so every run replayed the previous run's opening ~165
+  pulses exactly: 1,944 of 66,001 pulses (2.95%) repeated an earlier value on 2026-10-18. The
+  first epoch is now perturbed like every other. The frame metadata carries the epoch seed and
+  the frame's index since that seed, and `mhd_beacon_daemon.py` appends them to the packed frame
+  as a 16-byte `LDB2` trailer, so a pulse can name the exact frame it hashed.
+  `mhd_verify_epoch.rail` takes an optional fifth argument and writes the replayed frame's
+  float32 planes there: in a sealed run, 7 of 7 published frame digests matched their replay
+  from the seed, and a replay one frame or one seed off did not.
+  `tools/attest/frame_attest_publisher.sh` stops PUTting to a route that has answered 500 on
+  every tick since 2026-07-27 (opt back in with `FRAME_ATTEST_PUT=1`); the origin already serves
+  the local copy it writes first.
 - **`tools/attest/verify.rail` refuses a missing or malformed file instead of crashing.** A
   missing, empty or non-JSON attestation, or one whose witness is not an object, segfaulted the
   verifier (exit 139): nonzero, but a crash and no verdict. A missing input read as "digest
