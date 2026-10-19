@@ -128,13 +128,13 @@ Compiling /tmp/test_riscv.rail -> RISC-V (rv32imc)...
 
 Requires `clang` with `riscv32-unknown-none-elf` target. The minimal `main = 42` program boots in `qemu-system-riscv32 -M virt -bios none -kernel /tmp/rail_rv32.elf` and exits 42 via the SiFive test register.
 
-The rv32 backend is v0 — literals only. See [`memory:riscv32_backend_v0`](https://ledatic.org/memory/riscv32_backend_v0) for the supported subset.
+The rv32 backend is v0: literals only.
 
 ---
 
 ## Adding a backend
 
-Look at `tools/compile.rail` around line 6605: the `cmd` dispatch table. Each backend is roughly:
+Look at `tools/compile.rail` around line 9630 (`main`): the `cmd` dispatch table. Each backend is roughly:
 
 1. A new "emit" pass that walks the AST.
 2. A driver function (`compile_cortexm`, `compile_riscv32`, etc.) that calls the right assembler/linker via `shell`.

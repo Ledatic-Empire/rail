@@ -1,4 +1,4 @@
-# Quickstart: from `git clone` to a signed bench
+# Quickstart: from `git clone` to a verified release
 
 Ten numbered steps. Each one is a real command with its real captured output. If any step does not behave like this on your machine, that's a bug.
 
@@ -69,22 +69,22 @@ Ten lines including the comment. Functions are `name args = body`. `main` is the
 
 ```
 ... (long test log) ...
-140/140 tests passed
+251/251 tests passed
 ```
 
-The test suite covers parser, codegen, type inference, the runtime allocator, and the standard library. The count fluctuates a little if concurrent sessions race on `/tmp/rail_out`. 140 is the canonical green count — re-run if you see a lower number.
+The test suite covers parser, codegen, type inference, the runtime allocator, and the standard library. The count fluctuates a little if concurrent sessions race on `/tmp/rail_out`. Every test should pass (251 on master on 2026-10-19); if the count comes up short, check `ps` for orphaned runs and re-run.
 
 ## 5. Self-compile
 
 ```bash
-./rail_native self
+RAIL_ARENA_MB=6000 ./rail_native self
 ```
 
-The compiler compiles itself to `/tmp/rail_self`. On a clean checkout the first cycle may differ — the seed's shipped runtime asm doesn't always match what its own source emits. Install gen1 and re-run to confirm convergence at gen2:
+The compiler compiles itself to `/tmp/rail_self`. The arena setting is required: below 2000 MB the compiler's own source thrashes, so a bare `self` refuses with exit 2. On a clean checkout the first cycle may differ — the seed's shipped runtime asm doesn't always match what its own source emits. Install gen1 and re-run to confirm convergence at gen2:
 
 ```bash
 cp /tmp/rail_self ./rail_native
-./rail_native self
+RAIL_ARENA_MB=6000 ./rail_native self
 cmp rail_native /tmp/rail_self && echo "byte-identical"
 ```
 
@@ -92,7 +92,7 @@ cmp rail_native /tmp/rail_self && echo "byte-identical"
 byte-identical
 ```
 
-This is the fixed-point property: the compiler's output is its own input. The bootstrap is a 2-cycle limit cycle — gen2 == gen3 == gen4 byte-identically. If `cmp` still differs after 3 cycles, codegen is non-deterministic and wants investigation. See `notes/bootstrap_convergence_audit_2026-05-13.md`.
+This is the fixed-point property: the compiler's output is its own input. The bootstrap is a 2-cycle limit cycle — gen2 == gen3 == gen4 byte-identically. If `cmp` still differs after 3 cycles, codegen is non-deterministic and wants investigation. See `docs/archive/notes/bootstrap_convergence_audit_2026-05-13.md`.
 
 ## 6. Compile a real example
 
@@ -101,7 +101,7 @@ This is the fixed-point property: the compiler's output is its own input. The bo
 ```
 
 ```
-Compiling examples/quicksort.rail (911 chars)...
+Compiling examples/quicksort.rail (1089 chars)...
   as: OK
   ld: OK
 Input:
@@ -163,26 +163,27 @@ wrote: docs/site/stdlib.md (124876 bytes)
 
 The reference at [stdlib.md](stdlib.md) is auto-generated from the actual stdlib source. The walker is a 250-line Rail program that reads each `stdlib/*.rail`, extracts top-level function signatures with their leading comments, and emits markdown. Read it: `tools/docs/gen_stdlib_ref.rail`.
 
-## 10. Generate a signed provenance report
+## 10. Verify a signed release
 
-The provenance tier signs benchmarks with Ed25519 keys held on the fleet. The website endpoint is at https://ledatic.org/provenance — see the [Provenance Tier session entry](https://ledatic.org/changelog#provenance-tier-shipped) for the design.
-
-For a local-only smoke equivalent: the LSP server at `tools/lsp_server.rail` and the test harness already include hash-based artifact verification. Running:
+Rail's tagged releases are signed against the Ledatic entropy beacon. Check one with the site's verifier. It needs OpenSSL 3; stock macOS LibreSSL exits 1 without a message.
 
 ```bash
-./rail_native test 2>&1 | tail -1
+curl -sfO https://ledatic.org/attest/verify.sh
+curl -sfO https://ledatic.org/releases/v5.4.0/rail_native
+curl -sfO https://ledatic.org/releases/v5.4.0/rail_native.attestation.json
+bash verify.sh rail_native rail_native.attestation.json
 ```
 
 ```
-140/140 tests passed
+ok  artifact=rail_native  pulse_id=7309035  pk_fp=cac5f21a70564aeb
 ```
 
-is the local equivalent of a signed bench: the test suite is reproducible, deterministic, and the seed binary's SHA-256 is checked into `rail_safe.sha256` for tamper detection.
+The downloaded binary is the one committed at the tag: `git show v5.4.0:rail_native | shasum -a 256` gives the same digest. Separately, `rail_safe.sha256` pins the `rail_safe` binary for tamper detection.
 
 ---
 
 You now have a working Rail toolchain on local hardware. Next steps:
 
 - Skim [examples/](examples/) — 22 runnable programs with explanations.
-- Skim [stdlib.md](stdlib.md) — 1,617 functions across 80 modules.
+- Skim [stdlib.md](stdlib.md), generated from the source of every stdlib module.
 - Read [backends.md](backends.md) if you want to target Linux ARM64, x86_64, RISC-V, or WASM-in-a-browser.
