@@ -4,6 +4,19 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Fixed
+- **The collector walks frames on fiber stacks** (#116 item 4). `spawn` carves a 64 KB stack
+  out of the arena and `fiber_await` switches `sp` into it; the frame walk capped every frame's
+  slot range at the main stack's top, which lies below the arena, so a frame on a fiber stack
+  scanned nothing and every object held only by the fiber (its lists, its closures) was swept
+  while live. A fiber that built a 3,000-element list and summed it after some allocation
+  segfaulted under `RAIL_GC_STRESS=3`. A frame inside the heap is now capped at the allocation
+  frontier instead, and a parent frame below the current one (the awaiting frame on the other
+  stack) no longer bounds it. `_rail_await` also saved the caller's callee-saved registers below
+  its own frame, in a gap no frame's range covers, and saved the fiber pointer in place of the
+  caller's `x20`: a fiber that awaited another returned 0 instead of its result, with or without
+  stress. Both now live inside the await frame. Test t256, shown failing on the old seed.
+
 ## v5.5.0 (2026-10-19): The compiler type-checks, and the collector under stress
 
 ### Changed

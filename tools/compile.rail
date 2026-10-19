@@ -4671,7 +4671,11 @@ rt_arith =
 
 rt_fiber =
   let rspawn = "_rail_spawn:\n    stp x29, x30, [sp, #-32]!\n    mov x29, sp\n    str x0, [x29, #16]\n    mov x0, #32\n    bl _rail_alloc\n    str x0, [x29, #24]\n    str xzr, [x0]\n    ldr x1, [x29, #16]\n    str x1, [x0, #16]\n    str xzr, [x0, #24]\n    movz x0, #1, lsl #16\n    bl _rail_alloc\n    add x0, x0, #16, lsl #12\n    and x0, x0, #-16\n    ldr x1, [x29, #24]\n    str x0, [x1, #8]\n    ldr x0, [x29, #24]\n    ldp x29, x30, [sp], #32\n    ret\n\n"
-  let rawait = "_rail_await:\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n    mov x20, x0\n    stp x19, x20, [sp, #-16]!\n    stp x21, x22, [sp, #-16]!\n    stp x23, x24, [sp, #-16]!\n    stp x25, x26, [sp, #-16]!\n    stp x27, x28, [sp, #-16]!\n    mov x19, sp\n    ldr x4, [x20, #8]\n    mov sp, x4\n    ldr x15, [x20, #16]\n    ldr x16, [x15, #8]\n    mov x0, #1\n    blr x16\n    str x0, [x20, #24]\n    mov x1, #2\n    str x1, [x20]\n    mov sp, x19\n    ldp x27, x28, [sp], #16\n    ldp x25, x26, [sp], #16\n    ldp x23, x24, [sp], #16\n    ldp x21, x22, [sp], #16\n    ldp x19, x20, [sp], #16\n    ldr x0, [x20, #24]\n    ldp x29, x30, [sp], #16\n    ret\n\n"
+  -- _rail_await runs the fiber's closure on its own stack and returns its result. The caller's
+  -- callee-saved registers are saved INSIDE this frame (fp+16 up), where the collector's frame
+  -- walk scans them; pushed below the frame (as until 2026-10-19) they sat between this frame
+  -- and the closure's frame on the other stack, a gap no frame's range covers.
+  let rawait = "_rail_await:\n    stp x29, x30, [sp, #-112]!\n    mov x29, sp\n    stp x19, x20, [x29, #16]\n    stp x21, x22, [x29, #32]\n    stp x23, x24, [x29, #48]\n    stp x25, x26, [x29, #64]\n    stp x27, x28, [x29, #80]\n    mov x20, x0\n    mov x19, sp\n    ldr x4, [x20, #8]\n    mov sp, x4\n    ldr x15, [x20, #16]\n    ldr x16, [x15, #8]\n    mov x0, #1\n    blr x16\n    str x0, [x20, #24]\n    mov x1, #2\n    str x1, [x20]\n    mov sp, x19\n    ldp x19, x20, [x29, #16]\n    ldp x21, x22, [x29, #32]\n    ldp x23, x24, [x29, #48]\n    ldp x25, x26, [x29, #64]\n    ldp x27, x28, [x29, #80]\n    ldp x29, x30, [sp], #112\n    ret\n\n"
   let ryield = "_rail_yield:\n    ret\n\n"
   let rinit = "_rail_fiber_init:\n    ret\n\n"
   -- Channel: a cons cell where head = list of values. send appends, recv takes head.
@@ -4859,11 +4863,19 @@ rt_gc_4 =
   -- On hit: load 32-bit bits field at offset +16 of the record. On miss: -1.
   "    ldr x0, [x29, #32]\n    ldr x1, [x19, #8]\n    str x1, [x29, #32]\n    str x19, [x29, #16]\n    str x20, [x29, #24]\n    bl _gc_lookup_fn_desc\n    ldr x19, [x29, #16]\n    ldr x20, [x29, #24]\n    cbz x0, .Lgc_bits_miss\n    ldr w23, [x0, #20]\n    b .Lgc_bits_ready\n.Lgc_bits_miss:\n    mov w23, #-1\n.Lgc_bits_ready:\n",
   -- Scan frame: slots from fp+16 to fp+2048 (or parent frame).
-  -- Additional cap at _rail_stack_top prevents walking past the real
-  -- stack top for the final frame in the chain.
+  -- A frame inside the heap sits on a fiber stack (_rail_spawn carves 64 KB from the arena and
+  -- _rail_await switches sp into it): cap it at _rail_heap_ptr, never at _rail_stack_top. Until
+  -- 2026-10-19 every frame was capped at _rail_stack_top; the arena maps above the main stack
+  -- (0x7000000000 against 0x16f...), so a fiber frame's range collapsed to nothing and every
+  -- object held only by the fiber's frames was swept while live (#116 item 4, t256). A frame on
+  -- the main stack keeps the _rail_stack_top cap, which stops the final frame's walk at the
+  -- real stack top.
   "    add x21, x19, #16\n    add x22, x19, #2048\n",
-  "    adrp x3, _rail_stack_top@PAGE\n    ldr x3, [x3, _rail_stack_top@PAGEOFF]\n    cbz x3, .Lgc_skip_top_cap\n    cmp x22, x3\n    b.ls .Lgc_skip_top_cap\n    mov x22, x3\n.Lgc_skip_top_cap:\n",
-  "    cmp x20, #0\n    b.eq .Lgc_scan\n    cmp x20, x22\n    b.hs .Lgc_scan\n    mov x22, x20\n",
+  "    adrp x3, _rail_heap_base@PAGE\n    ldr x3, [x3, _rail_heap_base@PAGEOFF]\n    cmp x19, x3\n    b.lo .Lgc_cap_main\n    adrp x3, _rail_heap_ptr@PAGE\n    ldr x3, [x3, _rail_heap_ptr@PAGEOFF]\n    cmp x19, x3\n    b.hs .Lgc_cap_main\n    cmp x22, x3\n    b.ls .Lgc_skip_top_cap\n    mov x22, x3\n    b .Lgc_skip_top_cap\n",
+  ".Lgc_cap_main:\n    adrp x3, _rail_stack_top@PAGE\n    ldr x3, [x3, _rail_stack_top@PAGEOFF]\n    cbz x3, .Lgc_skip_top_cap\n    cmp x22, x3\n    b.ls .Lgc_skip_top_cap\n    mov x22, x3\n.Lgc_skip_top_cap:\n",
+  -- The parent frame caps the range only when it lies above this one. A parent below is the
+  -- frame that called _rail_await on another stack: this frame is the top of its own stack.
+  "    cmp x20, #0\n    b.eq .Lgc_scan\n    cmp x20, x19\n    b.lo .Lgc_scan\n    cmp x20, x22\n    b.hs .Lgc_scan\n    mov x22, x20\n",
   -- C3: per-slot type dispatch. slot_idx = (x21 - x19) / 8. For slot_idx >= 16,
   -- fall through to scan (bits field only covers slots 0..15). Extract 2 bits
   -- at (slot_idx * 2). Values 00 (int) and 01 (float) skip. Values 10 (heap)
@@ -6836,10 +6848,15 @@ run_tests _ =
   -- took 4 GB of address space before the fix (one 4 MB mmap each, given to the no-op _free).
   let t255 = run_stressed "mark_stack_kept" "1" "vsz u =\n  let s = shell \"/bin/ps -o vsz= -p $PPID | /usr/bin/tr -d ' '\"\n  parse_int (head (split \"\\n\" s))\nspin i n acc = if i >= n then acc else spin (i + 1) n (cons i acc)\nmain =\n  let a = vsz 0\n  let xs = spin 0 1000 []\n  let b = vsz 0\n  let _ = print (show (b - a < 65536))\n  let _ = print (show (length xs))\n  0\n" "true\n1000\nrc=0"
   let s_mhd = (if t186 then 1 else 0) + (if t187 then 1 else 0) + (if t188 then 1 else 0) + (if t189 then 1 else 0) + (if t253 then 1 else 0)
-  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t228 then 1 else 0) + (if t229 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t234 then 1 else 0) + (if t235 then 1 else 0) + (if t236 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0)
+  -- t256: frames on a fiber stack are walked by the collector. The fiber builds a list, churns
+  -- allocations (a collection every third one), and sums the list; a nested fiber captures the
+  -- list in its closure. Until 2026-10-19 the walk capped every frame at _rail_stack_top, which
+  -- lies below the arena, so a fiber frame scanned nothing and the list was swept: rc=139.
+  let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
+  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t228 then 1 else 0) + (if t229 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t234 then 1 else 0) + (if t235 then 1 else 0) + (if t236 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/253 tests passed"])
-  if total == 253 then 0 else 1
+  let _ = print (cat [show total, "/254 tests passed"])
+  if total == 254 then 0 else 1
 
 -- ===========================================================================
 -- M6, self-hosted emit path. Replaces as/ld/codesign with the pure-Rail
