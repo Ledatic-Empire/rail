@@ -67,8 +67,9 @@ attestation file in-tree.
 **Workaround:** explicit `git add -f releases/vX.Y.Z/rail_native.attestation.json`
 on every release.
 
-**Real fix (TODO):** add `!releases/**/rail_native.attestation.json` to
-`.gitignore` whitelist.
+**Fixed:** `.gitignore` carries `!releases/**/rail_native.attestation.json`
+(checked 2026-10-19: a plain `git add releases/vX.Y.Z` stages it). The `-f` above
+stays harmless.
 
 ### #2 — `~/.ledatic/witness/signer_url` format
 
@@ -90,13 +91,12 @@ ld to succeed.
 **Symptom:** fresh worktree off master gives `ld: file cannot be open()ed,
 errno=2 path=runtime/llm.o`.
 
-**Workaround:** seed from any working worktree:
+**Stale since the in-process linker (v5.2.0):** the v5.5.0 attest ran with no
+`runtime/llm.o` present and linked fine. Only the as/ld fallback path
+(`RAIL_ARENA_MB < 5000` or `/tmp/.rail_force_as_ld`) still wants it:
 ```bash
 mkdir -p runtime && cp ~/projects/rail/runtime/llm.o runtime/
 ```
-
-(The .o is built from `tools/llm_runtime.c` somewhere — find and
-canonicalize that build step in a follow-up.)
 
 ### #4 — Plasma beacon owns `/tmp/rail_out`
 
@@ -152,3 +152,30 @@ trivially true.
 
 Backfilled in May 2026: v4.0.0 (pulse 987510), v4.0.1 (pulse 987510),
 v4.1.0 (pulse 987511).
+
+### #7: `publish.sh` says ok, the binaries 404 (2026-10-19)
+
+The site Worker's attestation route stores every PUT under the KV key
+`attest/<kind>/<ident>/<file>`, but its GET reads release *binaries* from
+`releases/<ident>/<file>` (JSON reads use the `attest/` key and match). So
+`publish.sh` reports `6 ok, 0 fail` and `index.json` serves, while
+`rail_native` and `compile.rail` answer 404. `compile.rail` had never served
+for any release; `v5.4.0/rail_native` served only because it was written to
+the bare key by hand.
+
+**Workaround** (two KV writes, no Worker deploy; the daily quota is 1,000):
+```bash
+. ~/.ledatic/cf_ids.env; T=$(cat ~/.fleet/cf_token)
+for f in rail_native compile.rail; do
+  curl -s -o /dev/null -w "$f %{http_code}\n" -X PUT -H "Authorization: Bearer $T" \
+    --data-binary @releases/vX.Y.Z/$f \
+    "https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT/storage/kv/namespaces/$CF_KV_NS/values/releases%2FvX.Y.Z%2F$f"
+done
+curl -sO https://ledatic.org/releases/vX.Y.Z/rail_native   # then verify.sh against the attestation
+```
+
+**Real fix (TODO, in `ledatic-site/worker/worker.js`):** make the binary GET
+read `attest/releases/<ident>/<file>` first and fall back to the bare key for
+the hand-written releases. The site is edited by its own sessions; land it
+there with `tests/worker_catchall_test.mjs` extended to cover the PUT-then-GET
+round trip.
