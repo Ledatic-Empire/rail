@@ -178,6 +178,9 @@ All notable changes to Rail are documented here.
   `mhd_verify_epoch.rail` takes an optional fifth argument and writes the replayed frame's
   float32 planes there: in a sealed run, 7 of 7 published frame digests matched their replay
   from the seed, and a replay one frame or one seed off did not.
+  `tools/attest/frame_attest_publisher.sh` stops PUTting to a route that has answered 500 on
+  every tick since 2026-07-27 (opt back in with `FRAME_ATTEST_PUT=1`); the origin already serves
+  the local copy it writes first.
 - **`tools/attest/verify.rail` refuses a missing or malformed file instead of crashing.** A
   missing, empty or non-JSON attestation, or one whose witness is not an object, segfaulted the
   verifier (exit 139): nonzero, but a crash and no verdict. A missing input read as "digest

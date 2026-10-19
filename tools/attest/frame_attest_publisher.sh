@@ -98,13 +98,19 @@ LOCAL_OUT=${LOCAL_OUT:-$HOME/.ledatic/entropy/frame.latest.attestation.json}
 mkdir -p "$(dirname "$LOCAL_OUT")"
 printf '%s' "$published" > "$LOCAL_OUT.tmp" && mv -f "$LOCAL_OUT.tmp" "$LOCAL_OUT"
 
-code=$(curl -sS -X PUT \
-  -H "x-beacon-token: $TOKEN" \
-  -H "content-type: application/json" \
-  --data-binary "$published" \
-  --max-time 15 \
-  -o /dev/null -w '%{http_code}' \
-  "$SITE/entropy/frame/latest.attestation.json" || echo "000")
+# The PUT is opt-in since 2026-10-18 (FRAME_ATTEST_PUT=1): the route behind it has
+# answered 500 on every tick since 2026-07-27, 2,880 times a day, and the origin
+# serves the local copy written above. "publish=local" in the log means exactly that.
+code=local
+if [ "${FRAME_ATTEST_PUT:-0}" = "1" ]; then
+  code=$(curl -sS -X PUT \
+    -H "x-beacon-token: $TOKEN" \
+    -H "content-type: application/json" \
+    --data-binary "$published" \
+    --max-time 15 \
+    -o /dev/null -w '%{http_code}' \
+    "$SITE/entropy/frame/latest.attestation.json" || echo "000")
+fi
 
 ts=$(date -u +%Y-%m-%dT%H:%M:%SZ)
 fid=$(printf '%s' "$header" | python3 -c "import json,sys;print(json.load(sys.stdin)['frame_id'])")
