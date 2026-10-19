@@ -1,6 +1,6 @@
 # fibonacci — recursion, range, map
 
-A naive recursive Fibonacci, then mapped across `range 16`. Demonstrates that Rail integers wrap silently at 64 bits (look at the negative numbers later in the series — `fib(13)` overflows).
+A naive recursive Fibonacci, then mapped across `range 16`.
 
 **Source** (`examples/fibonacci.rail`):
 
@@ -38,9 +38,9 @@ Compiling examples/fibonacci.rail (433 chars)...
   as: OK
   ld: OK
 Fibonacci sequence (0-15):
-0 1 2 6 29 190 4707 108568 18615604 2052129268 3713282661432 1672773101393608 1483802102964355488 -2356555275425095336 -4135350208817025584 4335655585863133312
+0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610
 
-fib(30) = -134354770548424704
+fib(30) = 832040
 ```
 
-The negative tail values are int64 wraparound — Rail integers are machine-width and `fib(30) = -134354770548424704` reflects signed overflow. For unbounded integers you'd reach for `stdlib/bignum_n.rail`.
+The output above is a real run on master (2026-10-19). An earlier version of this page showed a miscompiled run, negative numbers and all, and explained them as overflow; `fib 30` is 832040 and fits easily in Rail's 63-bit integers.

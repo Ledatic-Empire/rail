@@ -1,6 +1,6 @@
 # JIT
 
-Rail ships its own JIT compiler, written in Rail, in `jit/`. It lowers a small bytecode IR to ARM64 machine code, `mmap`s the bytes executable, and calls them via a foreign-call trampoline. About 6,600 lines across 20 source files. No C extensions, no LLVM, no external dependency beyond `libSystem` (for `mprotect` and `pthread_create`).
+Rail ships its own JIT compiler, written in Rail, in `jit/`. It lowers a small bytecode IR to ARM64 machine code, `mmap`s the bytes executable, and calls them via a foreign-call trampoline. About 7,400 lines across 32 source files. No LLVM. One 43-line C trampoline (`tools/jit_call.c`) is built on first use and weak-linked; everything else is Rail plus `libSystem` (for `mprotect` and `pthread_create`).
 
 ## Why it's here
 
@@ -46,7 +46,7 @@ Each line is a Rail program lowered to IR, emitted as ARM64 bytes, `mmap`ed exec
 | Higher-order functions via `op_apply` | shipped |
 | Builtins: `not`, `&&`, `||`, `read_file` | shipped |
 
-Per-stage history is in [`jit/CHANGELOG.md`](https://github.com/Ledatic-Empire/rail/blob/main/jit/CHANGELOG.md).
+Per-stage history is in [`jit/CHANGELOG.md`](https://github.com/Ledatic-Empire/rail/blob/master/jit/CHANGELOG.md).
 
 ## Verify the floor
 
@@ -82,17 +82,17 @@ All six are exit-0 + last-line `PASS`/`OK`-shaped on macOS ARM64.
 | `jit/grade.rail` | Bench grader using JIT for compatible programs |
 | `jit/parity_check.rail` | Differential check: interpreter result vs JIT result |
 
-The IR contract (opcode table, `op_call` packed-arg encoding, block layout) is documented in [`jit/README.md`](https://github.com/Ledatic-Empire/rail/blob/main/jit/README.md).
+The IR contract (opcode table, `op_call` packed-arg encoding, block layout) is documented in [`jit/README.md`](https://github.com/Ledatic-Empire/rail/blob/master/jit/README.md).
 
 ## The trampoline trick
 
 Calling JIT-emitted code from a host language usually needs either inline assembly or a C shim. Rail does it through `pthread_create`: the executable page address is passed as the thread start-routine, the argument is passed as the user data pointer, and the result comes back via `pthread_join`'s join-value. No `compile.rail` edits, no extra dylib link. `jit/loader.rail` is ~50 lines.
 
-A direct-call trampoline (`tools/jit_call.c`, ~20 lines of C) is checked in as an option but unused on the default path; the pthread approach avoids the cross-language link entirely.
+A direct-call trampoline (`tools/jit_call.c`, 43 lines of C) is built on first use and weak-linked into programs that JIT; the `pthread_create` route is the fallback when it is absent.
 
 ## Limitations (honest)
 
-- **List execution blocked.** Cons cells lower and emit; bumping the heap fails because Rail's foreign-pointer ABI returns opaque handles, not real addresses. The lowering machinery is shipped behind the blocker. Three unblock paths are sketched in [`jit/NEXT_STAGES.md`](https://github.com/Ledatic-Empire/rail/blob/main/jit/NEXT_STAGES.md).
+- **List execution blocked.** Cons cells lower and emit; bumping the heap fails because Rail's foreign-pointer ABI returns opaque handles, not real addresses. The lowering machinery is shipped behind the blocker. Three unblock paths are sketched in [`jit/NEXT_STAGES.md`](https://github.com/Ledatic-Empire/rail/blob/master/jit/NEXT_STAGES.md).
 - **ARM64 only.** No x86 JIT yet. The encoders, the loader, and the trampoline are all macOS-ARM64-specific.
 - **Subset of the language.** No ADTs, no effect handlers, no full pattern matching. List-pattern `match` is supported. The covered subset is what the bench grader's "lower-hit" set runs JIT-fast; the rest falls back to the regular compiler path.
 

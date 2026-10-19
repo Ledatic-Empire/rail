@@ -49,4 +49,4 @@ Compiling examples/m4_uart_hello.rail -> Cortex-M4 (Thumb-2)...
   ld: OK -> /tmp/rail_m4.elf
 ```
 
-The `1084 chars` of assembly are the entire program — a startup vector, the four MMIO writes, and an infinite-loop epilogue. Run in qemu with `tools/garmin/m4_qemu.sh` to see `Hi!` on the serial console.
+The `1084 chars` of assembly are the entire program: a startup vector, the four MMIO writes, and an infinite-loop epilogue. Run it in qemu with `qemu-system-arm -M mps2-an386 -nographic -kernel /tmp/rail_m4.elf` (see backends.md) to see `Hi!` on the serial console.
