@@ -4716,7 +4716,7 @@ rt_gc_1 =
   -- >64KB chunk. Exposed to Rail via alloc_stats_snapshot builtin →
   -- _rail_alloc_stats, to diagnose the residual ~2 MB/step after the
   -- small-block fix landed.
-  "_rail_small_fl_miss:\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n_rail_munmap_count:\n    .quad 0\n_rail_mmap_large_count:\n    .quad 0\n_rail_arena_spill_count:\n    .quad 0\n_rail_gc_count:\n    .quad 0\n_rail_arena_spill_bytes:\n    .quad 0\n_rail_arena_trace_flag:\n    .quad 0\n_rail_gc_stress:\n    .quad 0\n_rail_gc_stress_left:\n    .quad 0\n_rail_gc_last_freed:\n    .quad 0\n_rail_arena_grow_count:\n    .quad 0\n_rail_threads_live:\n    .quad 0\n.p2align 3\n_rail_alloc_mutex:\n    .quad 850045863\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n_rail_arena_trace_msg:\n    .asciz \"rail_arena_spill\\n\"\n_rail_arena_grow_msg:\n    .asciz \"rail_arena_grow\\n\"\n.text\n\n",
+  "_rail_small_fl_miss:\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n_rail_munmap_count:\n    .quad 0\n_rail_mmap_large_count:\n    .quad 0\n_rail_arena_spill_count:\n    .quad 0\n_rail_gc_count:\n    .quad 0\n_rail_arena_spill_bytes:\n    .quad 0\n_rail_arena_trace_flag:\n    .quad 0\n_rail_gc_stress:\n    .quad 0\n_rail_gc_stress_left:\n    .quad 0\n_rail_gc_last_freed:\n    .quad 0\n_rail_arena_grow_count:\n    .quad 0\n_rail_threads_live:\n    .quad 0\n.p2align 3\n_rail_alloc_mutex:\n    .quad 850045863\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n    .quad 0\n_rail_arena_trace_msg:\n    .asciz \"rail_arena_spill\\n\"\n_rail_arena_grow_msg:\n    .asciz \"rail_arena_grow\\n\"\n_gc_mark_msg:\n    .asciz \"rail: gc mark stack exhausted\\n\"\n.text\n\n",
   -- rail_free_list_alloc: first-fit search. x0=size, returns ptr or 0
   -- Exact-size buckets (16B, 24B) checked first, O(1) pop; fall through to
   -- the first-fit flat list on miss. Sweep keeps 16/24B blocks OUT of the
@@ -4781,10 +4781,21 @@ rt_gc_2 =
   -- Push to mark stack
   "    str x0, [x29, #16]\n",
   "    adrp x1, _gc_mark_top@PAGE\n    add x1, x1, _gc_mark_top@PAGEOFF\n    ldr x3, [x1]\n",
-  "    adrp x4, _gc_mark_cap@PAGE\n    ldr x4, [x4, _gc_mark_cap@PAGEOFF]\n    cmp x3, x4\n    b.hs .Ltm_ret\n",
-  "    adrp x5, _gc_mark_stack@PAGE\n    ldr x5, [x5, _gc_mark_stack@PAGEOFF]\n",
+  "    adrp x4, _gc_mark_cap@PAGE\n    ldr x4, [x4, _gc_mark_cap@PAGEOFF]\n    cmp x3, x4\n    b.lo .Ltm_push\n",
+  -- The stack is full: double it and copy the pending entries over. Until 2026-10-19 the push
+  -- was skipped instead: the object stayed marked, its children were never scanned, and the
+  -- sweep freed them live (a list of 600,000 two-element lists lost its spine at cell 524,292).
+  -- The old block is not returned (_free is a no-op on macOS); growth is geometric, so at most
+  -- one extra copy of the final size is ever held. No memory at all is fatal, said out loud.
+  "    str x3, [x29, #24]\n    lsl x0, x4, #4\n    bl _malloc\n    cbz x0, .Ltm_oom\n    str x0, [x29, #40]\n",
+  "    adrp x1, _gc_mark_stack@PAGE\n    ldr x1, [x1, _gc_mark_stack@PAGEOFF]\n    adrp x2, _gc_mark_cap@PAGE\n    ldr x2, [x2, _gc_mark_cap@PAGEOFF]\n    lsl x2, x2, #3\n    bl _memcpy\n",
+  "    ldr x0, [x29, #40]\n    adrp x1, _gc_mark_stack@PAGE\n    str x0, [x1, _gc_mark_stack@PAGEOFF]\n",
+  "    adrp x1, _gc_mark_cap@PAGE\n    ldr x2, [x1, _gc_mark_cap@PAGEOFF]\n    lsl x2, x2, #1\n    str x2, [x1, _gc_mark_cap@PAGEOFF]\n",
+  "    ldr x3, [x29, #24]\n    adrp x1, _gc_mark_top@PAGE\n    add x1, x1, _gc_mark_top@PAGEOFF\n",
+  ".Ltm_push:\n    adrp x5, _gc_mark_stack@PAGE\n    ldr x5, [x5, _gc_mark_stack@PAGEOFF]\n",
   "    ldr x0, [x29, #16]\n    str x0, [x5, x3, lsl #3]\n    add x3, x3, #1\n    str x3, [x1]\n",
-  ".Ltm_ret:\n    ldp x29, x30, [sp], #48\n    ret\n\n"]
+  ".Ltm_ret:\n    ldp x29, x30, [sp], #48\n    ret\n",
+  ".Ltm_oom:\n    mov x0, #2\n    adrp x1, _gc_mark_msg@PAGE\n    add x1, x1, _gc_mark_msg@PAGEOFF\n    mov x2, #30\n    movz x16, #4\n    movk x16, #0x200, lsl #16\n    svc #0x80\n    mov x0, #1\n    bl _exit\n\n"]
 
 rt_gc_3 =
   -- _gc_drain: process mark stack, call try_mark on children
@@ -4825,11 +4836,15 @@ rt_gc_4 =
   -- (all slots = 11 = scan), which matches the pre-C3 conservative walk.
   -- x23 holds the current frame's bits register (callee-saved across calls).
   cat ["_rail_gc:\n    adrp x9, _rail_threads_live@PAGE\n    ldr x9, [x9, _rail_threads_live@PAGEOFF]\n    cbz x9, .Lgc_go\n    ret\n.Lgc_go:\n    stp x29, x30, [sp, #-96]!\n    mov x29, sp\n    stp x19, x20, [x29, #48]\n    stp x21, x22, [x29, #64]\n    str x23, [x29, #80]\n    adrp x0, _rail_gc_count@PAGE\n    add x0, x0, _rail_gc_count@PAGEOFF\n    ldr x1, [x0]\n    add x1, x1, #1\n    str x1, [x0]\n",
-  -- Allocate mark stack: 512K entries * 8 = 4MB
+  -- The mark stack (512K entries, 4 MB) is allocated on the first collection and kept. Until
+  -- 2026-10-19 every collection took a fresh one from _malloc (over 64 KB: an mmap) and gave it
+  -- to _free, a no-op on macOS, so each collection leaked 4 MB (13 GB in a minute under
+  -- RAIL_GC_STRESS=13). _gc_try_mark doubles it when it fills.
+  "    adrp x1, _gc_mark_stack@PAGE\n    ldr x0, [x1, _gc_mark_stack@PAGEOFF]\n    cbnz x0, .Lgc_have_stack\n",
   "    mov x0, #4194304\n    bl _malloc\n    cbz x0, .Lgc_ret\n",
   "    adrp x1, _gc_mark_stack@PAGE\n    str x0, [x1, _gc_mark_stack@PAGEOFF]\n",
-  "    adrp x1, _gc_mark_top@PAGE\n    str xzr, [x1, _gc_mark_top@PAGEOFF]\n",
   "    mov x0, #524288\n    adrp x1, _gc_mark_cap@PAGE\n    str x0, [x1, _gc_mark_cap@PAGEOFF]\n",
+  ".Lgc_have_stack:\n    adrp x1, _gc_mark_top@PAGE\n    str xzr, [x1, _gc_mark_top@PAGEOFF]\n",
   -- Walk stack frames via x29 chain
   "    mov x19, x29\n    str xzr, [x29, #32]\n",
   ".Lgc_frame_loop:\n    cbz x19, .Lgc_sweep\n",
@@ -4883,9 +4898,6 @@ rt_gc_4 =
   ".Lsweep_clear:\n    and x4, x4, #0x7fffffffffffffff\n    str x4, [x1]\n",
   ".Lsweep_next:\n    add x2, x2, #7\n    and x2, x2, #-8\n    add x19, x19, x2\n    add x19, x19, #8\n    b .Lsweep_loop\n",
   ".Lsweep_done:\n    adrp x0, _rail_gc_last_freed@PAGE\n    str x21, [x0, _rail_gc_last_freed@PAGEOFF]\n",
-  -- Free mark stack
-  "    adrp x0, _gc_mark_stack@PAGE\n    add x0, x0, _gc_mark_stack@PAGEOFF\n    ldr x0, [x0]\n    bl _free\n",
-  "    adrp x1, _gc_mark_stack@PAGE\n    str xzr, [x1, _gc_mark_stack@PAGEOFF]\n",
   ".Lgc_ret:\n    ldr x23, [x29, #80]\n    ldp x19, x20, [x29, #48]\n    ldp x21, x22, [x29, #64]\n    ldp x29, x30, [sp], #96\n    ret\n\n"]
 
 -- While a spawned thread is not yet joined (_rail_threads_live > 0), _rail_alloc and
@@ -6814,11 +6826,20 @@ run_tests _ =
   -- _rail_chained_malloc) was lost twice, in May and again after July, so it is pinned here:
   -- 600 write+read rounds leak 460,800 KB of address space without it and none with it.
   let t253 = run_test "f32_staging_buffer_freed" "vsz u =\n  let s = shell \"/bin/ps -o vsz= -p $PPID | /usr/bin/tr -d ' '\"\n  parse_int (head (split \"\\n\" s))\nspin i n src dst =\n  if i >= n then 0\n  else\n    let m = arena_mark 0\n    let _ = float_arr_to_f32_file \"/tmp/rail_t253_f32.bin\" src 98304\n    let _ = float_arr_from_f32_file \"/tmp/rail_t253_f32.bin\" dst 98304\n    let _ = arena_reset m\n    spin (i + 1) n src dst\nmain =\n  let src = float_arr_new 98304 0.5\n  let dst = float_arr_new 98304 0.0\n  let a = vsz 0\n  let _ = spin 0 600 src dst\n  let b = vsz 0\n  let _ = print (show (b - a < 65536))\n  let _ = print (show (to_int (float_arr_get dst 98303 *. 2.0)))\n  0" "true\n1"
+  -- t254: a mark stack with more than 524,288 pending objects grows instead of dropping them.
+  -- Each cell of a list of 600,000 two-element lists leaves its head pending, so the frontier
+  -- passes the old cap; before the fix a collection at RAIL_ARENA_MB=16 cut the spine at cell
+  -- 524,292 and the sum came out 354267693056 (the churn reuses the freed cells, so the loss
+  -- shows instead of hiding in bytes nobody overwrote).
+  let t254 = run_env "mark_stack_grows" "RAIL_ARENA_MB=16" "mk i n acc = if i >= n then acc else mk (i + 1) n (cons [i, i + 1] acc)\nchurn i n acc = if i >= n then acc else churn (i + 1) n (cons [7, 7, 7] acc)\nsum2 xs acc = if xs == [] then acc else\n  let l = head xs\n  sum2 (tail xs) (acc + head l + head (tail l))\nmain =\n  let xs = mk 0 600000 []\n  let ys = churn 0 2000000 []\n  let _ = print (show (sum2 xs 0))\n  let _ = print (show (length xs))\n  let _ = print (show (length ys))\n  0\n" "360000000000\n600000\n2000000\nrc=0"
+  -- t255: the mark stack is kept across collections. 1,000 collections under RAIL_GC_STRESS=1
+  -- took 4 GB of address space before the fix (one 4 MB mmap each, given to the no-op _free).
+  let t255 = run_stressed "mark_stack_kept" "1" "vsz u =\n  let s = shell \"/bin/ps -o vsz= -p $PPID | /usr/bin/tr -d ' '\"\n  parse_int (head (split \"\\n\" s))\nspin i n acc = if i >= n then acc else spin (i + 1) n (cons i acc)\nmain =\n  let a = vsz 0\n  let xs = spin 0 1000 []\n  let b = vsz 0\n  let _ = print (show (b - a < 65536))\n  let _ = print (show (length xs))\n  0\n" "true\n1000\nrc=0"
   let s_mhd = (if t186 then 1 else 0) + (if t187 then 1 else 0) + (if t188 then 1 else 0) + (if t189 then 1 else 0) + (if t253 then 1 else 0)
-  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t228 then 1 else 0) + (if t229 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t234 then 1 else 0) + (if t235 then 1 else 0) + (if t236 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0)
+  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t228 then 1 else 0) + (if t229 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t234 then 1 else 0) + (if t235 then 1 else 0) + (if t236 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/251 tests passed"])
-  if total == 251 then 0 else 1
+  let _ = print (cat [show total, "/253 tests passed"])
+  if total == 253 then 0 else 1
 
 -- ===========================================================================
 -- M6, self-hosted emit path. Replaces as/ld/codesign with the pure-Rail

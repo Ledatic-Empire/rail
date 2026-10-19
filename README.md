@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start"><img src="https://img.shields.io/badge/tests-251%2F251-brightgreen" alt="tests 251/251"></a>
+  <a href="#quick-start"><img src="https://img.shields.io/badge/tests-253%2F253-brightgreen" alt="tests 253/253"></a>
   <a href="#why-rail"><img src="https://img.shields.io/badge/self--hosting-fixed%20point-blue" alt="self-hosting"></a>
   <a href="#what-rail-does"><img src="https://img.shields.io/badge/HTTPS-pure%20Rail-ff5500" alt="pure-Rail HTTPS"></a>
   <a href="#how-it-works"><img src="https://img.shields.io/badge/GC-ARM64%20assembly-purple" alt="GC in ARM64 asm"></a>
@@ -34,7 +34,7 @@ Rail compiles itself. The compiler — ~10,000 lines of Rail — produces a ~0.9
 ```
 RAIL_ARENA_MB=6000 ./rail_native self && cp /tmp/rail_self ./rail_native  # cycle 1
 RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # cycle 2 — byte-identical
-./rail_native test                                     # 251/251
+./rail_native test                                     # 253/253
 ```
 
 ### What the self-hosting is *for*
@@ -68,7 +68,7 @@ Apple Silicon (ARM64 macOS) is the primary target; Linux ARM64, Linux x86_64, We
 ```bash
 ./rail_native <file.rail>        # compile to /tmp/rail_out
 ./rail_native run <file.rail>    # compile + execute
-./rail_native test               # run the suite (251 tests)
+./rail_native test               # run the suite (253 tests)
 RAIL_ARENA_MB=6000 ./rail_native self               # self-compile, fixed point at gen2
 ./rail_native x86 <file.rail>    # cross-compile to Linux x86_64
 ./rail_native linux <file.rail>  # cross-compile to Linux ARM64
@@ -214,7 +214,8 @@ On 2026-09-22 the tool shed left this repo for a private one (`rail-lab`): the L
 - **The language.** Constructors are functions (`map (Pair 10) xs`); variable and boolean patterns; typed constructor fields, arrays and tuples included; `show` prints tuples, constructed values and bools; `==` compares structure; `rail asm` writes the assembly.
 - **The collector under stress.** `RAIL_GC_STRESS=N` collects on every Nth allocation and poisons what it frees; `tools/fuzz/gc_stress.py` runs every suite test and tree program under it, in CI. It found six collector bugs, each fixed with a test that fails without the fix: a frame read with the caller's slot map, a guarded arm writing past its frame, strings freed mid-walk, spills outside the arena (the arena now grows in place inside a 64 GB reservation), threads racing the allocator, and runtime functions losing what they held.
 - **Hardening.** A failed `fopen` tests the carry flag; `verify.rail` refuses malformed input instead of crashing; the f32 file primitives give their staging buffer back; the entropy beacon seeds every run; `rail wasm` is linear in program size; a library imported along two paths is defined once.
-- 251/251 tests; the seed reproduces itself byte-identically in one cycle.
+- The collector's mark stack is kept and grows: an overflow dropped children silently, and every collection leaked its 4 MB stack through the no-op `_free`.
+- 253/253 tests; the seed reproduces itself byte-identically in one cycle.
 
 ### v5.4.0 (2026-09-22): *Hardening, and the beacon replays from one integer*
 
