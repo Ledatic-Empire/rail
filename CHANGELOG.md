@@ -161,6 +161,19 @@ All notable changes to Rail are documented here.
   directory's README for what it is not.
 
 ### Fixed
+- **The collector's mark stack is kept across collections and grows when it fills.** Two
+  defects in one place (#116 item 1). `_gc_try_mark` skipped the push when the mark stack
+  (524,288 entries) was full: the object stayed marked, its children were never scanned, and the
+  sweep freed them live. A list of 600,000 two-element lists leaves one pending head per cell,
+  so a collection at `RAIL_ARENA_MB=16` cut the spine at cell 524,292 and summed to
+  354267693056 instead of 360000000000, exit 0. And `_rail_gc` took a fresh 4 MB stack from
+  `_malloc` (an mmap) on every collection and gave it to `_free`, a no-op on macOS: 4 MB leaked
+  per collection, 13 GB RSS in a minute under `RAIL_GC_STRESS=13`. The stack is now allocated
+  on the first collection and kept, and a full stack doubles (malloc, memcpy, geometric). No
+  memory at all prints `rail: gc mark stack exhausted` and exits 1 instead of corrupting
+  silently. Tests t254 (`mark_stack_grows`) and t255 (`mark_stack_kept`: 1,000 collections
+  under `RAIL_GC_STRESS=1` move vsz by 4,096 KB; 4,116,480 KB before), both shown to fail on
+  the previous seed.
 - **`float_arr_to_f32_file` and `float_arr_from_f32_file` give their staging buffer back.** Both
   took an `n * 4` byte buffer from bare `_malloc` and released it with `_free`, which is a no-op.
   Over 64 KB `_malloc` maps a fresh region, and the buffer sat on neither reclamation path, so
