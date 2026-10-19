@@ -159,6 +159,15 @@ All notable changes to Rail are documented here.
   directory's README for what it is not.
 
 ### Fixed
+- **`float_arr_to_f32_file` and `float_arr_from_f32_file` give their staging buffer back.** Both
+  took an `n * 4` byte buffer from bare `_malloc` and released it with `_free`, which is a no-op.
+  Over 64 KB `_malloc` maps a fresh region, and the buffer sat on neither reclamation path, so
+  `arena_reset` could not return it: a program that writes one 98,304-float plane a frame (the
+  entropy beacon) lost 384 KB a frame, about 2.3 GB per 6,000-frame run. Both now allocate through
+  `_rail_chained_malloc`, so `arena_reset` drains the buffer like any other chained allocation.
+  The same fix landed in May and was lost in a rewrite, and the July restore never left its
+  branch; t253 now pins it (600 write and read rounds: 460,800 KB of address space kept before,
+  none after).
 - **A failed `fopen` returns 0 on macOS.** The runtime's `_fopen` makes the raw `open` syscall
   and treated a negative result as failure, which is Linux's convention (`tools/linux_libc.s`
   keeps it, correctly). Darwin reports a failed syscall with the carry flag set and a positive
