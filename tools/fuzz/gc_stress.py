@@ -32,7 +32,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 
-DANGER = re.compile(r'\b(shell|write_file|append_file|write_bytes|tcp_\w*|socket\w*|sock_\w*|http\w*|connect|bind|listen|accept|send|recv|spawn\w*|fork|exec\w*|dlopen|llm|anthropic\w*|slack\w*|mlx\w*|fleet\w*|deploy\w*|gpu_\w*|tgl_\w*|metal\w*|args|read_line|getenv|system|popen|unlink|mkdir|rename|remove|kill|sleep|usleep|nanosleep|fopen|fwrite|open|mmap|foreign|join_thread|rc_\w*|chan\w*|fiber_\w*|mutex_\w*|quartz\w*|cg_\w*|jit\w*)\b')
+DANGER = re.compile(r'\b(shell|write_file|append_file|write_bytes|tcp_\w*|socket\w*|sock_\w*|http\w*|connect|bind|listen|accept|send|recv|spawn_thread|fork|exec\w*|dlopen|llm|anthropic\w*|slack\w*|mlx\w*|fleet\w*|deploy\w*|gpu_\w*|tgl_\w*|metal\w*|args|read_line|getenv|system|popen|unlink|mkdir|rename|remove|kill|sleep|usleep|nanosleep|fopen|fwrite|open|mmap|foreign|join_thread|rc_\w*|chan\w*|mutex_\w*|quartz\w*|cg_\w*|jit\w*)\b')
 IMPORT = re.compile(r'^import\s+"([^"]+)"', re.MULTILINE)
 
 
