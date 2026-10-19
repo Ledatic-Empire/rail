@@ -1,0 +1,23 @@
+{
+  "kind": "ledatic.release",
+  "version": 1,
+  "tag": "v5.5.0",
+  "git": {
+    "commit": "017772fea709d2f76c1875107c3411c75b4fcf42",
+    "short": "017772f"
+  },
+  "artifacts": [
+    {
+      "path": "rail_native",
+      "sha256": "513b0f1acc2aa6e04045cf88eb80791ec171211777a988ef443c3ddaea9af11c",
+      "pulse_id": 9085087,
+      "attestation": "rail_native.attestation.json"
+    },
+    {
+      "path": "tools/compile.rail",
+      "sha256": "0e4ec0d777895fd0ec3d7bf6ed0a29b639254312f3fb92077b661c6cd2c5cc62",
+      "pulse_id": 9085088,
+      "attestation": "compile.rail.attestation.json"
+    }
+  ]
+}

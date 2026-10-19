@@ -1,0 +1,17 @@
+{
+  "kind": "ledatic.attestation",
+  "version": 1,
+  "artifact": {
+    "name": "rail_native",
+    "size_bytes": 1091032,
+    "sha256": "513b0f1acc2aa6e04045cf88eb80791ec171211777a988ef443c3ddaea9af11c"
+  },
+  "beacon": {
+    "url": "https://ledatic.org/entropy/pulse",
+    "pulse_id": 9085087,
+    "value_hex": "47d0627f2c7bf212a01af3130be78dda284649605fd01dcbf7177b1f20a751f0",
+    "timestamp_utc": "2026-10-19T16:26:40Z"
+  },
+  "witness": {"kind":"attestation","version":1,"digest_sha256":"513b0f1acc2aa6e04045cf88eb80791ec171211777a988ef443c3ddaea9af11c","pulse_id":9085087,"value_hex":"47d0627f2c7bf212a01af3130be78dda284649605fd01dcbf7177b1f20a751f0","witnessed_at":1792427201,"sig":"TpaBNSCvxY5BcvuCC8cC/+R+kUjyqGjvfPnBV0xWm5LVgf8B2riHxRFd/dnfrU/vft9a8rUOrOVz4qsml4uPAw==","pk_fp":"cac5f21a70564aeb","witness":"fleet0"},
+  "created_at": 1792427201
+}
