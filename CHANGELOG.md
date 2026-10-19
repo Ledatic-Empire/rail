@@ -4,6 +4,8 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+## v5.5.0 (2026-10-19): The compiler type-checks, and the collector under stress
+
 ### Changed
 - **The arena grows in place; `RAIL_ARENA_MB` is where the first collection happens, not a
   wall.** The runtime reserves 64 GB of address space at startup (or `RAIL_ARENA_MB`, if larger;

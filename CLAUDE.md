@@ -10,12 +10,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Environment
 
-Sessions run on either the Mac Mini or the Mac Studio: confirm with `hostname` before assuming a side. Parallel session prompts labeled for other lanes (Stream 4, Session B, Mini-side) should be declined unless explicitly retargeted.
+Sessions run on the Mac Mini (the Studio was sold 2026-10-13). Parallel session prompts labeled for other lanes should be declined unless explicitly retargeted.
 
 ## Project Conventions
 
 - This is a Rail-on-Rail project: write tooling and helpers in pure Rail, not Python or other languages, unless explicitly asked.
-- Before assuming you're on Mini vs Studio, check `hostname`: sessions often run on Studio.
 
 ## Verification Discipline
 
@@ -36,15 +35,15 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (~9,300 lines) and `tools/types.rail` (type inference, ~1,150)
+- **Compiler source**: `tools/compile.rail` (~9,700 lines), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
 - **Seed binary**: `rail_native` (984K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
 - **HTTP server**: `stdlib/http_server.rail` + `tools/http_demo.rail`: compile handler binary, serve via `tools/http_server.py`
 - **Error messages**: `file:line:col: error: message`: parse errors halt cleanly instead of segfaulting.
 - **Runtime**: Zero C dependencies. GC is ARM64 assembly embedded in the compiler. Only needs `as` + `ld`.
-- **GC**: Conservative mark-sweep garbage collector in ARM64 assembly. Scans stack frames, marks reachable tagged objects, sweeps into free list. Triggered when 512MB arena bump-alloc fails.
-- **Allocator**: 512MB bump arena + GC free list + malloc fallback. 256MB thread stack. `arena_mark`/`arena_reset` still work.
+- **GC**: Conservative mark-sweep garbage collector in ARM64 assembly. Scans stack frames, marks reachable tagged objects, sweeps into free list. Triggered when the arena's bump allocation fails; `RAIL_GC_STRESS=N` forces one every Nth allocation.
+- **Allocator**: bump arena inside a 64 GB address reservation that grows in place (`RAIL_ARENA_MB` is where the first collection happens, default 1 GB) + GC free list; no malloc spill on macOS. 256MB thread stack. `arena_mark`/`arena_reset` still work.
 - **Effect handlers**: `try body handler`: setjmp/longjmp non-local error recovery. Deep unwinding, nested handlers.
 - **Type checker**: Forward inference pass emits warnings (not errors) for: head/tail on non-list, arithmetic on non-numeric, wrong arity, calling non-functions.
 - **Package manager**: `import math` (bare imports), `rail get github.com/...`, `rail pkg` reads `rail.toml`.
