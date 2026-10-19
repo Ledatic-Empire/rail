@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="#releases"><img src="https://img.shields.io/badge/v5.4.0-Hardening%2C%20and%20the%20beacon%20replays-ff5500?style=for-the-badge" alt="v5.3.0"></a>
+  <a href="#releases"><img src="https://img.shields.io/badge/v5.5.0-The%20compiler%20type--checks%2C%20and%20the%20collector%20under%20stress-ff5500?style=for-the-badge" alt="v5.5.0"></a>
 </p>
 
 <p align="center">
@@ -68,7 +68,7 @@ Apple Silicon (ARM64 macOS) is the primary target; Linux ARM64, Linux x86_64, We
 ```bash
 ./rail_native <file.rail>        # compile to /tmp/rail_out
 ./rail_native run <file.rail>    # compile + execute
-./rail_native test               # run the suite (249 tests)
+./rail_native test               # run the suite (251 tests)
 RAIL_ARENA_MB=6000 ./rail_native self               # self-compile, fixed point at gen2
 ./rail_native x86 <file.rail>    # cross-compile to Linux x86_64
 ./rail_native linux <file.rail>  # cross-compile to Linux ARM64
@@ -195,7 +195,7 @@ main =
 | **Lexer + parser** | Rail | Tokenizer + recursive-descent AST builder, ~900 lines |
 | **Type checker** | Rail | Forward inference, exhaustiveness warnings |
 | **Codegen** | Rail | Walks AST, emits ARM64 / x86_64 / WASM directly |
-| **Allocator** | ARM64 assembly | 512 MB bump arena + free list + malloc fallback |
+| **Allocator** | ARM64 assembly | Bump arena inside a 64 GB reservation that grows in place (`RAIL_ARENA_MB` sets the first collection) + free list |
 | **GC** | ARM64 assembly | Conservative mark-sweep. Scans stack frames, traces tagged objects, sweeps into free list. |
 | **Tagged pointers** | Inline | Integers: `(v << 1) \| 1`. Heap: raw pointer. Tag bit 0 distinguishes. |
 | **Runtime float** | d-registers | Unboxed IEEE 754. `fadd`/`fmul` direct, no heap boxing. ~10× vs boxed. |
@@ -207,6 +207,14 @@ Tail-recursive loops match C `-O2` (5 instructions per iteration). The full arch
 On 2026-09-22 the tool shed left this repo for a private one (`rail-lab`): the LM experiments and ports (`tools/train`, `tools/railml`), the watch-firmware fuzzing (`tools/garmin`), the autodiff oracles (`tools/ad`), orchestration, agents, MCP, and a dozen small probes. What stays is the language: the compiler, the stdlib, the suite, the fuzz corpus, attestation and verification, the beacon, the playground, and the backends. The x86, WASM and Cortex-M backends are experimental: each has a handful of tests; ARM64 (macOS and Linux) is the supported target.
 
 ## Releases
+
+### v5.5.0 (2026-10-19): *The compiler type-checks, and the collector under stress*
+
+- **The compiler type-checks.** Hindley-Milner inference (`rail types`) over a typed syntax tree that every pass now reads; the old list form is gone. `rail types tools/compile.rail` reports zero errors (1,739 before). Types decide representation: the call-site guessing passes (over a thousand lines) are deleted and the self-compile drops from about 20 s to 5 s.
+- **The language.** Constructors are functions (`map (Pair 10) xs`); variable and boolean patterns; typed constructor fields, arrays and tuples included; `show` prints tuples, constructed values and bools; `==` compares structure; `rail asm` writes the assembly.
+- **The collector under stress.** `RAIL_GC_STRESS=N` collects on every Nth allocation and poisons what it frees; `tools/fuzz/gc_stress.py` runs every suite test and tree program under it, in CI. It found six collector bugs, each fixed with a test that fails without the fix: a frame read with the caller's slot map, a guarded arm writing past its frame, strings freed mid-walk, spills outside the arena (the arena now grows in place inside a 64 GB reservation), threads racing the allocator, and runtime functions losing what they held.
+- **Hardening.** A failed `fopen` tests the carry flag; `verify.rail` refuses malformed input instead of crashing; the f32 file primitives give their staging buffer back; the entropy beacon seeds every run; `rail wasm` is linear in program size; a library imported along two paths is defined once.
+- 251/251 tests; the seed reproduces itself byte-identically in one cycle.
 
 ### v5.4.0 (2026-09-22): *Hardening, and the beacon replays from one integer*
 
@@ -320,13 +328,12 @@ Native floats in ARM64 d-registers, effect handlers via setjmp/longjmp, GC in as
 
 ## Honest limits
 
-Things Rail v5.4.0 **doesn't** do, so you don't hit them as surprises:
+Things Rail v5.5.0 **doesn't** do, so you don't hit them as surprises:
 
 - TLS ships one cipher suite (`TLS_CHACHA20_POLY1305_SHA256`), one ECDHE group (`x25519`), and three CertificateVerify sig-algs (`rsa_pss_rsae_sha256 | ecdsa_secp256r1_sha256 | ecdsa_secp521r1_sha512`). Modern CDN fronts work; legacy servers may not.
 - No TLS session resumption, no 0-RTT, no client certificates.
 - No constant-time or side-channel resistance guarantees. This is not OpenSSL; don't ship it to a Defense customer.
 - Each HTTPS connection costs seconds of wall time (public-key verify dominates). Great for one-shot API calls, not for an HTTP proxy.
-- Response body is assembled via `join ""` — O(N²), caps cleanly around 64 KB. Streaming is an open item.
 - Rail is not ANSI-standardised. There is no formal type system or soundness proof. Use it because it's fast, small, and honest — not because it's Haskell.
 - The attested-training model generalizes **0/10** to unseen function names (see [above](#3-is-the-oracle-for-an-attested-training-loop)). Composition needs scale or a differently-shaped corpus; it is not a corpus-tuning problem.
 
