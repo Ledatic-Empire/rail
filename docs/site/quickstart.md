@@ -132,25 +132,7 @@ Compiling examples/wasm/hello.rail to WASM...
 
 You need `wat2wasm` on `PATH` for this step. On macOS: `brew install wabt`.
 
-## 8. Try the Cortex-M4 backend
-
-```bash
-./rail_native cortexm examples/m4_uart_hello.rail
-```
-
-```
-Compiling examples/m4_uart_hello.rail -> Cortex-M4 (Thumb-2)...
-  Assembly: /tmp/rail_m4.s (1084 chars)
-  as: OK -> /tmp/rail_m4.o
-  startup as: OK
-  ld: OK -> /tmp/rail_m4.elf
-```
-
-This produces a flashable Thumb-2 ELF at `/tmp/rail_m4.elf`. Run in `qemu-system-arm -M mps2-an386` to see "Hi!" on the serial console.
-
-You need `clang` with the `thumbv7em-none-eabi` target on `PATH`. On macOS: `brew install llvm` and the install will print the `clang` path.
-
-## 9. Regenerate the stdlib reference
+## 8. Regenerate the stdlib reference
 
 ```bash
 ./rail_native run tools/docs/gen_stdlib_ref.rail
@@ -163,7 +145,7 @@ wrote: docs/site/stdlib.md (124876 bytes)
 
 The reference at [stdlib.md](stdlib.md) is auto-generated from the actual stdlib source. The walker is a 250-line Rail program that reads each `stdlib/*.rail`, extracts top-level function signatures with their leading comments, and emits markdown. Read it: `tools/docs/gen_stdlib_ref.rail`.
 
-## 10. Verify a signed release
+## 9. Verify a signed release
 
 Rail's tagged releases are signed against the Ledatic entropy beacon. Check one with the site's verifier. It needs OpenSSL 3; stock macOS LibreSSL exits 1 without a message.
 
@@ -184,6 +166,6 @@ The downloaded binary is the one committed at the tag: `git show v5.4.0:rail_nat
 
 You now have a working Rail toolchain on local hardware. Next steps:
 
-- Skim [examples/](examples/) — 22 runnable programs with explanations.
+- Skim [examples/](examples/) — 19 runnable programs with explanations.
 - Skim [stdlib.md](stdlib.md), generated from the source of every stdlib module.
-- Read [backends.md](backends.md) if you want to target Linux ARM64, x86_64, RISC-V, or WASM-in-a-browser.
+- Read [backends.md](backends.md) if you want to target Linux ARM64, x86_64, or WASM-in-a-browser.

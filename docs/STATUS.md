@@ -28,7 +28,8 @@ asm/ObjC/C boundary - 33 in-tree non-Rail files, each named in [`SHIMS.md`](../S
 ## Backends
 
 ARM64 macOS (native) - Linux ARM64 - Linux x86_64 - WebAssembly (compiles; runtime
-fragile) - Cortex-M4 (Thumb-2) - RISC-V rv32imc.
+fragile). Cortex-M4 and RISC-V rv32imc were removed on 2026-10-19 (tag
+`archive/tier1-precut-2026-10-19`).
 
 ## Known surprising behaviors
 

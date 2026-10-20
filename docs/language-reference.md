@@ -420,7 +420,7 @@ classify n = match n
 
 When a guard is false, matching continues with the next arm; when no arm is left, the program
 stops with the no-match trap (exit 1). Guards are compiled by the native ARM64 backend; the x86,
-wasm, Cortex-M and RISC-V backends refuse a program with a guard rather than ignore it.
+wasm backends refuse a program with a guard rather than ignore it.
 
 #### Exhaustiveness Checking
 

@@ -165,7 +165,7 @@ Type errors are handled by the same check, since a clash is a bad flow.
 1. **Type the compiler: done (2026-09-23).** `rail types tools/compile.rail` reports zero
    errors, down from 1,739. The syntax tree is a set of data types (`tools/ast.rail`) that the
    parser builds and every pass reads: the type checker, all five code generators (ARM64, x86,
-   wasm, Cortex-M, RISC-V), `rail safe`, the checks, the optimizer and the auth and AD
+   wasm), `rail safe`, the checks, the optimizer and the auth and AD
    synthesis. The linker's, assembler's and SHA-256's records are tuples and a `ShaSt` type.
    Codegen gives 3,204 of the compiler's 3,524 parameters (91%) and 1,499 of its 1,563 results
    a static representation; when phase C began it was 1,161 of 3,106 parameters (37%). Typing

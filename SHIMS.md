@@ -86,12 +86,11 @@ These call macOS frameworks whose public APIs are ObjC selectors on opaque handl
 
 ## 4. CPU bringup (bare-metal startup, pre-Rail-runtime)
 
-These run BEFORE the Rail runtime exists. On Cortex-M, the reset vector points at hand-written asm that sets up the stack and jumps to `_main`. On v5 Linux ARM64 test programs, `_start` is the bare ELF entry the kernel calls — these are stress fixtures for the v5 self-hosted assembler, not part of the Rail runtime.
+These run BEFORE the Rail runtime exists. On v5 Linux ARM64 test programs, `_start` is the bare ELF entry the kernel calls — these are stress fixtures for the v5 self-hosted assembler, not part of the Rail runtime.
 
 | Path | Lang | Bytes | Reason | To retire |
 |---|---|---|---|---|
-| `tools/cortexm_rt/startup.s` | asm-armv7m | 3,200 | Cortex-M4 vector table + Reset_Handler (Apollo2 / Instinct gen-1). Pre-`_main` CPU init. | Never — this IS the CPU boundary. |
-| `tools/cortexm_rt/rv_startup.s` | asm-riscv | 886 | RISC-V (rv32imc) bare-metal startup for `qemu-system-riscv32 -M virt`. | Never — pre-runtime. |
+| (none since 2026-10-19) | | | The Cortex-M4 and RISC-V startup files left with their backends (tag `archive/tier1-precut-2026-10-19`). | |
 
 ### v5 assembler fixtures (test-only)
 
@@ -193,7 +192,7 @@ Plus ~17 files under `tools/uav/archive/` (ES, GRU/MapGRU eval kernels, weight I
 | 2. GPU driver interop (active) | 7 | 154,072 |
 | 2. GPU driver (test scaffolds) | 5 | 29,831 |
 | 3. Framework bridges | 6 | 101,183 |
-| 4. CPU bringup (M4 + RISC-V) | 2 | 4,086 |
+| 4. CPU bringup (M4 + RISC-V) | 0 | 0 |
 | 4. v5 assembler fixtures | 5 | 1,997 |
 | 5. External device drivers | 1 | 4,571 |
 | 6. GC / concurrent runtime | 1 | 16,319 |
