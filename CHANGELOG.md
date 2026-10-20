@@ -4,6 +4,17 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Removed
+- **22 stdlib modules with no importer and no test**, 3,429 lines: `args`, `autograd`, `csv`,
+  `date`, `deque`, `dirent`, `dlopen`, `fit`, `fit_emit`, `fmt`, `gcd`, `heap`, `http`,
+  `http_server`, `mlx_client`, `prng`, `regex`, `sampling`, `set`, `signal`, `test`, `url`.
+  Nothing in this repo, in `rail-training`, in the fleet scripts or in any launchd job imported
+  them (measured 2026-10-19 by grepping every `.rail`, `.sh`, `.py`, `.yml` and plist under the
+  estate for quoted and bare imports). `tools/safe_server.rail` (the only importer of
+  `http_server`, never built) and `tools/http_server.py` (a driver for a `tools/http_demo.rail`
+  that no longer existed) went with them. The tree before the cut is tag
+  `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
+
 ### Fixed
 - **The collector walks frames on fiber stacks** (#116 item 4). `spawn` carves a 64 KB stack
   out of the arena and `fiber_await` switches `sp` into it; the frame walk capped every frame's

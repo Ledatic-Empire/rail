@@ -18,7 +18,7 @@ codebase patterns:
 | `io` | string + list ops | `stdlib/bpe.rail`, `stdlib/tokenizer.rail` |
 | `tools` | ADTs + pattern match | `stdlib/optim.rail`, `stdlib/checkpoint.rail` |
 | `comp` | mini-compilers | shapes from `tools/compile.rail` |
-| `adv` | higher-order functions | `stdlib/tensor.rail`, `stdlib/autograd.rail` |
+| `adv` | higher-order functions | `stdlib/tensor.rail` |
 | `comprehend` | "complete this so it prints X" | `stdlib/transformer.rail` shapes |
 
 The full prompt list is in `tools/bench/substrate_hard_bench.rail`

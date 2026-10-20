@@ -39,7 +39,6 @@ Self-hosting programming language. Compiler written in Rail, compiles itself to 
 - **Seed binary**: `rail_native` (984K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
-- **HTTP server**: `stdlib/http_server.rail` + `tools/http_demo.rail`: compile handler binary, serve via `tools/http_server.py`
 - **Error messages**: `file:line:col: error: message`: parse errors halt cleanly instead of segfaulting.
 - **Runtime**: Zero C dependencies. GC is ARM64 assembly embedded in the compiler. Only needs `as` + `ld`.
 - **GC**: Conservative mark-sweep garbage collector in ARM64 assembly. Scans stack frames, marks reachable tagged objects, sweeps into free list. Triggered when the arena's bump allocation fails; `RAIL_GC_STRESS=N` forces one every Nth allocation.
@@ -129,9 +128,9 @@ Rail is the compiler + stdlib. A few things that used to live here moved out on 
 
 ## Self-training (in tree)
 
-`tools/train/self_train.rail` is a compiler-verified self-training loop: an LLM generates Rail, `rail_native` compiles it, passes get harvested. 25 levels, auto-advances at 80%+ for 3 rounds, falls back on 2 zero rounds. `stdlib/llm.rail` + `stdlib/anthropic_client.rail` + `stdlib/mlx_client.rail` provide the LLM clients over pure-Rail TLS.
+`tools/train/self_train.rail` is a compiler-verified self-training loop: an LLM generates Rail, `rail_native` compiles it, passes get harvested. 25 levels, auto-advances at 80%+ for 3 rounds, falls back on 2 zero rounds. `stdlib/llm.rail` + `stdlib/anthropic_client.rail` provide the LLM clients over pure-Rail TLS.
 
-Runners and data live in `Ledatic-Empire/rail-training`; the library code that makes them possible lives here (`stdlib/autograd.rail`, `stdlib/transformer.rail`, `stdlib/optim.rail`, `stdlib/checkpoint.rail`, `stdlib/bpe.rail`, `stdlib/tokenizer.rail`).
+Runners and data live in `Ledatic-Empire/rail-training`; the library code that makes them possible lives here (`stdlib/transformer.rail`, `stdlib/optim.rail`, `stdlib/checkpoint.rail`, `stdlib/bpe.rail`, `stdlib/tokenizer.rail`).
 
 ## Site generation (dynamic pages)
 
