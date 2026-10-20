@@ -80,7 +80,6 @@ releases/**/compile.rail
 
 # Compiled Metal host binaries (rebuilt by the tools themselves)
 tools/metal/tensor_gpu
-tools/plasma/mhd_live
 tools/metal/libtensor_gpu.dylib
 tools/metal/libtensor_gpu_stub.dylib
 tools/metal/test_dylib
@@ -119,7 +118,6 @@ tools/metal/bench_matmul_xl
 tools/metal/probes/
 tools/metal/sequential_bug_probe.rail
 tools/metal/fp16_drafts/
-tools/plasma/recordings/
 
 # rail trace sidecars (emitted by tools/trace/rail_trace.rail)
 *.trace.json
