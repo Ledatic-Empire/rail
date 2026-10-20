@@ -379,7 +379,6 @@ Output:
 
 ```rail
 import "stdlib/json.rail"
-import "stdlib/fmt.rail"
 import "stdlib/list.rail"
 
 main =
@@ -389,8 +388,7 @@ main =
   let tests = json_int (json_get data "tests")
 
   -- Format output
-  let msg = format "{} passes {}/70 tests" [name, show tests]
-  let _ = print msg
+  let _ = print (name ++ " passes " ++ show tests ++ "/70 tests")
 
   -- List operations
   let xs = range 10

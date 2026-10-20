@@ -1,6 +1,6 @@
 # Rail Standard Library
 
-102 modules in `stdlib/` (`ls stdlib/*.rail`). This page documents the core set; every module is import-able the same way:
+81 modules in `stdlib/` (`ls stdlib/*.rail`). This page documents the core set; every module is import-able the same way:
 
 ```rail
 import "stdlib/<module>.rail"
@@ -10,39 +10,6 @@ Or with a qualifier:
 
 ```rail
 import "stdlib/<module>.rail" as M
-```
-
----
-
-## args
-
-**CLI argument parser.** Parses `--flag`, `--key=value`, `--key value`, and positional arguments.
-
-```rail
-import "stdlib/args.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `parse_args` | `argv -> (flags, opts, positionals)` | Parse argument list. Returns three lists: flag names, (key, value) pairs, and positional args. Skips the first arg (program name). |
-| `get_opt` | `opts key default -> string` | Look up an option value by key, returning `default` if not found. |
-| `has_flag` | `flags name -> bool` | Check if a flag name is present. |
-
-### Example
-
-```rail
-import "stdlib/args.rail"
-
-main =
-  let (flags, opts, pos) = parse_args args
-  let name = get_opt opts "name" "world"
-  let _ = print (cat ["Hello, ", name, "!"])
-  if has_flag flags "verbose" then
-    let _ = print (cat ["Positional args: ", show (length pos)])
-    0
-  else 0
 ```
 
 ---
@@ -74,57 +41,6 @@ main =
   let _ = print decoded
   0
 ```
-
----
-
-## dirent
-
-**Directory listing.** Declares `opendir`/`readdir`/`closedir` FFI but uses `shell "ls"` as a practical workaround.
-
-```rail
-import "stdlib/dirent.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `list_dir` | `path -> [string]` | List filenames in a directory. Returns empty list on failure. |
-
-### Example
-
-```rail
-import "stdlib/dirent.rail"
-
-main =
-  let files = list_dir "/tmp"
-  let _ = print (show (length files))
-  0
-```
-
----
-
-## dlopen
-
-**Dynamic library loading via FFI.** Wraps `dlopen`/`dlsym`/`dlclose`.
-
-```rail
-import "stdlib/dlopen.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `load_lib` | `path -> ptr` | Load a shared library (uses `RTLD_LAZY`). |
-| `find_symbol` | `handle name -> ptr` | Look up a symbol in a loaded library. |
-| `unload_lib` | `handle -> int` | Unload a library. |
-
-### Constants
-
-- `rtld_lazy` = 1
-- `rtld_now` = 2
-- `rtld_global` = 8
 
 ---
 
@@ -181,46 +97,6 @@ Also exports: `fopen`, `fclose`, `fread`, `fwrite`, `fseek`, `ftell`.
 
 ---
 
-## fmt
-
-**String formatting helpers.** Printf-like template formatting, padding, and table rendering.
-
-```rail
-import "stdlib/fmt.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `format` | `template values -> string` | Replace `{}` placeholders with values from the list. |
-| `zero_pad` | `n width -> string` | Convert int to string, left-padded with zeros. |
-| `rpad` | `s width -> string` | Right-pad string with spaces to width. |
-| `lpad` | `s width -> string` | Left-pad string with spaces to width. |
-| `unlines` | `[string] -> string` | Join strings with newlines. |
-| `unwords` | `[string] -> string` | Join strings with spaces. |
-| `indent` | `n text -> string` | Indent each line by n spaces. |
-| `format_table` | `[[string]] -> string` | Format rows as an aligned table. |
-| `repeat_char` | `c n -> string` | Repeat a character n times. |
-
-### Example
-
-```rail
-import "stdlib/fmt.rail"
-
-main =
-  let msg = format "Hello, {}! You have {} items." ["world", "42"]
-  let _ = print msg
-  let padded = zero_pad 7 4
-  let _ = print padded
-  0
--- Output:
--- Hello, world! You have 42 items.
--- 0007
-```
-
----
-
 ## hash
 
 **Pure Rail hash functions.** FNV-1a 32-bit hash with a simple hash table implementation.
@@ -251,30 +127,6 @@ main =
   let _ = print (ht_get ht "name")
   0
 ```
-
----
-
-## http
-
-**Pure Rail HTTP parser and response builder.** No external dependencies.
-
-```rail
-import "stdlib/http.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `parse_request` | `raw -> (method, path, headers, body)` | Parse a raw HTTP request string. |
-| `parse_request_line` | `line -> (method, path, version)` | Parse the first line of an HTTP request. |
-| `parse_headers` | `[string] -> [(name, value)]` | Parse header lines into key-value pairs. |
-| `get_header` | `headers name -> string` | Look up a header value by name. |
-| `response` | `status_code status_text content_type body -> string` | Build a complete HTTP response string. |
-| `response_ok` | `body -> string` | Build a 200 OK HTML response. |
-| `response_json` | `body -> string` | Build a 200 OK JSON response. |
-| `response_404` | `-> string` | Build a 404 Not Found response. |
-| `response_500` | `msg -> string` | Build a 500 error response. |
 
 ---
 
@@ -432,66 +284,6 @@ import "stdlib/mmap.rail"
 
 ---
 
-## regex
-
-**POSIX regex via FFI.** Wraps `regcomp`/`regexec`/`regfree` from libSystem.
-
-```rail
-import "stdlib/regex.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `matches` | `pattern string -> bool` | Check if string matches an extended POSIX regex. |
-
-### Constants
-
-- `reg_extended` = 1
-- `reg_icase` = 2
-- `reg_nosub` = 8
-
-### Example
-
-```rail
-import "stdlib/regex.rail"
-
-main =
-  if matches "^[0-9]+$" "12345" then
-    let _ = print "all digits"
-    0
-  else
-    let _ = print "not all digits"
-    0
-```
-
----
-
-## signal
-
-**Signal handling via FFI.** Wraps `signal`/`raise` from libSystem.
-
-```rail
-import "stdlib/signal.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `ignore_signal` | `sig -> ptr` | Ignore a signal (SIG_IGN). |
-| `default_signal` | `sig -> ptr` | Restore default handler (SIG_DFL). |
-| `raise_signal` | `sig -> int` | Send a signal to the current process. |
-
-### Constants
-
-- `sighup` = 1, `sigint` = 2, `sigquit` = 3, `sigterm` = 15
-- `sigusr1` = 30, `sigusr2` = 31
-- `sig_dfl` = 0, `sig_ign` = 1
-
----
-
 ## socket
 
 **BSD sockets via FFI.** Low-level socket operations.
@@ -607,41 +399,6 @@ import "stdlib/string.rail"
 
 ---
 
-## test
-
-**Test framework.** Assertions and test suite runner.
-
-```rail
-import "stdlib/test.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `assert_eq` | `name expected actual -> bool` | Assert two integers are equal. Prints PASS/FAIL. |
-| `assert_eq_str` | `name expected actual -> bool` | Assert two strings are equal. Prints PASS/FAIL. |
-| `assert_true` | `name cond -> bool` | Assert condition is true. |
-| `assert_false` | `name cond -> bool` | Assert condition is false. |
-| `run_suite` | `name [bool] -> bool` | Run a list of test results, print summary. Returns true if all passed. |
-
-### Example
-
-```rail
-import "stdlib/test.rail"
-
-double x = x * 2
-
-main =
-  let t1 = assert_eq "double 21" 42 (double 21)
-  let t2 = assert_eq_str "greeting" "hello" "hello"
-  let t3 = assert_true "truth" (1 == 1)
-  let ok = run_suite "my tests" [t1, t2, t3]
-  if ok then 0 else 1
-```
-
----
-
 ## time
 
 **Time functions via FFI.** Unix timestamp and sleep.
@@ -669,28 +426,3 @@ main =
 ```
 
 ---
-
-## url
-
-**Pure Rail URL parser.** Parses HTTP URLs into components.
-
-```rail
-import "stdlib/url.rail"
-```
-
-### Functions
-
-| Function | Signature | Description |
-|----------|-----------|-------------|
-| `parse_url` | `string -> (scheme, host, port, path, query)` | Parse a URL into its components. Port is 0 if not specified. |
-
-### Example
-
-```rail
-import "stdlib/url.rail"
-
-main =
-  let (scheme, host, port, path, query) = parse_url "http://example.com:8080/api?key=val"
-  let _ = print (cat [scheme, "://", host, ":", show port, path])
-  0
-```
