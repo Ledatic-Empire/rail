@@ -5,6 +5,15 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Removed
+- **The Cortex-M4 (Thumb-2) and RISC-V rv32imc backends**, 625 lines of `tools/compile.rail`
+  (`compile_cortexm`, `compile_riscv32`, the `cm_*` and `cv_*` emitters and their two `rail`
+  verbs), the Thumb-2 encoder, assembler and disassembler (`stdlib/thumb2*.rail`,
+  `stdlib/cortexm_runtime.rail`), the mini Cortex-M compilers under `tools/cortexm/`, the
+  startup files and linker scripts under `tools/cortexm_rt/`, six bare-metal examples and
+  their three site pages. Both backends refused any `match` with a guard, handled integers only, and
+  had no suite test; no board and no emulator here could run their output. The tree before the
+  cut is tag `archive/tier1-precut-2026-10-19`. Four backends remain: macOS ARM64, Linux
+  ARM64, Linux x86_64 and WebAssembly.
 - **22 stdlib modules with no importer and no test**, 3,429 lines: `args`, `autograd`, `csv`,
   `date`, `deque`, `dirent`, `dlopen`, `fit`, `fit_emit`, `fmt`, `gcd`, `heap`, `http`,
   `http_server`, `mlx_client`, `prng`, `regex`, `sampling`, `set`, `signal`, `test`, `url`.

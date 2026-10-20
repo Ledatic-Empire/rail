@@ -1,6 +1,6 @@
 # wasm/hello — Rail to WebAssembly
 
-The same Rail source compiles to ARM64 macOS, ARM64 Linux, x86_64 Linux, WASM, Cortex-M4, and RV32IMC. Here's the smallest WASM target.
+The same Rail source compiles to ARM64 macOS, ARM64 Linux, x86_64 Linux and WASM. Here's the smallest WASM target.
 
 **Source** (`examples/wasm/hello.rail`):
 

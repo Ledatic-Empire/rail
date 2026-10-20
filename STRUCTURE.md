@@ -45,7 +45,7 @@ cleanup candidate.
 ## Conventions enforced here
 
 - **Dated filenames belong in archives.** If a doc has `YYYY-MM-DD` in its name, it lives in `docs/archive/` (tracked) or `archive/` (gitignored), not at the canonical surface.
-- **Single-file `tools/` subdirectories are intentional.** `tools/fuzz/`, `tools/trace/`, `tools/docs/`, `tools/cortex/`, `tools/debug/` each hold one tool that is one file. Not abandoned stubs — the tool *is* the dir's contents.
+- **Single-file `tools/` subdirectories are intentional.** `tools/fuzz/`, `tools/trace/`, `tools/docs/`, `tools/debug/` each hold one tool that is one file. Not abandoned stubs — the tool *is* the dir's contents.
 - **`archive/` (top-level) is gitignored.** Local-only retention. Files moved there leave git history.
 - **`docs/archive/` is tracked.** Dated retros / handoffs / closed investigations stay browsable.
 

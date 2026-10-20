@@ -1,6 +1,6 @@
 # Backends
 
-One Rail compiler, six targets. All driven from the same `rail_native` binary.
+One Rail compiler, four targets. All driven from the same `rail_native` binary.
 
 | Backend | Verb | Output | Toolchain needed | Status (local-verified) |
 |---|---|---|---|---|
@@ -8,8 +8,6 @@ One Rail compiler, six targets. All driven from the same `rail_native` binary.
 | Linux ARM64 (ELF) | `linux` | `/tmp/rail_linux` | `aarch64-elf-as`, `aarch64-elf-ld` | needs cross-binutils |
 | Linux x86_64 (ELF, source-only) | `x86` | `/tmp/rail_x86.s` | remote `gcc` (or Docker `linux/amd64`) | emits `.s`, 71/79 conformance via Docker harness |
 | WebAssembly | `wasm` | `/tmp/rail_out.wasm` | `wat2wasm` (wabt) | compiles end-to-end |
-| Cortex-M4 (Thumb-2 ELF) | `cortexm` | `/tmp/rail_m4.elf` | `clang --target=thumbv7em-none-eabi` | compiles end-to-end |
-| RISC-V rv32imc (ELF) | `riscv32` | `/tmp/rail_rv32.elf` | `clang --target=riscv32-unknown-none-elf` | compiles end-to-end |
 
 ---
 
@@ -90,46 +88,6 @@ Requires `wat2wasm` from the WebAssembly Binary Toolkit (`brew install wabt`). T
 
 Known WASM-backend limits (see CLAUDE.md): no `filter`/`map`/`fold` as WASM builtins, 1 MB linear memory. Closures, ADTs, pattern matching, and string ops all work.
 
-## Cortex-M4 (Thumb-2)
-
-```bash
-./rail_native cortexm examples/m4_uart_hello.rail
-```
-
-```
-Compiling examples/m4_uart_hello.rail -> Cortex-M4 (Thumb-2)...
-  Assembly: /tmp/rail_m4.s (1084 chars)
-  as: OK -> /tmp/rail_m4.o
-  startup as: OK
-  ld: OK -> /tmp/rail_m4.elf
-```
-
-Requires `clang` with the `thumbv7em-none-eabi` target. On macOS: `brew install llvm` (Apple's bundled clang doesn't include the bare-metal targets). The driver also assembles the startup vector (`tools/cortexm_rt/startup.s`) and links into `/tmp/rail_m4.elf`.
-
-To verify in qemu (no real hardware needed for CMSDK UART programs):
-
-```bash
-qemu-system-arm -M mps2-an386 -nographic -kernel /tmp/rail_m4.elf
-```
-
-## RISC-V rv32imc
-
-```bash
-./rail_native riscv32 /tmp/test_riscv.rail
-```
-
-```
-Compiling /tmp/test_riscv.rail -> RISC-V (rv32imc)...
-  Assembly: /tmp/rail_rv32.s (314 chars)
-  as: OK
-  startup: OK
-  ld: OK -> /tmp/rail_rv32.elf
-```
-
-Requires `clang` with `riscv32-unknown-none-elf` target. The minimal `main = 42` program boots in `qemu-system-riscv32 -M virt -bios none -kernel /tmp/rail_rv32.elf` and exits 42 via the SiFive test register.
-
-The rv32 backend is v0: literals only.
-
 ---
 
 ## Adding a backend
@@ -137,7 +95,7 @@ The rv32 backend is v0: literals only.
 Look at `tools/compile.rail` around line 9630 (`main`): the `cmd` dispatch table. Each backend is roughly:
 
 1. A new "emit" pass that walks the AST.
-2. A driver function (`compile_cortexm`, `compile_riscv32`, etc.) that calls the right assembler/linker via `shell`.
-3. A startup file under `tools/cortexm_rt/` or equivalent.
+2. A driver function (`compile_x86`, `compile_wasm`, etc.) that calls the right assembler/linker via `shell`.
+3. A runtime or startup file under `tools/`.
 
-Cortex-M4 took about 600 lines of compiler code; RISC-V was about 300 because Thumb-2 paved the road.
+The Cortex-M4 and RISC-V backends (about 600 lines together) were removed on 2026-10-19: no board or emulator here could test them. They are in tag `archive/tier1-precut-2026-10-19`.
