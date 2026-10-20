@@ -74,11 +74,6 @@ These call macOS frameworks whose public APIs are ObjC selectors on opaque handl
 | Path | Lang | Bytes | Reason | To retire |
 |---|---|---|---|---|
 | `tools/desk/quartz_bridge.m` | ObjC | 12,714 | CGEventTap on a dedicated runloop thread → fixed-size struct queue Rail reads via FFI. Backs `stdlib/quartz.rail`. | Never — Quartz is selector-based. |
-| `tools/plasma/mhd_live.m` | ObjC | 18,022 | Headless Metal compute + Foundation file I/O for the live 2D MHD beacon (`/tmp/plasma_live.bin`). | When Rail emits MSL directly and drives the Metal command queue. |
-| `tools/plasma/mhd_ot_2d_256_host.m` | ObjC | 11,505 | Orszag-Tang 256² MHD host (Metal kernel driver, init + step loop). | Same as above. |
-| `tools/plasma/neural_mhd_gpu_host.m` | ObjC | 36,516 | GPU-trained MLP surrogate for MHD: Metal compute pipeline + Foundation file I/O. | Same as above. |
-| `tools/plasma/neural_renderer.m` | ObjC | 11,844 | Real-time neural-MHD renderer: Cocoa NSWindow + Metal draw loop. | Never — NSWindow is selector-only. |
-| `tools/plasma/_dormant/plasma_3d_host.m` | ObjC | 10,582 | Dormant 3D MHD volume renderer (Cocoa + Metal). | Delete-candidate (`_dormant` prefix says so). |
 
 **Sub-total:** 6 files / 101,183 bytes.
 

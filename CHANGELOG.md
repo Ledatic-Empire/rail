@@ -5,6 +5,13 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Removed
+- **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
+  `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
+  suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188
+  the replay from seed 246384, t189 GLM cleaning) now live there as `tests/` behind `gate.sh`,
+  run by that repo's CI against a pinned Rail commit. The suite is 250 tests. The launchd job
+  `com.ledatic.mhd` and the chain audit run from the new checkout; `rail_native` still comes from
+  the Rail checkout. The tree before the move is tag `archive/tier2-precut-2026-10-20`.
 - **`tools/bench` and `tools/infer` moved to the private `rail-lab`** (Tier 2 of the cut, step 1):
   the 30/30 hard-bench with its graders, and the deterministic inference engine with its gates and
   `smol`. Nothing in this repo imported them, no cron ran them, no suite test reached them. The
