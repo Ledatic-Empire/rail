@@ -5,6 +5,11 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Removed
+- **`tools/bench` and `tools/infer` moved to the private `rail-lab`** (Tier 2 of the cut, step 1):
+  the 30/30 hard-bench with its graders, and the deterministic inference engine with its gates and
+  `smol`. Nothing in this repo imported them, no cron ran them, no suite test reached them. The
+  public tree they left is tag `archive/tier2-precut-2026-10-20`; the v4.0.0 note in the README
+  points at it.
 - **The Cortex-M4 (Thumb-2) and RISC-V rv32imc backends**, 625 lines of `tools/compile.rail`
   (`compile_cortexm`, `compile_riscv32`, the `cm_*` and `cv_*` emitters and their two `rail`
   verbs), the Thumb-2 encoder, assembler and disassembler (`stdlib/thumb2*.rail`,
