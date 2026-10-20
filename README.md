@@ -63,7 +63,7 @@ cd rail
 ./rail_native run examples/hello.rail
 ```
 
-Apple Silicon (ARM64 macOS) is the primary target; Linux ARM64, Linux x86_64, WebAssembly (experimental), Cortex-M4, and RISC-V rv32imc backends are supported.
+Apple Silicon (ARM64 macOS) is the primary target; Linux ARM64, Linux x86_64 and WebAssembly (experimental) backends are supported.
 
 ```bash
 ./rail_native <file.rail>        # compile to /tmp/rail_out
@@ -73,8 +73,6 @@ RAIL_ARENA_MB=6000 ./rail_native self               # self-compile, fixed point 
 ./rail_native x86 <file.rail>    # cross-compile to Linux x86_64
 ./rail_native linux <file.rail>  # cross-compile to Linux ARM64
 ./rail_native wasm <file.rail>   # compile to WebAssembly
-./rail_native cortexm <file.rail># compile to Cortex-M4 (Thumb-2)
-./rail_native riscv32 <file.rail># compile to RISC-V rv32imc
 ```
 
 ## What Rail does
@@ -150,7 +148,7 @@ publish both — a benchmark quoted without its failure mode is marketing.
 - **Byte-identical self-compile.** `./rail_native self` produces output identical to the binary that produced it. The compiler's own source is the regression suite.
 - **One binary checks everything.** Training loops, tests, site generation, HTTPS clients — all compiled by the same binary you cloned. That makes the compiler a single, reproducible *checker* you can re-run yourself — not a proof of correctness: a program can compile and still be wrong. Compilation proves a program is *accepted by the binary you run*, nothing more.
 - **Production surface is narrow and honest.** Rail ships the crypto it uses (ChaCha20-Poly1305, x25519, SHA-256/384/512, ECDSA-P256/P384/P521, RSA-PSS/PKCS1) and nothing more. Every primitive is NIST- or RFC-vector-validated.
-- **Six backends travel with the language.** macOS ARM64, Linux ARM64 (Pi Zero 2 W), Linux x86_64, WebAssembly (experimental), Cortex-M4 (Thumb-2), and RISC-V rv32imc — the same compiler cross-compiles to all of them.
+- **Four backends travel with the language.** macOS ARM64, Linux ARM64 (Pi Zero 2 W), Linux x86_64 and WebAssembly (experimental) — the same compiler cross-compiles to all of them.
 
 ## The language
 

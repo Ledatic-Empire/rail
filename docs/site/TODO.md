@@ -12,13 +12,11 @@ Per the "honest backlog" discipline, here is what didn't make v0 and why.
 
 - **Linux ARM64**: cross-binutils (`aarch64-elf-as`, `aarch64-elf-ld`) not installed on this workstation; `./rail_native linux ...` was documented from a known-failing run rather than a known-good binary. The path is verified via `tools/compile.rail` reading the toolchain commands directly, but no Pi Zero execution result is captured here.
 - **Linux x86_64**: emits `.s` only on macOS hosts. Requires a remote `gcc` to execute. Not exercised end-to-end.
-- **RISC-V**: `qemu-system-riscv32 -M virt -bios none -kernel /tmp/rail_rv32.elf` execution path didn't print/exit cleanly in my session; needs a longer monitor window. The compile path is green.
-- **Cortex-M4 / Apollo2 chip**: SWD-flash to real Garmin Instinct hardware was *not* attempted in this v0 documentation pass. QEMU verification of CMSDK UART programs is documented as the verification path.
 
 ## Documentation gaps deferred
 
 - **Interactive playground** — out of v0 scope. Would need a WASM build of `rail_native` itself plus a web shell. The existing playground at https://ledatic.org/#playground serves a fixed corpus of WASM-compiled examples, not a live compiler.
-- **Generated `tools/` index** — there are ~50 useful programs under `tools/` (`tools/repl.rail`, `tools/lsp.rail`, `tools/cortexm_rt/`, `tools/deploy/*`, `tools/jit/*`). None have doc pages here; v0 prioritized `examples/`. Follow-up should auto-index `tools/*.rail` similarly to how `stdlib.md` is generated.
+- **Generated `tools/` index** — there are ~50 useful programs under `tools/` (`tools/repl.rail`, `tools/lsp.rail`, `tools/deploy/*`, `tools/jit/*`). None have doc pages here; v0 prioritized `examples/`. Follow-up should auto-index `tools/*.rail` similarly to how `stdlib.md` is generated.
 - **API stability commitments** — the stdlib reference is descriptive, not normative. Functions whose name starts with `_` (or whose comments mark them as helpers) are not part of any public contract. A separate `stable-api.md` should curate the actual public surface.
 - **Tutorial track** — pages walk from `hello` straight to `quicksort`. No deliberate ramp through algebraic data types, type inference, error handling, or the foreign function interface.
 - **Compiler internals** — there is no doc on the AST shape, how `compile_program` lays out the binary, or how the GC interacts with the bump arena. The closest existing artifact is `CHANGELOG.md` and the comment headers in `tools/compile.rail`.
