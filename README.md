@@ -202,7 +202,7 @@ Tail-recursive loops match C `-O2` (5 instructions per iteration). The full arch
 
 ## What moved out
 
-On 2026-09-22 the tool shed left this repo for a private one (`rail-lab`): the LM experiments and ports (`tools/train`, `tools/railml`), the watch-firmware fuzzing (`tools/garmin`), the autodiff oracles (`tools/ad`), orchestration, agents, MCP, and a dozen small probes. What stays is the language: the compiler, the stdlib, the suite, the fuzz corpus, attestation and verification, the beacon, the playground, and the backends. The x86, WASM and Cortex-M backends are experimental: each has a handful of tests; ARM64 (macOS and Linux) is the supported target.
+On 2026-09-22 the tool shed left this repo for a private one (`rail-lab`): the LM experiments and ports (`tools/train`, `tools/railml`), the watch-firmware fuzzing (`tools/garmin`), the autodiff oracles (`tools/ad`), orchestration, agents, MCP, and a dozen small probes. What stays is the language: the compiler, the stdlib, the suite, the fuzz corpus, attestation and verification, the beacon, the playground, and the backends. The x86 and WASM backends are experimental: each has a handful of tests; ARM64 (macOS and Linux) is the supported target. On 2026-10-20 the hard-bench (`tools/bench`) and the inference engine (`tools/infer`) followed the shed to `rail-lab`; the public tree they left is tag `archive/tier2-precut-2026-10-20`.
 
 ## Releases
 
@@ -255,7 +255,7 @@ The v5 line opens with **v5.0.0** (2026-05-14) — the self-hosted toolchain: Ra
 
 A major-version bump positioning Rail as a substrate, not a model. 216 commits since v3.11.0 across concurrency, JIT, dual-backend parity, attested provenance, and 30/30 hard-bench reproducibility.
 
-- **30/30 hard-bench, publicly reproducible.** A frontier model + a 1 KB Rail spec compiles 30/30 of a held-out hard-bench. Anyone with an API key can re-run.
+- **30/30 hard-bench, publicly reproducible.** A frontier model + a 1 KB Rail spec compiles 30/30 of a held-out hard-bench. Anyone with an API key can re-run (the bench is `tools/bench` at tag `archive/tier2-precut-2026-10-20`; it moved to `rail-lab` on 2026-10-20).
 - **Self-hosted on two backends with full parity.** ARM64 140/140 and x86_64 136/136. The same compiler runs both; same-bug-class sweep closed for all 9 binary ops across both operand orderings.
 - **Concurrency v1.** Typed channels + select over a pthread-backed runtime. `import "stdlib/concurrent.rail"`.
 - **JIT in pure Rail.** `import "jit/grade.rail"` — a Rail program can compile + execute new Rail at runtime in the same process. Found a 17-day silent-corruption auto-memo bug by dual-implementing the compile path.
