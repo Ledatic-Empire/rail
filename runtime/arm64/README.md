@@ -2,21 +2,27 @@
 
 Hand-written ARM64 assembly (Apple `as` syntax): equality and show, lists, strings, file and
 process I/O, fibers and threads, float arrays, `try`, the libc replacements in `syscall.s`, the
-collector (`gc_1.s` to `gc_5.s`) and the arena. One file per `rt_*` constant the compiler
-appends to every program it builds. The Linux ARM64 cross-compile takes the same text, strips
+collector (`gc_1.s` to `gc_5.s`), the arena and the data section (`data.s`: format strings, the
+heap pointers, the young generation). One file per `rt_*` constant the compiler appends to
+every program it builds. The Linux ARM64 cross-compile takes the same text, strips
 the Darwin-specific stubs and links `tools/linux_libc.s` in their place. The x86_64 runtime is
 `tools/x86_rt.s`, read at compile time; it is not here.
 
-Until 2026-10-21 these files were 21 string constants inside `tools/compile.rail` (lines 4546
-to 5050 of master `470cde9`, 110 KB, 18% of the file).
+Until 2026-10-21 these files were 22 string constants inside `tools/compile.rail` (the 21 code
+files at lines 4546 to 5050 of master `470cde9`, 110 KB, 18% of the file; the data section at
+5189 of `589c117`).
 
 ## How it reaches a binary
 
-1. `./rail_native run tools/gen_runtime.rail` reads every file named in its `rt_files` list and
-   writes `tools/runtime_arm64.rail`: the same constants as Rail string literals. That file is
-   generated and committed; do not edit it.
-2. `tools/compile.rail` imports it where the constants used to be written, and `runtime_asm`
-   there joins them in the order a program carries them.
+1. `./rail_native run tools/gen_runtime.rail` reads every file named in its `rt_units` list and
+   writes `tools/runtime_arm64.rail` (the 21 code files) and `tools/runtime_arm64_data.rail`
+   (`data.s`): the same constants as Rail string literals. Both files are generated and
+   committed; do not edit them.
+2. `tools/compile.rail` imports each where its constants used to be written, and `runtime_asm`
+   there joins the code files in the order a program carries them. The data section is its own
+   module because the compiler emits string data in declaration order and the seed depends on
+   it: `rt_data` must be declared 640 lines after the code, where `data_section_asm` was.
+   Moving it up changed the seed (measured 2026-10-21); renaming it did not.
 3. The compiler holds the text as data and appends it to every program it compiles. So a
    compiler emits the runtime it was **built** with: after an edit, a program carries the new
    runtime only once a compiler built from the new text compiles it.
@@ -44,10 +50,10 @@ seed built from the strings. A new file may use any form; `//@ literal` is the s
 3. Bootstrap two cycles and a third for the fixed point (`docs/COMPILER_BOOTSTRAP.md`):
    `RAIL_ARENA_MB=6000 ./rail_native self`, install, again, then `cmp`.
 
-A new file also needs its name in `rt_files` (`tools/gen_runtime.rail`, declaration order) and
+A new file also needs its name in `rt_units` (`tools/gen_runtime.rail`, declaration order) and
 `rt_<name>` in `runtime_asm` (`tools/compile.rail`, emit order). A `.s` file here that is not
-in `rt_files` fails the generator.
+in `rt_units` fails the generator.
 
-CI runs `./rail_native run tools/gen_runtime.rail check`, which exits 1 when
-`tools/runtime_arm64.rail` is not what these files say: an edit here without step 2, or an
+CI runs `./rail_native run tools/gen_runtime.rail check`, which exits 1 when either generated
+module is not what these files say: an edit here without step 2, or an
 edit to the generated file by hand.

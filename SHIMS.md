@@ -2,13 +2,13 @@
 
 Rail aims at zero non-Rail dependencies in the user program. The compiler is written in Rail and emits its own assembly; stdlib is Rail; tooling is primarily Rail, with external verification tools listed below. The files below exist because kernel boundaries, GPU drivers, framework C ABIs, and bare-metal CPU bringup demand a small irreducible surface in another language. Each entry names the boundary, the byte cost, and what would let us delete it.
 
-Totals below: **54 in-tree files in the build and runtime**, ~527 KB, plus a **7-file tree-sitter grammar** (~437 KB, almost all of it machine-generated `parser.c`) that ships for editors and is not part of the compiler, the runtime, or any build. Plus 8 gitignored UAV files (~213 KB) in their own section.
+Totals below: **55 in-tree files in the build and runtime**, ~529 KB, plus a **7-file tree-sitter grammar** (~437 KB, almost all of it machine-generated `parser.c`) that ships for editors and is not part of the compiler, the runtime, or any build. Plus 8 gitignored UAV files (~213 KB) in their own section.
 
 **Scope of the claim.** This document accounts for the non-Rail surface in the build and runtime. It is not a claim that the repository contains no other language: 153 tracked Python, shell, and JavaScript files (~714 KB) carry deploy, attestation, and CI plumbing that runs *around* Rail rather than inside it. The thesis is that nothing between your source and the binary is written in C, not that no script exists anywhere in the tree.
 
 ---
 
-## External semantic verification tooling (excluded from the 54 build/runtime files)
+## External semantic verification tooling (excluded from the 55 build/runtime files)
 
 | Path | Language | Purpose |
 |---|---|---|
@@ -17,7 +17,7 @@ Totals below: **54 in-tree files in the build and runtime**, ~527 KB, plus a **7
 
 These two files add testing infrastructure, not dependencies of the compiler or
 generated binaries. They are additional to the historical 153-file tooling
-inventory above and do not change the **54 build/runtime files** count. Obtain
+inventory above and do not change the **55 build/runtime files** count. Obtain
 their current byte sizes with `wc -c tools/fuzz/semantic.py tools/fuzz/test_semantic.py`.
 
 ## 1. Kernel / syscall boundary
@@ -121,7 +121,7 @@ The runtime every native program links, and hand-tuned C where Rail's emit pipel
 
 | Path | Lang | Bytes | Reason | To retire |
 |---|---|---|---|---|
-| `runtime/arm64/*.s` (21 files) | asm-arm64 | 106,953 | The runtime every macOS and Linux ARM64 program links: equality and show, lists, strings, I/O, fibers, threads, `try`, the libc replacements, the conservative mark-sweep collector and the arena. The compiler carries it as text (`tools/gen_runtime.rail` writes `tools/runtime_arm64.rail`) and appends it to every program. | Not a target: it sits below the code generator. Single routines could move into Rail-emitted code as the emitter grows. |
+| `runtime/arm64/*.s` (22 files) | asm-arm64 | 109,276 | The runtime every macOS and Linux ARM64 program links: equality and show, lists, strings, I/O, fibers, threads, `try`, the libc replacements, the conservative mark-sweep collector and the arena. The compiler carries it as text (`tools/gen_runtime.rail` writes `tools/runtime_arm64.rail` and, for the data section, `tools/runtime_arm64_data.rail`) and appends it to every program. | Not a target: it sits below the code generator. Single routines could move into Rail-emitted code as the emitter grows. |
 | `tools/runtime/concurrent.c` | C | 16,319 | Bounded blocking channels + `pthread_spawn` for `stdlib/concurrent.rail`. Uses `pthread_mutex` + `pthread_cond` — neither has a Rail-side abstraction yet. | When Rail emits its own threading primitives (deferred — `int64`-only channels suffice for v0). |
 
 Until 2026-10-21 the runtime's assembly was string literals inside `tools/compile.rail`, and this ledger counted it as Rail source. It was assembly then too; in files, it is counted.

@@ -33,7 +33,7 @@ inlined linker makes the compiler bigger; default rail-link path needs the arena
 3. `nm rail_native | grep <symbol>`: confirm binary has it
 4. Test the actual behavior
 
-If steps 1–3 pass but 4 fails, you probably need another cycle. If step 2 fails despite step 1 passing, the running compiler doesn't know how to emit your new construct: that's almost always "cycle 1 has the new strings in data, but its compile_program function still uses the old data_section_asm or runtime_asm constant". Run cycle 2 to land it.
+If steps 1–3 pass but 4 fails, you probably need another cycle. If step 2 fails despite step 1 passing, the running compiler doesn't know how to emit your new construct: that's almost always "cycle 1 has the new strings in data, but its compile_program function still uses the old rt_data or runtime_asm constant". Run cycle 2 to land it.
 
 **ASCII-only inside string literals emitted to asm**: avoid em-dashes (,), curly quotes, etc. inside any string that flows into `.asciz` output. The lexer handles UTF-8 in literals but the assembler can be unhappy with multi-byte content in some contexts. Use `-` (hyphen-minus) and `'` (apostrophe). Comments (outside string literals) can use anything Unicode you want.
 
