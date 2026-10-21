@@ -11,7 +11,10 @@ All notable changes to Rail are documented here.
   writes them back as `tools/runtime_arm64.rail` (generated, committed), which the compiler
   imports where the constants were. Built from the new tree, the compiler is byte-identical to
   the seed, and so is the assembly it emits; CI fails when the generated module and the `.s`
-  files disagree. `tools/compile.rail` is 8,619 lines. Format and workflow:
+  files disagree. The data section followed (`data_section_asm`, one 1.5 KB line, now
+  `runtime/arm64/data.s`), carried by a second generated module `tools/runtime_arm64_data.rail`
+  imported where its constant was, since declaration order fixes the seed; the seed is still
+  byte-identical. `tools/compile.rail` is 8,615 lines. Format and workflow:
   `runtime/arm64/README.md`.
 
 ### Removed
