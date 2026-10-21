@@ -39,10 +39,8 @@ you run is exactly what the source you read produces. (Apple Silicon macOS;
 The runner prints its own pass count and its exit status carries the verdict.
 The expected total is an explicit gate inside `tools/compile.rail` (grep
 `tests passed`); growing the suite moves the gate in the same diff, so a
-silently-skipped test still fails the run. One test, `gpu_map`, needs a Metal
-device: on a machine without one it reports "No Metal device" and counts as a
-failure, which is honest but means GPU behaviour is only verified on Apple
-Silicon with a GPU attached.
+silently-skipped test still fails the run. Every test runs on any Apple Silicon
+Mac: since 2026-10-21 nothing in the suite needs a GPU.
 
 ## 3. The self-compile reaches a byte-identical fixed point
 
@@ -103,8 +101,7 @@ compared only the unsigned field, see `verify_selftest.sh`).
 - **Platform boundary:** "no C" means no C in the source-owned compiler and
   runtime, and no external assembler, linker, or signer on the reproducible
   path. The macOS seed still links `libSystem` (the kernel interface), and the
-  everyday `./rail_native file.rail` builds use the system `as` and `ld`. GPU
-  paths are only exercised where a Metal device exists.
+  everyday `./rail_native file.rail` builds use the system `as` and `ld`.
 - **One honest gap:** a Rail compiler verifying a Rail compiler is not an
   *independent* check — it does not defeat a trusting-trust attack. Closing that
   (diverse double-compilation or a non-Rail reference checker) is open work, not

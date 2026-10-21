@@ -27,7 +27,7 @@ If any of those three fails on `master`, that's a bug — please open an issue.
   code-signs itself — no Xcode `as`/`ld` in the build. (The legacy `as`/`ld`
   fallback engages automatically when `RAIL_ARENA_MB < 5000`.)
 
-Linux ARM64 and Linux x86_64 work as cross-compile targets; WASM too. See `./rail_native linux`, `./rail_native x86`, `./rail_native wasm`.
+Linux ARM64 and Linux x86_64 work as cross-compile targets. See `./rail_native linux` and `./rail_native x86`.
 
 ## The bar for a compiler patch
 

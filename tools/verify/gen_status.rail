@@ -14,7 +14,7 @@ cat parts = join "" parts
 trim s = head (split "\n" s)
 
 -- Append one chunk to the output file (bump-allocator-safe: never builds the
--- whole document in memory, mirrors tools/deploy/gen_site.rail).
+-- whole document in memory, the pattern the old site generator used).
 w path s =
   let _ = write_file "/tmp/_status_chunk.txt" s
   let _ = shell (cat ["cat /tmp/_status_chunk.txt >> ", path])
@@ -27,7 +27,7 @@ main =
   -- Facts recomputed from the tree (these are the ones the hand-docs drifted on).
   -- No timestamp: this file is diffed against the committed copy by
   -- tools/verify/check.sh, so it must be a pure function of the tree.
-  let version   = trim (shell "git describe --tags --abbrev=0 2>/dev/null || echo untagged-checkout")
+  let version   = trim (shell "git describe --tags --abbrev=0 --match 'v*' 2>/dev/null || echo untagged-checkout")
   let loc       = trim (shell "wc -l < tools/compile.rail | tr -d ' '")
   let bin_sha   = trim (shell "shasum -a 256 rail_native | awk '{print $1}'")
   let bin_bytes = trim (shell "wc -c < rail_native | tr -d ' '")

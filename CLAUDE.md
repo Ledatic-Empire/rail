@@ -23,7 +23,7 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 ## Hypothesis Discipline
 
 - Before spending >30 min on a perf/regression hypothesis, write it down and define the falsification test.
-- Read the actual runtime artifact (asm, logs, sentinel files like .no_gpu) before theorizing about exotic causes.
+- Read the actual runtime artifact (asm, logs, sentinel files) before theorizing about exotic causes.
 - When a benchmark or measurement looks like a breakthrough, suspect a measurement bug first.
 
 ## Session Resumption
@@ -35,8 +35,8 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (8,615 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
-- **Seed binary**: `rail_native` (984K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
+- **Compiler source**: `tools/compile.rail` (7,605 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
+- **Seed binary**: `rail_native` (992K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
 - **Error messages**: `file:line:col: error: message`: parse errors halt cleanly instead of segfaulting.
@@ -46,15 +46,14 @@ Self-hosting programming language. Compiler written in Rail, compiles itself to 
 - **Effect handlers**: `try body handler`: setjmp/longjmp non-local error recovery. Deep unwinding, nested handlers.
 - **Type checker**: Forward inference pass emits warnings (not errors) for: head/tail on non-list, arithmetic on non-numeric, wrong arity, calling non-functions.
 - **Package manager**: `import math` (bare imports), `rail get github.com/...`, `rail pkg` reads `rail.toml`.
-- **Tests**: `./rail_native test`: 252/252 on master (2026-10-21). Count fluctuates only when concurrent sessions collide on `/tmp/rail_out`; rerun with `--out-prefix` to confirm.
-- **Checkpoints**: `stdlib/checkpoint.rail`: `save_checkpoint prefix weights adams step best_val` + `load_checkpoint` / in-place `load_model_into` / `load_adam_states_into`. Atomic via `<prefix>.committed` sentinel. `corpus_split text val_pct` for eval splits. `tools/train/lm_transformer.rail:run_segments` wires resume + periodic checkpoint into the training loop.
+- **Tests**: `./rail_native test`: 242/242 on master (2026-10-21, after the Tier 3 step 5 cut). Count fluctuates only when concurrent sessions collide on `/tmp/rail_out`; rerun with `--out-prefix` to confirm.
 - **Performance**: Tail-recursive loops match C -O2 (5 instructions/iteration). Self-loop optimization, untagged register params, bottom-test with `subs`.
 - **Targets**: macOS ARM64 (native), Linux ARM64 (Pi Zero), Linux x86_64 (cross-compile)
 
 ### Key Commands
 
 ```bash
-./rail_native test                    # run the suite (252/252)
+./rail_native test                    # run the suite (242/242)
 RAIL_ARENA_MB=6000 ./rail_native self # self-compile. The compiler now INLINES the pure-Rail
                                       #   Mach-O linker (tools/v5/link_lib.rail), so self_compile
                                       #   DEFAULTS to in-process rail-link (NO as/ld/codesign) when
@@ -83,7 +82,6 @@ python3 tools/fuzz/gc_stress.py      # every suite test and tree program under R
 
 - **`split` is single-character**: `split "abc" s` splits on `a`, `b`, and `c` individually. Use `str_split` for multi-char delimiters.
 - **Polymorphic show**: `show` works on ints, floats, strings, lists (including nested), nil, tuples `(1, 2)` and constructed values `Some (Pair 1 2)`, and prints `true`/`false` where the compiler knows the value is a bool. Closures are not supported.
-- **WASM backend**: closures, ADTs, pattern matching, string ops (append/join/show/reverse) all work. 1MB memory, 7 playground demos live. Missing: filter/map/fold/chars/split as WASM builtins.
 - **Exhaustive match**: Non-exhaustive `match` is a compile-time error (not warning). Runtime trap on fallthrough.
 - **`read_line` zero-arg**: Use `read_line 0` (pass dummy arg): zero-arg dispatch has a codegen quirk in the V-handler.
 - **Float representation comes from the types** (`tools/types.rail`, `docs/TYPES.md`): a parameter or result whose type is float travels as raw bits; one that untyped data (`dyn`) can reach stays generic. `show(user_func(1.0))` still won't pick the float printer; use `show_float` explicitly.
@@ -97,16 +95,13 @@ Read `docs/COMPILER_BOOTSTRAP.md` before editing `tools/compile.rail`: bootstrap
 
 ## Substrate beyond compile.rail (shipped 2026-05-11)
 
-Seven foundation tools landed via parallel-v0 workflow. **Use them. Don't redo them.**
+Foundation tools that landed 2026-05-11 and are still here (the lint, trace and package tools left for `rail-lab` on 2026-09-22). **Use them. Don't redo them.**
 
 | Tool | Path | When |
 |---|---|---|
 | Test runner | `./rail_native run tools/test/rail_test.rail <dir>` | New tests. Convention: exit 0 AND last-line `PASS`. Exit-code-honest (relies on the 2026-05-02 fix) |
 | Diff fuzzer | `./rail_native run tools/fuzz/diff_fuzz.rail --seed=42 --n=20` | Before any compile.rail change. Catches silent miscompilation via two-path differential eval. Int-only grammar today |
-| Type-quirk lint | `./rail_native run tools/lint/check_quirks.rail <file>.rail` | Before merging .rail. Codes: Q001 het-list, Q002 high-arity, Q003 unwrapped float-return. For compile.rail use `RAIL_ARENA_MB=4096` (else 10min GC thrash) |
-| Perf trace | `./rail_native run tools/trace/rail_trace.rail <prog>.rail [args...]` | Any perf claim. Wall/CPU/RSS/page-faults/ctxsw + JSON sidecar. v0 has no per-fn sampling |
 | Channels/spawn | `bash tools/runtime/build_concurrent.sh` then `import "stdlib/concurrent.rail"`: `rc_chan_make / rc_chan_send / rc_chan_recv / rc_spawn` | Producer/consumer, parallel work. int64-only values today. Symbols `rc_*` (Rail) / `rcon_*` (C) to avoid colliding with compiler-internal `_rail_spawn` |
-| Pkg manifest | `tools/pkg/`: `pkg_resolve.rail`, `pkg_link.rail`, INI manifest `rail.toml` | Multi-package projects. Local-path deps only in v0. Spec in `tools/pkg/SPEC.md` |
 | Stdlib docs | `./rail_native run tools/docs/gen_stdlib_ref.rail` | After any stdlib edit, regen `docs/site/stdlib.md` |
 
 Public docs: **https://ledatic.org/rail/docs/**: md→html build + deploy recipe in memory entry `docs_deploy_rail.md`.
@@ -116,33 +111,24 @@ Public docs: **https://ledatic.org/rail/docs/**: md→html build + deploy recipe
 - **Phantom builtins** in `compile.rail:~2233` `str_returning_builtin` list: `trim`, `str_to_int`. Declared but no codegen → `ld` undefined symbol at link. Inline a helper or extend emit.
 - **`to_int "42"` silently returns 0**: `to_int` is float→int only. There is no string-to-int builtin. Write a digit-walking helper inline.
 - **3-movk codegen** (FIXED 2026-05-12, `feat/c-3-movk-literals`): `emit_load_int` at `compile.rail:829` now emits movz + up to 3 movk chunks (bits 0-15, 16-31, 32-47, 48-63), with zero chunks at >=#32 skipped. Both positive (`movz`+`movk`) and negative (`movn`+`movk` with inverted bits) paths handle the full 64-bit range. Regression tests: t132 (3-movk), t133 (4-movk), t134 (4-movk negative). Note: `k16/k32/k48` constants computed via `shl 1 N` so `opt` constant-folding doesn't bake them as 64-bit literals the seed can't emit.
-- **Stale FFI dylib at link time** (FIXED 2026-05-16): when ld errors point to an unrelated Rail function (e.g. `_mul_acc in rail_build_XXXXXX.o` referenced from when the real undefined symbol is `_tgl_matmul_bf16`), the "referenced from" is the nearest preceding label, not the actual call site. Root cause is usually a stale `tools/metal/libtensor_gpu.dylib` (or sibling) that lacks symbols added to the `.m`/`.c` source since last rebuild. `compile.rail`'s `ensure_fresh_dylib` helper now auto-rebuilds when source mtime exceeds dylib mtime; manual rebuild scripts live at `tools/metal/build_tensor_gpu.sh`, `tools/runtime/build_concurrent.sh`, `tools/desk/build_quartz_bridge.sh`, `jit/build_trampoline.sh`. All four dylibs are gitignored (per-machine artifacts).
+- **Stale FFI dylib at link time** (FIXED 2026-05-16): when ld errors point to an unrelated Rail function (e.g. `_mul_acc in rail_build_XXXXXX.o` referenced from when the real undefined symbol is `_tgl_matmul_bf16`), the "referenced from" is the nearest preceding label, not the actual call site. Root cause is usually a stale `tools/runtime/libconcurrent.dylib` or `tools/desk/libquartz_bridge.dylib` that lacks symbols added to the `.c`/`.m` source since last rebuild. `compile.rail`'s `ensure_fresh_dylib` helper auto-rebuilds when source mtime exceeds dylib mtime; the rebuild scripts are `tools/runtime/build_concurrent.sh` and `tools/desk/build_quartz_bridge.sh`. Both dylibs are gitignored (per-machine artifacts). The Metal and JIT dylibs left on 2026-10-21.
 
 ## Related repos
 
 Rail is the compiler + stdlib. A few things that used to live here moved out on 2026-04-20:
 
 - **Training infrastructure** → [`Ledatic-Empire/rail-training`](https://github.com/Ledatic-Empire/rail-training) (private). Flywheel orchestrator, dataset pipeline, model cards, small corpora. Weights kept on disk, not in git. Depends on `rail_native` + stdlib from this repo.
-- **Website source** → [`Ledatic-Empire/ledatic-site`](https://github.com/Ledatic-Empire/ledatic-site) (public). Hand-rolled HTML/CSS/JS/GLSL for ledatic.org, plus the Cloudflare Worker. Dynamic pages (mission control, changelog, plasma landing) still generated from `tools/deploy/gen_*.rail` here.
+- **Website source** → [`Ledatic-Empire/ledatic-site`](https://github.com/Ledatic-Empire/ledatic-site) (public). Hand-rolled HTML/CSS/JS/GLSL for ledatic.org, plus the Cloudflare Worker. The Rail-written generators (`daily_deploy`, `gen_site`, `gen_feed`, `gen_llms`, `cf_deploy`) live there too since 2026-10-21, under `railgen/`, run with cwd `~/projects/rail-https`.
 - **UAV / AIGP** → [`Ledatic-Empire/zemog`](https://github.com/Ledatic-Empire/zemog) (private). Nested at `tools/uav/` in the working tree (gitignored).
 
-## Self-training (in tree)
+## What left, and where it went
 
-`tools/train/self_train.rail` is a compiler-verified self-training loop: an LLM generates Rail, `rail_native` compiles it, passes get harvested. 25 levels, auto-advances at 80%+ for 3 rounds, falls back on 2 zero rounds. `stdlib/llm.rail` + `stdlib/anthropic_client.rail` provide the LLM clients over pure-Rail TLS.
-
-Runners and data live in `Ledatic-Empire/rail-training`; the library code that makes them possible lives here (`stdlib/transformer.rail`, `stdlib/optim.rail`, `stdlib/checkpoint.rail`, `stdlib/bpe.rail`, `stdlib/tokenizer.rail`).
-
-## Site generation (dynamic pages)
-
-```bash
-./rail_native run tools/deploy/gen_mission_control.rail    # /system mission control
-./rail_native run tools/deploy/gen_changelog.rail          # /changelog
-./rail_native run tools/deploy/gen_feed.rail               # Atom feed
-./rail_native run tools/deploy/gen_plasma_landing.rail     # /plasma
-./rail_native run tools/deploy/daily_deploy.rail           # cron orchestrator
-```
-
-Pure-static pages live in `Ledatic-Empire/ledatic-site` and deploy with a shell script there.
+`tools/train`, `tools/railml`, `tools/bench`, `tools/infer`, the lint, trace and package tools: the private
+`rail-lab` (2026-09-22, 2026-10-20). The entropy beacon: `Ledatic-Empire/rail-plasma` (2026-10-20). Metal,
+`gpu_map`, the stdlib ML stack (`tensor`, `transformer`, `optim`, `checkpoint`, `infer_kv`, the `jit_*` modules),
+`jit/`, the wasm backend with `rail safe`, `tools/{bitexact,tls,auth,audit,deploy}`: cut 2026-10-21 in Tier 3
+step 5, tag `archive/tier3-step5-precut-2026-10-21` (`docs/rail-tier3-record-plan.md`). The site generators are
+`ledatic-site/railgen/`. `tools/fleet` leaves once the owner repoints the `tb_autojoin` root daemon.
 
 ## Cross-compile (Linux ARM64 for Pi Zero / similar)
 

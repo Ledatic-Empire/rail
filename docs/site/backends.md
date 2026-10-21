@@ -1,13 +1,12 @@
 # Backends
 
-One Rail compiler, four targets. All driven from the same `rail_native` binary.
+One Rail compiler, three targets. All driven from the same `rail_native` binary.
 
 | Backend | Verb | Output | Toolchain needed | Status (local-verified) |
 |---|---|---|---|---|
 | macOS ARM64 (Mach-O) | _(default)_ / `run` | `/tmp/rail_out` | none (host `as`+`ld`) | runs end-to-end |
 | Linux ARM64 (ELF) | `linux` | `/tmp/rail_linux` | `aarch64-elf-as`, `aarch64-elf-ld` | needs cross-binutils |
 | Linux x86_64 (ELF, source-only) | `x86` | `/tmp/rail_x86.s` | remote `gcc` (or Docker `linux/amd64`) | emits `.s`, 71/79 conformance via Docker harness |
-| WebAssembly | `wasm` | `/tmp/rail_out.wasm` | `wat2wasm` (wabt) | compiles end-to-end |
 
 ---
 
@@ -71,31 +70,12 @@ Rail emits the GAS assembly directly; assemble on the target with `gcc -o prog /
 
 **Conformance:** `bash tools/test/x86_conformance.sh` (requires Docker + `linux/amd64` image, e.g., Colima/Rosetta) currently passes **71/79** representative tests covering ints, strings, lists, ADTs, closures, floats, FFI, TCO, and arena ops. The 8 remaining failures are 3 ELF-prefix ffi-libc tests and 5 missing str-runtime symbols, all classified in `~/.claude/projects/-Users-user/memory/x86_backend_status.md`.
 
-## WebAssembly
-
-```bash
-./rail_native wasm examples/wasm/hello.rail
-```
-
-```
-Compiling examples/wasm/hello.rail to WASM...
-  WAT: 51277 bytes
-  wat2wasm: OK
-  Binary: /tmp/rail_out.wasm
-```
-
-Requires `wat2wasm` from the WebAssembly Binary Toolkit (`brew install wabt`). The output is `/tmp/rail_out.wasm` — drop into any WASM runtime that provides the `env.print` import. The live playground at https://ledatic.org embeds exactly this output.
-
-Known WASM-backend limits (see CLAUDE.md): no `filter`/`map`/`fold` as WASM builtins, 1 MB linear memory. Closures, ADTs, pattern matching, and string ops all work.
-
----
-
 ## Adding a backend
 
 Look at `tools/compile.rail` around line 9630 (`main`): the `cmd` dispatch table. Each backend is roughly:
 
 1. A new "emit" pass that walks the AST.
-2. A driver function (`compile_x86`, `compile_wasm`, etc.) that calls the right assembler/linker via `shell`.
+2. A driver function (`compile_x86`, `dispatch_linux`, etc.) that calls the right assembler/linker via `shell`.
 3. A runtime or startup file under `tools/`.
 
 The Cortex-M4 and RISC-V backends (about 600 lines together) were removed on 2026-10-19: no board or emulator here could test them. They are in tag `archive/tier1-precut-2026-10-19`.

@@ -115,23 +115,6 @@ Larger list:
 
 The source is 36 lines including comments. Cross-reference with [examples/quicksort.md](examples/quicksort.md) for the explanation.
 
-## 7. Try the WebAssembly backend
-
-```bash
-./rail_native wasm examples/wasm/hello.rail
-```
-
-```
-Compiling examples/wasm/hello.rail to WASM...
-  WAT: 51277 bytes
-  wat2wasm: OK
-  Binary: /tmp/rail_out.wasm
-```
-
-`./rail_native wasm` emits a `.wat` file, runs the WebAssembly Binary Toolkit `wat2wasm` on it, and produces `/tmp/rail_out.wasm` (~12 KB). Load it in any WASM runtime that provides the `env.print` import (the live playground at ledatic.org does this).
-
-You need `wat2wasm` on `PATH` for this step. On macOS: `brew install wabt`.
-
 ## 8. Regenerate the stdlib reference
 
 ```bash
@@ -160,7 +143,7 @@ bash verify.sh rail_native rail_native.attestation.json
 ok  artifact=rail_native  pulse_id=7309035  pk_fp=cac5f21a70564aeb
 ```
 
-The downloaded binary is the one committed at the tag: `git show v5.4.0:rail_native | shasum -a 256` gives the same digest. Separately, `rail_safe.sha256` pins the `rail_safe` binary for tamper detection.
+The downloaded binary is the one committed at the tag: `git show v5.4.0:rail_native | shasum -a 256` gives the same digest.
 
 ---
 
@@ -168,4 +151,4 @@ You now have a working Rail toolchain on local hardware. Next steps:
 
 - Skim [examples/](examples/) — 19 runnable programs with explanations.
 - Skim [stdlib.md](stdlib.md), generated from the source of every stdlib module.
-- Read [backends.md](backends.md) if you want to target Linux ARM64, x86_64, or WASM-in-a-browser.
+- Read [backends.md](backends.md) if you want to target Linux ARM64 or x86_64.

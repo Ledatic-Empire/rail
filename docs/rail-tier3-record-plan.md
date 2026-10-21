@@ -12,7 +12,13 @@ parsed at run time by the platform's `atof`. Step 4 landed 2026-10-21: `stdlib/m
 carries sin, cos, exp, tanh, sqrt and gelu as fixed integer algorithms at F = 24 (lifted unchanged
 from `tools/bitexact/bx_fixed.rail`, which forwards to it), the kernel's six `sin` sites call
 `sin_fixed`, and the beacon's assembly has no `bl _sin`; the KAT and the pinned record were
-re-measured on the new kernel. The rest is not implemented. The owner's frame, 2026-10-21: humans
+re-measured on the new kernel. Step 5 landed 2026-10-21 (Rail #151 to #157, ledatic-site #62,
+tag `archive/tier3-step5-precut-2026-10-21`): `tools/bitexact`, `tools/tls`, `tools/auth`,
+`tools/audit`, Metal with `gpu_map` and the thirteen stdlib modules only it served, `jit/`
+(the encoder and code buffer kept under `tools/v5/`), the wasm backend with `rail safe`, and
+`tools/deploy` (the site generators are `ledatic-site/railgen`); the suite is 242, the seed
+991,800 bytes, `SHIMS.md` seven rows. `tools/fleet` stays until the owner repoints the
+`tb_autojoin` root daemon on both Macs. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number
