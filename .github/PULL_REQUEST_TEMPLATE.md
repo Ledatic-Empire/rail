@@ -4,7 +4,7 @@ Thanks for contributing to Rail. A few quick checks before you open:
  - [ ] `./rail_native test` passes 116/116 on your branch.
  - [ ] If you touched `tools/compile.rail`, `./rail_native self` reaches a
        byte-identical fixed point (`cmp rail_native /tmp/rail_self` is silent).
- - [ ] If you added an stdlib module, there's a test under `tools/tls/` or a
+ - [ ] If you added an stdlib module, there's a suite test or a standalone one under `tools/test/`, or a
        similar directory that prints PASS.
  - [ ] Commit messages describe *why* the change matters, not just *what*.
 

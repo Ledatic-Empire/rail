@@ -59,7 +59,7 @@ If you change the runtime (`runtime/arm64/*.s`: equality, lists, strings, the co
 
 Adding or modifying `stdlib/*.rail`:
 
-- **Test it.** Put a standalone test under `tools/tls/` or a new directory. "Standalone" means `./rail_native run tools/whatever/my_test.rail` prints `PASS` when it works. That's the assertion contract.
+- **Test it.** Put it in the suite (`run_tests` in `tools/compile.rail`) or as a standalone program under `tools/test/`. "Standalone" means `./rail_native run tools/whatever/my_test.rail` prints `PASS` when it works. That's the assertion contract.
 - **Crypto code validates against an RFC or NIST vector.** Hand-derived expected values introduced bugs twice on the TLS branch; canonical data is load-bearing.
 - **Respect the import graph.** Rail imports don't dedupe. Two textual imports of the same module cause duplicate-symbol link errors. When in doubt, imitate existing modules: leaf modules import nothing and rely on the caller's chain to provide `hex_to_bytes`, `sha_copy_bytes`, etc.
 
