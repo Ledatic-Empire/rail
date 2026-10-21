@@ -1,6 +1,6 @@
 # Tier 3: the record is the inheritance (plan, 2026-10-21)
 
-Status: a plan, not a mandate. Nothing here is implemented. Reilly's frame, 2026-10-21: humans
+Status: a plan, not a mandate. Nothing here is implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number
@@ -85,7 +85,7 @@ the exact trig is lifted out"; `tools/fleet` goes in the same cut once the daemo
 | 4 | No libm on the replay path | `stdlib/math_exact.rail` from `bx4_fixed_transcendentals.rail` and `r1a_exact_trig.rail`; `mhd_kernel.rail:64-67, 136-137` | 2 | `grep -c "bl _sin"` on the beacon's `.s` is 0 |
 | 5 | The cut, one PR per block | `tools/metal`, `tools/bitexact`, `jit/` (keep `arm64.rail`, `codebuf.rail` under `tools/v5/`), 3,794 stdlib GPU lines, wasm, autograd, `tools/{deploy,fleet,audit,tls,auth}`; `tools/attest` stays | 2 | suite count in the diff; three-cycle bootstrap; `SHIMS.md` under 10 rows; `STATUS.md` re-measured |
 | 6 | One link path | delete `compile.rail:5863-5890` and `6913-6918`; link peak under 7 GB; `ci.yml` self-compiles at `RAIL_ARENA_MB=6000` and `cmp`s the seed | 3 | CI green on a machine the house does not own |
-| 7 | The witness returns on the Air | new `~/.fleet/repro_witness.sh`, the parked plist, a manifest row | 1 plus Reilly's `launchctl` | two machines log `REPLAY=match` for the same pulse |
+| 7 | The witness returns on the Air | new `~/.fleet/repro_witness.sh`, the parked plist, a manifest row | 1 plus the owner's `launchctl` | two machines log `REPLAY=match` for the same pulse |
 | 8 | Float literals without `atof` | `compile.rail:1471, 1623` (x86 copy `8698`): correctly rounded decimal to binary64 at compile time | 2 | `grep -c _atof` on the self-compiled `.s` is 0; `semantic.py` agrees with CPython on every float case |
 | 9 | Two contracts written | `docs/SEED_FORMAT.md` proven by a Python writer in `tools/independence/` that emits `exit42` and `cmp`s with `lk_link_file`; `NUMERICS.md` with a test per sentence and a platform triple per claim | 3 | the writer's `cmp`; the suite count |
 | 10 | The reader's path | `docs/COMPILER_TOUR.md` in file order, section banners, the `v1.4.0` header, `CONTRIBUTING.md` and `tests/README.md` off 182 | 1 | a test that every cited symbol exists |
