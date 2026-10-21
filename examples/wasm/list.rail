@@ -1,6 +1,0 @@
-main =
-  let xs = [10, 20, 30, 40]
-  let _ = print (show (head xs))
-  let _ = print (show (length xs))
-  let _ = print (show (head (tail (tail xs))))
-  0

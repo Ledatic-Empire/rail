@@ -82,6 +82,16 @@ All notable changes to Rail are documented here.
     `docs/site/jit.md`. The two files the toolchain uses, the ARM64 instruction encoder and the
     byte-oriented code buffer, are now `tools/v5/arm64.rail` and `tools/v5/codebuf.rail`
     (imported by the v5 assembler, the ELF and Mach-O writers and `stdlib/macho.rail`).
+  - **The WebAssembly backend and `rail safe`.** `rail wasm` (about 740 lines of `compile.rail`:
+    the wat emitter, its string table, float-function fixpoint and lambda table), `rail safe` (the
+    banned-name walk over the same emitter, the wat2wasm validation, the WASI import check),
+    `tools/wasm_runtime.wat`, `examples/wasm/` with its five site pages, the sandbox around it
+    (`rail_safe` and its sha256, `Dockerfile.safe`, `tools/build_safe.sh`, `tools/safe_server.py`,
+    `tools/seccomp.json`, `docs/RAIL_SAFE_DESIGN.md`, `docs/SAFE_SUBSET.md`), the playground compile
+    server (`tools/playground/`, parked in launchd since the Studio left; ledatic.org serves no
+    `/api/playground/compile` and its home page embeds no wasm, measured 2026-10-21) and
+    `tools/deploy/build_wasm_demos.sh`. Four suite tests go: t228, t229 (`rail safe`), t234,
+    t236 (the wasm string table); the suite is 242. The x86 backend keeps `guards_unsupported`.
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188

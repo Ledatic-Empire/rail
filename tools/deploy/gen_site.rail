@@ -19,9 +19,6 @@ main =
   -- Rail version: first "## vX.Y.Z" header in CHANGELOG. Distinct from
   -- ASSET_VERSION (CSS/JS cache-bust). Readers were confusing the two.
   let rail_version = trim (shell "grep -m1 '^## v' CHANGELOG.md | awk '{print $2}'")
-  -- Make WASM playground build explicit — gen_site embeds /tmp/demo_*.wasm
-  -- via base64; missing files ship an empty WASM_BINS array silently.
-  let _ = shell "bash tools/deploy/build_wasm_demos.sh 2>&1"
   let f = "/tmp/ledatic.html"
   let _ = shell (cat ["rm -f ", f])
   let css_file = "/tmp/ledatic_main.css"
@@ -377,17 +374,8 @@ main =
 
   let _ = w f "</div>"
 
-  -- Embed WASM binaries as base64
-  let hello_b64 = trim (shell "base64 -i /tmp/demo_hello.wasm | tr -d '\\n'")
-  let fib_b64 = trim (shell "base64 -i /tmp/demo_fib.wasm | tr -d '\\n'")
-  let math_b64 = trim (shell "base64 -i /tmp/demo_math.wasm | tr -d '\\n'")
-  let list_b64 = trim (shell "base64 -i /tmp/demo_list.wasm | tr -d '\\n'")
-  let adt_b64 = trim (shell "base64 -i /tmp/demo_adt.wasm | tr -d '\\n'")
-  let clos_b64 = trim (shell "base64 -i /tmp/demo_closure.wasm | tr -d '\\n'")
-  let fizz_b64 = trim (shell "base64 -i /tmp/demo_fizz.wasm | tr -d '\\n'")
-  let loop_b64 = trim (shell "base64 -i /tmp/demo_loop.wasm | tr -d '\\n'")
-
-  let _ = w js_file (cat ["var WASM_BINS=[\"", hello_b64, "\",\"", fib_b64, "\",\"", math_b64, "\",\"", list_b64, "\",\"", adt_b64, "\",\"", clos_b64, "\",\"", fizz_b64, "\",\"", loop_b64, "\"];"])
+  -- the wasm demos left with the backend (2026-10-21): the array is empty, the buttons print nothing
+  let _ = w js_file "var WASM_BINS=[]"
   let _ = w js_file "function b64toBytes(b){var r=atob(b),a=new Uint8Array(r.length);for(var i=0;i<r.length;i++)a[i]=r.charCodeAt(i);return a}"
   let _ = w js_file "async function runWasm(idx){var el=document.getElementById('out'+idx);el.textContent='Running...\\n';try{"
   let _ = w js_file "var bytes=b64toBytes(WASM_BINS[idx]);var out='';var M={m:null};"
@@ -482,7 +470,7 @@ main =
   -- BOOT SEQUENCE
   let _ = w f "<div id='boot'>"
   let _ = w f (cat ["<div class='line' data-s='s084a55'><span data-s='sf5afb9'>&gt;</span> LEDATIC &middot; Rail ", rail_version, "</div>"])
-  let _ = w f "<div class='line' data-s='sc68261'>targets: arm64 x86_64 linux wasm metal</div>"
+  let _ = w f "<div class='line' data-s='sc68261'>targets: arm64 x86_64 linux</div>"
   let _ = w f "<div class='line' data-s='s4a317b'>self-compile: <span data-s='s3b1cff'>141/141</span></div>"
   let _ = w f "<div class='line' data-s='seb77ad'>floats: native ieee754 d-registers</div>"
   let _ = w f "<div class='line' data-s='s31b218'>READY</div>"
