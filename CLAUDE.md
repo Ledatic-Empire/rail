@@ -35,7 +35,7 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (8,619 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
+- **Compiler source**: `tools/compile.rail` (8,615 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
 - **Seed binary**: `rail_native` (984K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
