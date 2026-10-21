@@ -845,6 +845,128 @@ _sqrt:
     fsqrt d0, d0
     ret
 
+// ---- float32 file I/O (runtime/arm64/float.s, Linux syscalls) ----
+// The macOS versions issue raw Darwin syscalls (svc #0x80 with x16 = 0x2000005 open,
+// 0x2000004 write, 0x2000003 read, 0x2000006 close), which Linux does not understand: the
+// writer's open failed, it returned false, and nothing was written. Found 2026-10-21 (Tier 3,
+// step 8): the beacon replay on a Pi had been digesting 393,216 zero bytes and reporting a
+// mismatch that looked numerical. build_linux strips the macOS pair; these take their place.
+// Same frames, same conversions (fcvt s0, d0 and back), same return values: 3 (true) on
+// success, 1 (false) when the open fails. A single read, as on macOS.
+// float_arr_to_f32_file: x0 = path (str), x1 = arr, x2 = n (tagged). Writes n float32 values.
+_rail_float_arr_to_f32_file:
+    stp x29, x30, [sp, #-80]!
+    mov x29, sp
+    stp x19, x20, [x29, #48]
+    str x21, [x29, #64]
+    str x1, [x29, #16]
+    asr x2, x2, #1
+    str x2, [x29, #24]
+    bl _str_unwrap
+    mov x1, x0                    // path
+    mov x0, #-100                 // AT_FDCWD
+    mov x2, #0x241                // O_WRONLY|O_CREAT|O_TRUNC (Linux bits)
+    mov x3, #0x1b6                // 0666
+    mov x8, #56                   // openat
+    svc #0
+    cmp x0, #0
+    b.lt .Llf32w_err
+    str x0, [x29, #32]
+    ldr x21, [x29, #24]
+    lsl x0, x21, #2
+    bl _rail_chained_malloc
+    str x0, [x29, #40]
+    mov x19, #0
+    ldr x20, [x29, #16]
+.Llf32w_loop:
+    cmp x19, x21
+    b.hs .Llf32w_done
+    add x6, x19, #1
+    ldr d0, [x20, x6, lsl #3]
+    fcvt s0, d0
+    ldr x7, [x29, #40]
+    lsl x8, x19, #2
+    str s0, [x7, x8]
+    add x19, x19, #1
+    b .Llf32w_loop
+.Llf32w_done:
+    ldr x0, [x29, #32]
+    ldr x1, [x29, #40]
+    lsl x2, x21, #2
+    mov x8, #64                   // write
+    svc #0
+    ldr x0, [x29, #32]
+    mov x8, #57                   // close
+    svc #0
+    mov x0, #3
+    ldp x19, x20, [x29, #48]
+    ldr x21, [x29, #64]
+    ldp x29, x30, [sp], #80
+    ret
+.Llf32w_err:
+    mov x0, #1
+    ldp x19, x20, [x29, #48]
+    ldr x21, [x29, #64]
+    ldp x29, x30, [sp], #80
+    ret
+
+// float_arr_from_f32_file: x0 = path (str), x1 = arr, x2 = n (tagged). Reads n float32 values.
+_rail_float_arr_from_f32_file:
+    stp x29, x30, [sp, #-80]!
+    mov x29, sp
+    stp x19, x20, [x29, #48]
+    str x21, [x29, #64]
+    str x1, [x29, #16]
+    asr x2, x2, #1
+    str x2, [x29, #24]
+    bl _str_unwrap
+    mov x1, x0                    // path
+    mov x0, #-100                 // AT_FDCWD
+    mov x2, #0                    // O_RDONLY
+    mov x3, #0
+    mov x8, #56                   // openat
+    svc #0
+    cmp x0, #0
+    b.lt .Llf32r_err
+    str x0, [x29, #32]
+    ldr x21, [x29, #24]
+    lsl x0, x21, #2
+    bl _rail_chained_malloc
+    str x0, [x29, #40]
+    ldr x0, [x29, #32]
+    ldr x1, [x29, #40]
+    lsl x2, x21, #2
+    mov x8, #63                   // read
+    svc #0
+    mov x19, #0
+    ldr x20, [x29, #16]
+.Llf32r_loop:
+    cmp x19, x21
+    b.hs .Llf32r_done
+    ldr x7, [x29, #40]
+    lsl x8, x19, #2
+    ldr s0, [x7, x8]
+    fcvt d0, s0
+    add x6, x19, #1
+    str d0, [x20, x6, lsl #3]
+    add x19, x19, #1
+    b .Llf32r_loop
+.Llf32r_done:
+    ldr x0, [x29, #32]
+    mov x8, #57                   // close
+    svc #0
+    mov x0, #3
+    ldp x19, x20, [x29, #48]
+    ldr x21, [x29, #64]
+    ldp x29, x30, [sp], #80
+    ret
+.Llf32r_err:
+    mov x0, #1
+    ldp x19, x20, [x29, #48]
+    ldr x21, [x29, #64]
+    ldp x29, x30, [sp], #80
+    ret
+
 // ---- File I/O via syscalls ----
 
 _fopen:

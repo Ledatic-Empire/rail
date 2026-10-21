@@ -11,6 +11,8 @@ import "tools/v5/link_lib.rail"
 import "tools/types.rail"
 -- Rail's syntax tree as data types; the parser builds it.
 import "tools/ast.rail"
+-- A float literal's 64 bits, computed when the program is compiled (Tier 3, step 8).
+import "tools/decimal64.rail"
 foreign getenv name -> str
 
 digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
@@ -1042,6 +1044,23 @@ emit_load_int_reg r v =
       let base = cat ["    movz ", r, ", #", show lo, "\n    movk ", r, ", #", show hi1, ", lsl #16\n    movk ", r, ", #", show hi2, ", lsl #32\n"]
       if hi3 == 0 then base else cat [base, "    movk ", r, ", #", show hi3, ", lsl #48\n"]
 
+-- A float literal's 64 bits into r (Tier 3, step 8, 2026-10-21): the 12-bit sign-and-exponent
+-- field and the 52-bit fraction from tools/decimal64.rail, as four 16-bit chunks, movz then
+-- movk. A 63-bit int never holds the whole word, so the top chunk is built from both fields.
+-- Until this the literal was emitted as text and parsed by the platform's atof at run time.
+emit_load_float_bits r top frac =
+  let k16 = shl 1 16
+  let k32 = shl 1 32
+  let k48 = shl 1 48
+  let c0 = frac % k16
+  let c1 = (frac / k16) % k16
+  let c2 = (frac / k32) % k16
+  let c3 = top * 16 + frac / k48
+  let p0 = cat ["    movz ", r, ", #", show c0, "\n"]
+  let p1 = if c1 == 0 then p0 else cat [p0, "    movk ", r, ", #", show c1, ", lsl #16\n"]
+  let p2 = if c2 == 0 then p1 else cat [p1, "    movk ", r, ", #", show c2, ", lsl #32\n"]
+  if c3 == 0 then p2 else cat [p2, "    movk ", r, ", #", show c3, ", lsl #48\n"]
+
 -- Authoritative float operators (Option A). The lexer emits a distinct token
 -- for the dotted forms `+. -. *. /. <. >.` so float-ness is carried by the op
 -- itself rather than inferred from operands. Signal-consumers (is_float/is_int/
@@ -1599,10 +1618,9 @@ cg node env ar lc sl tp fs =
     let tagged = str_to_int v * 2 + 1
     (emit_load_int (show tagged), lc, sl)
   else if tg == "FL" then
-    let v = nd_s1 node
-    let slbl = cat [".Lfl_str_", show lc]
-    let albl = cat [".Lfl_after_", show lc]
-    (cat ["    b ", albl, "\n", slbl, ":\n    .asciz \"", v, "\"\n    .p2align 3\n", albl, ":\n    stp x29, x30, [sp, #-16]!\n    mov x29, sp\n    adr x0, ", slbl, "\n    bl _atof\n    fmov x0, d0\n    ldp x29, x30, [sp], #16\n"], lc + 1, sl)
+    -- The literal's bits, decided here (tools/decimal64.rail), never by atof at run time.
+    let (top, frac) = d64_fields (nd_s1 node)
+    (emit_load_float_bits "x0" top frac, lc, sl)
   else if tg == "NULL" then
     ("    mov x0, #0\n", lc, sl)
   else if tg == "B" then
@@ -6017,7 +6035,16 @@ run_tests _ =
   -- gelu), the double form judged by its 64 bits, and a libm distance bound. The integers
   -- were checked against Python math (each within one unit, gelu within 91 = 5.4e-6).
   let t258 = run_test "math_exact_fixed" "import \"stdlib/math_exact.rail\"\nimport \"stdlib/float_hex.rail\"\nmain =\n  let _ = print (show (fx_sin (fx_quant 0.5235987755982988)))\n  let _ = print (show (fx_cos (fx_quant 3.141592653589793)))\n  let _ = print (show (fx_sin_any (fx_quant 1.0)))\n  let _ = print (show (fx_sin_any (fx_quant 7.283185307179586)))\n  let _ = print (show (fx_cos_any (fx_quant (0.0 - 1.0))))\n  let _ = print (show (fx_sin_any (fx_quant 12.466370614359172)))\n  let _ = print (show (fx_exp (fx_quant (0.0 - 1.0))))\n  let _ = print (show (fx_exp (fx_quant 2.5)))\n  let _ = print (show (fx_tanh (fx_quant 0.5)))\n  let _ = print (show (fx_sqrt (fx_quant 2.0)))\n  let _ = print (show (fx_gelu (fx_quant 1.0)))\n  let _ = print (show_float_hex (sin_fixed 1.0))\n  let _ = print (show_float_hex (cos_fixed 2.0))\n  let d = sin_fixed 1.0 -. sin 1.0\n  let ad = if d <. 0.0 then 0.0 -. d else d\n  let _ = print (if ad <. 0.000001 then \"within 1e-6 of libm\" else \"far from libm\")\n  0" "8388608\n-16777216\n14117541\n14117541\n9064769\n-1674926\n6171993\n204388328\n7753039\n23726566\n14112951\n3feaed54a0000000\nbfdaa22640000000\nwithin 1e-6 of libm"
-  let s_flt = (if t183 then 1 else 0) + (if t184 then 1 else 0) + (if t257 then 1 else 0) + (if t258 then 1 else 0)
+  -- t259: float literals are converted to binary64 when the program is compiled
+  -- (tools/decimal64.rail, correctly rounded, ties to even), not by the platform's atof at run
+  -- time, so every platform holds the same bits. Expected values are CPython's float() bits.
+  -- Covers the beacon kernel's literals a Linux atof got wrong (0.3, 2.77777777777778,
+  -- 0.04908738521234052), the smallest subnormal and the two decimals either side of half of
+  -- it, the largest double and the first overflow, 1e999 (inf), 1e-400 (0), a tie to even at
+  -- 2^53 + 1, 1e23 (the classic), the last subnormal and the first normal, a 57-digit literal
+  -- one unit above the midpoint between 1.0 and its successor, and an uppercase exponent.
+  let t259 = run_test "float_literal_bits" "import \"stdlib/float_hex.rail\"\nmain =\n  let _ = print (show_float_hex 0.1)\n  let _ = print (show_float_hex 0.3)\n  let _ = print (show_float_hex 2.77777777777778)\n  let _ = print (show_float_hex 0.04908738521234052)\n  let _ = print (show_float_hex 5.0e-324)\n  let _ = print (show_float_hex 2.4703282292062327e-324)\n  let _ = print (show_float_hex 2.4703282292062328e-324)\n  let _ = print (show_float_hex 1.7976931348623157e308)\n  let _ = print (show_float_hex 1.7976931348623159e308)\n  let _ = print (show_float_hex 1e999)\n  let _ = print (show_float_hex 1e-400)\n  let _ = print (show_float_hex 9007199254740993.0)\n  let _ = print (show_float_hex 1e23)\n  let _ = print (show_float_hex 2.2250738585072011e-308)\n  let _ = print (show_float_hex 2.2250738585072012e-308)\n  let _ = print (show_float_hex 1.000000000000000111022302462515654042363166809082031251)\n  let _ = print (show_float_hex 1.5E-3)\n  0" "3fb999999999999a\n3fd3333333333333\n400638e38e38e393\n3fa921fb54442d18\n0000000000000001\n0000000000000000\n0000000000000001\n7fefffffffffffff\n7ff0000000000000\n7ff0000000000000\n0000000000000000\n4340000000000000\n44b52d02c7e14af6\n000fffffffffffff\n0010000000000000\n3ff0000000000001\n3f589374bc6a7efa"
+  let s_flt = (if t183 then 1 else 0) + (if t184 then 1 else 0) + (if t257 then 1 else 0) + (if t258 then 1 else 0) + (if t259 then 1 else 0)
   let t185 = driver_run_returns_exit_code 0
   let t191 = runner_judges_evidence 0
   let t205 = driver_self_refuses_small_arena 0
@@ -6188,7 +6215,7 @@ run_tests _ =
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
   let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/242 tests passed"])
+  let _ = print (cat [show total, "/243 tests passed"])
   if total == 242 then 0 else 1
 
 -- ===========================================================================
@@ -6394,13 +6421,15 @@ build_linux asm_text =
   -- meaning under ELF; (2) drop macOS-flavoured stubs that linux_libc.s
   -- redefines.
   let _ = shell "awk 'BEGIN{skip=0} /^\\.section __DATA,__mod_init_func/{skip=1;next} skip && /^\\.(text|data|bss|section)/{skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
-  -- Strip macOS-flavoured runtime stubs that linux_libc.s redefines. Stop
+  -- Strip macOS-flavoured runtime stubs that linux_libc.s redefines (the f32 file writer and
+  -- reader since 2026-10-21: they are raw Darwin syscalls, and on Linux they opened nothing).
+  -- Stop
   -- the strip on either the next `_lowercase` label OR a section directive
   --, without the section stop, a `.data` directive sandwiched between the
   -- last stripped stub and the next kept label gets eaten, and the
   -- following data items (_fmt_int / _rail_argc / etc.) silently end up
   -- in .text (read-only). Result on ELF: SIGSEGV at _main+4 storing argc.
-  let _ = shell "awk 'BEGIN{skip=0} /^_(strlen|strcmp|strcpy|strcat|atoi|strstr|read|free|fopen|fwrite|fread|fclose|fseek|ftell|fflush|malloc|setjmp|longjmp|write|printf|snprintf|open|close|ioctl|rail_arena_init|rail_print|rail_print_float|rail_shell|rail_malloc_chain_drain):$/{skip=1;next} skip && (/^_[a-z]/ || /^\\.(text|data|bss|section)/){skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
+  let _ = shell "awk 'BEGIN{skip=0} /^_(strlen|strcmp|strcpy|strcat|atoi|strstr|read|free|fopen|fwrite|fread|fclose|fseek|ftell|fflush|malloc|setjmp|longjmp|write|printf|snprintf|open|close|ioctl|rail_arena_init|rail_print|rail_print_float|rail_shell|rail_malloc_chain_drain|rail_float_arr_to_f32_file|rail_float_arr_from_f32_file):$/{skip=1;next} skip && (/^_[a-z]/ || /^\\.(text|data|bss|section)/){skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
   let _ = shell (cat ["cat /tmp/rail_linux_code.s /tmp/rail_linux_start.s ", libc_path, " ", data_path, " /tmp/rail_linux_bss.s > /tmp/rail_linux.s"])
   -- Detect if running on Linux (native) or macOS (cross)
   let uname = trim (shell "uname -s 2>/dev/null")
@@ -7127,11 +7156,9 @@ x86_cg node env ar lc sl tp fs =
     let tagged = str_to_int v * 2 + 1
     (x86_emit_load_int (show tagged), lc, sl)
   else if tg == "FL" then
-    -- Float literal
-    let v = nd_s1 node
-    let slbl = cat [".Lx_fl_str_", show lc]
-    let albl = cat [".Lx_fl_after_", show lc]
-    (cat ["    jmp ", albl, "\n", slbl, ":\n    .asciz \"", v, "\"\n    .p2align 3\n", albl, ":\n    lea rdi, ", slbl, "\n    call atof@PLT\n    mov rdi, 16\n    call _rail_alloc\n    mov qword ptr [rax], 6\n    movsd [rax+8], xmm0\n"], lc + 1, sl)
+    -- Float literal: its bits from tools/decimal64.rail, boxed (tag 6), no atof at run time.
+    let (top, frac) = d64_fields (nd_s1 node)
+    (cat ["    mov rdi, 16\n    call _rail_alloc\n    mov qword ptr [rax], 6\n    mov rcx, 0x", d64_hex top frac, "\n    mov qword ptr [rax+8], rcx\n"], lc, sl)
   else if tg == "NULL" then
     ("    xor rax, rax\n", lc, sl)
   else if tg == "B" then
