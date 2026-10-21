@@ -17,7 +17,7 @@
 -- Precision is the representation's, not libm's. F = 24 resolves 6e-8; measured on
 -- 2026-10-21 against libm at 8192 points over [0, 2pi), sin and cos are within 1.43e-7 and
 -- sin^2 + cos^2 is within 1.76e-7 of 1; exp, tanh and sqrt are within 1e-6 and gelu within
--- 6e-6 on the tools/bitexact sweeps. These are deterministic approximations: the number is
+-- 6e-6 on the bit-exact harness sweeps (BX4, R1a; 2026-06). These are deterministic approximations: the number is
 -- reproducible, not more correct than about seven decimals. A caller that needs 53-bit
 -- accuracy wants libm, and gives up replay across machines.
 --
@@ -25,9 +25,10 @@
 -- angle in [0, 2pi); fx_sin_any and fx_cos_any reduce any angle in (-4096, 4096) first; fx_exp
 -- takes x in about (-50, 36) and saturates outside; fx_sqrt takes X >= 0 with X * S < 2^62.
 --
--- Lifted unchanged from tools/bitexact/bx_fixed.rail (BX4 and R1a, 2026-06), which now
--- forwards to this file, so the gates that proved it (bx4_fixed_transcendentals.rail,
--- r1a_exact_trig.rail) exercise this code. Large constants are kept as operands, never as a
+-- Lifted unchanged from tools/bitexact/bx_fixed.rail (BX4 and R1a, 2026-06). That harness,
+-- with the gates that proved it (bx4_fixed_transcendentals.rail, r1a_exact_trig.rail), left
+-- the tree on 2026-10-21 (tag archive/tier3-step5-precut-2026-10-21); t258 is what checks
+-- this file now. Large constants are kept as operands, never as a
 -- bare value, and the digit loops ping-pong between two functions: the two codegen traps those
 -- shapes once hit (rail-bug-value-literal-tag-mov, rail-bug-self-loop-const-mul-arg) are fixed
 -- on master, and the shapes cost nothing.

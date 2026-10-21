@@ -41,6 +41,13 @@ All notable changes to Rail are documented here.
   `runtime/arm64/README.md`.
 
 ### Removed
+- **Tier 3, step 5: the cut.** The tree before it is tag `archive/tier3-step5-precut-2026-10-21`
+  (on `9050d0d`); every block below names it. The record is the inheritance, and the compiler
+  is kept exactly as far as the record needs it to still build (`docs/rail-tier3-record-plan.md`).
+  - **`tools/bitexact/`** (41 files, 4,509 lines of Rail): the BX1 to BX11, GX, P2, P3 and R1
+    to R6 bit-exact harness and its foreign checks. What the replay record needs of it was
+    lifted in step 4 as `stdlib/math_exact.rail`, checked by t258; the forwarder `bx_fixed.rail`
+    and the BX4 and R1a gates go with the rest. No file outside the directory imported it.
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188
