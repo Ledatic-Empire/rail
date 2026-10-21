@@ -8,7 +8,11 @@ record. Step 3 landed 2026-10-21: the KAT judges its double by the 64 bits (`std
 exact arithmetic, no printer on the judging path); Linux ARM64 is declared non-replay until steps 4
 and 8: `linux_libc.s` gained `_exit` and `_sqrt`, the kernel still needs `sin`, and a Pi showed the
 hex identical for every computed value but a few ulps off for long literals, since every literal is
-parsed at run time by the platform's `atof`. The rest is not implemented. The owner's frame, 2026-10-21: humans
+parsed at run time by the platform's `atof`. Step 4 landed 2026-10-21: `stdlib/math_exact.rail`
+carries sin, cos, exp, tanh, sqrt and gelu as fixed integer algorithms at F = 24 (lifted unchanged
+from `tools/bitexact/bx_fixed.rail`, which forwards to it), the kernel's six `sin` sites call
+`sin_fixed`, and the beacon's assembly has no `bl _sin`; the KAT and the pinned record were
+re-measured on the new kernel. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number

@@ -4241,6 +4241,128 @@ import "stdlib/<name>.rail"
 > Finite = not NaN and not infinite. Avoids && (no short-circuit) by nesting.
 
 
+## `stdlib/math_exact.rail`
+
+### `fx_quant x`
+
+> round(x * 2^24) as an integer, ties away from zero.
+
+### `fx_back xq`
+
+> X / 2^24 as a double (exact: an integer below 2^53 over a power of two).
+
+### `fx_topbit_a n d`
+
+
+### `fx_topbit_b n d`
+
+
+### `fx_topbit n d`
+
+
+### `fx_isqrt_a n c d`
+
+
+### `fx_isqrt_b n c d`
+
+
+### `fx_isqrt n`
+
+> floor(sqrt n) for an integer n >= 0.
+
+### `fx_sqrt xq`
+
+> sqrt(x) * S for X = x * S >= 0.
+
+### `fx_rsqrt xq`
+
+> 1 / sqrt(x) * S; 0 for X = 0.
+
+### `fx_pow2_go acc k`
+
+
+### `fx_pow2 k`
+
+
+### `fx_exp_poly fq`
+
+> e^f * S for f = F / S in [0, ln 2). Degree 8; coefficients c_i = round(S / i!).
+
+### `fx_exp_neg ax`
+
+> e^x * S for x <= 0, given A = |x| * S. round(ln 2 * S) = 11629080.
+
+### `fx_exp_pos xq`
+
+> e^x * S for x > 0; saturates at 2^35 * e^f above x = 36 ln 2.
+
+### `fx_exp xq`
+
+> e^x * S for X = x * S.
+
+### `fx_tanh_pos axq`
+
+
+### `fx_tanh xq`
+
+> tanh(x) * S for X = x * S.
+
+### `fx_gelu xq`
+
+> gelu(x) * S, the tanh form: 0.5 x (1 + tanh(g (x + a x^3))), g * S = 13386610, a * S = 750194.
+
+### `fx_gelu_grad xq`
+
+> gelu'(x) * S: 0.5 (1 + t) + 0.5 x sech^2(u) du/dx with u = g (x + a x^3), t = tanh u,
+> sech^2(u) = 1 - t^2, du/dx = g (1 + 3 a x^2).
+
+### `fx_sin_unit aq`
+
+> sin(a) * S for a in [0, pi/4], A = a * S.
+
+### `fx_cos_unit aq`
+
+> cos(a) * S for a in [0, pi/4].
+
+### `fx_sin th`
+
+> sin(theta) * S for a quantized theta in [0, 2pi): quadrant, then the cofunction fold.
+
+### `fx_cos th`
+
+> cos(theta) * S for a quantized theta in [0, 2pi).
+
+### `fx_reduce_2pi th`
+
+> A quantized angle of either sign, |theta| < 4096, reduced into [0, 2pi) against 2 pi held
+> to 48 fractional bits, so the reduction error is the residue's, not k times a 24-bit 2 pi.
+
+### `fx_sin_any th`
+
+> sin and cos of any quantized angle in (-4096, 4096).
+
+### `fx_cos_any th`
+
+
+### `sin_fixed x`
+
+
+### `cos_fixed x`
+
+
+### `exp_fixed x`
+
+
+### `tanh_fixed x`
+
+
+### `sqrt_fixed x`
+
+
+### `gelu_fixed x`
+
+
+
 ## `stdlib/metal_kernel.rail`
 
 ### `metal_kernel_header`
