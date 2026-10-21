@@ -6150,7 +6150,12 @@ run_tests _ =
   -- t184: a LOCAL int that shadows a float-returning global must stay int -- the unguarded
   -- __float_ret_ consult typed local gv as float and SIGSEGV'd (this crashed on the pre-guard seed).
   let t184 = run_test "local_shadows_float_global" "gv = 2.5\naddone gv = gv + 1\nmain = let _ = print (show (addone 41)) in 0" "42"
-  let s_flt = (if t183 then 1 else 0) + (if t184 then 1 else 0)
+  -- t257: show_float_hex (stdlib/float_hex.rail) derives the 64 bits of a double by exact
+  -- arithmetic alone, so a known-answer test can judge a double by its bits instead of by
+  -- snprintf's text (Tier 3, step 3). Signed zero, the sum that is not 0.3, the beacon KAT's
+  -- digest, the smallest subnormal, the largest finite, inf, NaN and a negative normal.
+  let t257 = run_test "show_float_hex" "import \"stdlib/float_hex.rail\"\nmain =\n  let z = 0.0\n  let one = 1.0\n  let _ = print (show_float_hex z)\n  let _ = print (show_float_hex (fneg z))\n  let _ = print (show_float_hex one)\n  let _ = print (show_float_hex (0.1 + 0.2))\n  let _ = print (show_float_hex 5.0862092315639984e-15)\n  let _ = print (show_float_hex 5.0e-324)\n  let _ = print (show_float_hex 1.7976931348623157e308)\n  let _ = print (show_float_hex (one / z))\n  let _ = print (show_float_hex (z / z))\n  let _ = print (show_float_hex (0.0 - 1.0e-300))\n  0" "0000000000000000\n8000000000000000\n3ff0000000000000\n3fd3333333333334\n3cf6e80000000000\n0000000000000001\n7fefffffffffffff\n7ff0000000000000\n7ff8000000000000\n81a56e1fc2f8f359"
+  let s_flt = (if t183 then 1 else 0) + (if t184 then 1 else 0) + (if t257 then 1 else 0)
   let t185 = driver_run_returns_exit_code 0
   let t191 = runner_judges_evidence 0
   let t205 = driver_self_refuses_small_arena 0
@@ -6333,8 +6338,8 @@ run_tests _ =
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
   let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t228 then 1 else 0) + (if t229 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t234 then 1 else 0) + (if t235 then 1 else 0) + (if t236 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/250 tests passed"])
-  if total == 250 then 0 else 1
+  let _ = print (cat [show total, "/251 tests passed"])
+  if total == 251 then 0 else 1
 
 -- ===========================================================================
 -- M6, self-hosted emit path. Replaces as/ld/codesign with the pure-Rail

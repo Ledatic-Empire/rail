@@ -1,0 +1,61 @@
+-- stdlib/float_hex.rail: the 64 bits of a double as 16 lowercase hex characters.
+--
+--   show_float_hex 1.0                      "3ff0000000000000"
+--   show_float_hex (0.1 + 0.2)              "3fd3333333333334"
+--   show_float_hex 5.0862092315639984e-15   "3cf6e80000000000"
+--
+-- The bits are derived by exact arithmetic only: comparisons, multiplication by 2 and by
+-- 1/2, subtraction of 1, and float_to_int on an integer-valued double. Every one of those
+-- is exact in IEEE-754 binary64, so the same bits give the same hex on every platform; no
+-- snprintf, no libm, no reinterpret. This is how a known-answer test judges a double by its
+-- bits where show_float's text (12 or 17 decimal digits through snprintf) would accept a
+-- neighbour or print differently on another libc (Tier 3, step 3).
+--
+-- Layout: sign (1), biased exponent (11), fraction (52). The 63-bit tagged int never holds
+-- the whole word: the top 12 bits and the 52-bit fraction are built apart and printed as
+-- 3 + 13 digits. A NaN's payload is not recoverable by arithmetic, so every NaN prints as
+-- the quiet NaN 7ff8000000000000 (fff8000000000000 is never printed: the sign of a NaN is
+-- not observable through comparisons either).
+
+fh_digit d = char_from_int (if d < 10 then 48 + d else 87 + d)
+
+-- n as exactly w hex digits, most significant first (n >= 0, w <= 15).
+fh_hex_loop n w acc =
+  if w <= 0 then acc
+  else fh_hex_loop (n / 16) (w - 1) (cat [fh_digit (n % 16), acc])
+fh_hex n w = fh_hex_loop n w ""
+
+-- The binary exponent of m > 0 and m scaled into [1, 2), by exact halvings and doublings.
+-- Halving is exact while the result stays normal (it does: m >= 2 halves to m >= 1);
+-- doubling is exact for every finite double short of overflow, subnormals included.
+fh_exp_down m e = if m >= 2.0 then fh_exp_down (m * 0.5) (e + 1) else e
+fh_exp_up m e = if m < 1.0 then fh_exp_up (m * 2.0) (e - 1) else e
+fh_scale_down m = if m >= 2.0 then fh_scale_down (m * 0.5) else m
+fh_scale_up m = if m < 1.0 then fh_scale_up (m * 2.0) else m
+
+-- m * 2^k by k exact doublings (k >= 0).
+fh_double m k = if k <= 0 then m else fh_double (m * 2.0) (k - 1)
+
+-- (sign and biased exponent as one 12-bit int, the 52-bit fraction) for x > 0, NaN or +inf.
+fh_fields_pos x sign =
+  if x != x then (2047, 2251799813685248)
+  else if x > 1.7976931348623157e308 then (2047 + sign * 2048, 0)
+  else
+    let e = if x >= 2.0 then fh_exp_down x 0 else fh_exp_up x 0
+    let m = if x >= 2.0 then fh_scale_down x else fh_scale_up x
+    if e >= (0 - 1022) then
+      (e + 1023 + sign * 2048, float_to_int (fh_double (m - 1.0) 52))
+    else
+      (sign * 2048, float_to_int (fh_double m (e + 1074)))
+
+-- Zero keeps its sign: 1/(-0.0) is -inf, and -inf < 0 is a comparison, not a reinterpret.
+fh_fields x =
+  if x < 0.0 then fh_fields_pos (0.0 - x) 1
+  else if x > 0.0 then fh_fields_pos x 0
+  else if x != x then fh_fields_pos x 0
+  else if 1.0 / x < 0.0 then (2048, 0)
+  else (0, 0)
+
+show_float_hex x =
+  let (top, frac) = fh_fields x
+  cat [fh_hex top 3, fh_hex frac 13]

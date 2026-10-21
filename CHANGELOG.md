@@ -4,6 +4,16 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Added
+- **`stdlib/float_hex.rail`: `show_float_hex`, the 64 bits of a double as 16 hex characters**
+  (Tier 3, step 3). Derived by exact arithmetic alone (comparisons, multiplication by 2 and
+  1/2, subtraction of 1, `float_to_int` on an integer-valued double), so the same bits print
+  the same hex on every IEEE-754 platform with no `snprintf`, no libm and no reinterpret.
+  Signed zero, subnormals, inf and NaN (printed as the quiet NaN; a payload is not recoverable
+  by arithmetic) are covered by t257; the suite is 251 tests. The beacon's known-answer test in
+  rail-plasma now judges its max|div B| by this hex, where `show_float`'s 13 digits accepted a
+  value two ulps away and the Linux libc shim printed the digest as `0`.
+
 ### Changed
 - **The ARM64 runtime is source files, not strings** (Tier 3, step 1). The 21 `rt_*` constants
   that held it, 506 lines and 110 KB of `tools/compile.rail` (18% of the file), are now
@@ -50,6 +60,18 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **Linux ARM64 binaries link again: `tools/linux_libc.s` gained `_exit` and `_sqrt`.** The
+  collector's out-of-memory path (`runtime/arm64/gc_2.s`) calls `_exit`, which libSystem
+  provides on macOS and nothing provided on Linux, so every `rail_native linux` build since
+  that path landed (#128, 2026-10-19) failed in `ld` (`undefined reference to _exit`), a
+  hello world included.
+  `_exit` is the exit syscall; `_sqrt` is `fsqrt`, which IEEE-754 requires to be correctly
+  rounded, so it is bit-identical to libm's. `sin` still has no Linux implementation: a
+  program that calls it (the beacon kernel) does not link for Linux until Tier 3 step 4. And
+  measured on a Pi Zero 2 W the same day: `show_float_hex` prints the same bits there as on
+  the Mini for every computed value, but six long or large-exponent literals (`1.0e308`, the
+  smallest normal) arrive a few ulps off, because every float literal is emitted as text and
+  parsed at run time by `_atof`, whose Linux version is accumulate-then-scale. That is step 8.
 - **The collector walks frames on fiber stacks** (#116 item 4). `spawn` carves a 64 KB stack
   out of the arena and `fiber_await` switches `sp` into it; the frame walk capped every frame's
   slot range at the main stack's top, which lies below the arena, so a frame on a fiber stack

@@ -829,6 +829,22 @@ _1e6_f64:
     .quad 0x412E848000000000
 .text
 
+// ---- Process exit and square root ----
+// _exit: libSystem's on macOS; the collector's out-of-memory path calls it
+// (runtime/arm64/gc_2.s) and every Linux link failed on it until 2026-10-21.
+_exit:
+    mov x8, #93
+    svc #0
+    b _exit
+
+// _sqrt: IEEE-754 requires a correctly rounded square root, so the instruction and
+// libm's sqrt give the same bits; the kernel's `sqrt` compiles to `bl _sqrt` and links
+// here on Linux. `sin` has no Linux implementation: a program that calls it is declared
+// non-replay on this target until Tier 3 step 4 (rail-plasma docs/REPLAY.md).
+_sqrt:
+    fsqrt d0, d0
+    ret
+
 // ---- File I/O via syscalls ----
 
 _fopen:
