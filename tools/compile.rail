@@ -1382,25 +1382,7 @@ cg_bi2 fname args env ar lc sl tp fs =
   else cg_bi3 fname args env ar lc sl tp fs
 
 cg_bi3 fname args env ar lc sl tp fs =
-  if fname == "gpu_map" then
-    -- GPU map: compile-time Metal kernel generation
-    let f = head args
-    let data_arg = head (tail args)
-    if nd_tag f == "F" then
-      let param = nd_s1 f
-      let body = nd_n2 f
-      let metal_expr = ast_to_metal body param
-      let kernel_src = gen_metal_kernel metal_expr
-      let (da, lc1, sl1) = cg data_arg env ar lc sl false fs
-      let klbl = cat [".Lgpu_k_", show lc1]
-      let kalbl = cat [".Lgpu_ka_", show lc1]
-      let kdata = cat ["    b ", kalbl, "\n", klbl, ":\n    .asciz \"", esc_asm kernel_src, "\"\n    .p2align 2\n", kalbl, ":\n"]
-      (cat [da, "    str x0, [sp, #-16]!\n", kdata, "    adr x0, ", klbl, "\n    ldr x1, [sp], #16\n    bl _rail_gpu_map\n"], lc1 + 1, sl1)
-    else
-      -- Fallback to CPU map
-      let (pa, lc1, sl1) = cg_push_args args env ar lc sl fs
-      (cat [pa, cg_pop_regs (length args) 0, "    bl _rail_map\n"], lc1, sl1)
-  else if fname == "map" then
+  if fname == "map" then
     let (pa, lc1, sl1) = cg_push_args args env ar lc sl fs
     (cat [pa, cg_pop_regs (length args) 0, "    bl _rail_map\n"], lc1, sl1)
   else if fname == "join" then
@@ -4549,7 +4531,7 @@ compile_funcs_loop decls ar lc asm_acc desc_acc =
 -- so the declaration order, and with it the seed, did not change.
 import "tools/runtime_arm64.rail"
 
-runtime_asm = cat [rt_core, rt_list, rt_closure, rt_io, rt_args, rt_arith, rt_fiber, rt_thread, rt_array, rt_gpu, rt_string, rt_float, rt_effects, rt_str_gc, rt_gc_1, rt_gc_2, rt_gc_3, rt_gc_4, rt_gc_5, rt_syscall, rt_arena]
+runtime_asm = cat [rt_core, rt_list, rt_closure, rt_io, rt_args, rt_arith, rt_fiber, rt_thread, rt_array, rt_string, rt_float, rt_effects, rt_str_gc, rt_gc_1, rt_gc_2, rt_gc_3, rt_gc_4, rt_gc_5, rt_syscall, rt_arena]
 
 -- Whether variable `name` occurs free in a node. The fold rewrites below drop a lambda's
 -- element binding when this says it is unused, so it must see every subtree (until 2026-09-23
@@ -4650,12 +4632,6 @@ opt_app onode =
   if im then
     let (im2, g, d) = is_map_app inner
     if im2 then opt (NApp (NApp (NVar "map") (NLam "_fx" (NApp f (NApp g (NVar "_fx"))))) d)
-    else if nd_tag f == "F" then
-      if is_gpu_safe (nd_n2 f) (nd_s1 f) then
-        if nd_tag inner != "V" then
-          NLet "_gd" inner (NIf (NOp ">=" (NApp (NVar "length") (NVar "_gd")) (NInt "50000")) (NApp (NApp (NVar "gpu_map") f) (NVar "_gd")) (NApp (NApp (NVar "map") f) (NVar "_gd")))
-        else onode
-      else onode
     else onode
   else
     -- fold f init (range n) algebraic optimizations
@@ -4698,23 +4674,6 @@ opt_decls decls =
 opt_decl d = match d
   | DFn n ps b -> DFn n ps (opt b)
   | _ -> d
-
--- GPU AUTO-DISPATCH
-
-is_gpu_safe node param = match node
-  | NInt v -> true
-  | NVar v -> v == param
-  | NOp op l r -> if op == "+" || op == "-" || op == "*" || op == "/" || op == "%" then (if is_gpu_safe l param then is_gpu_safe r param else false) else false
-  | _ -> false
-
-ast_to_metal node param = match node
-  | NInt v -> v
-  | NVar v -> "x"
-  | NOp op l r -> cat ["(", ast_to_metal l param, " ", op, " ", ast_to_metal r param, ")"]
-  | _ -> "0"
-
-gen_metal_kernel body_expr =
-  cat ["#include <metal_stdlib>\nusing namespace metal;\nkernel void rail_kernel(device int *data [[buffer(0)]], uint id [[thread_position_in_grid]]) {\n    int x = data[id];\n    data[id] = ", body_expr, ";\n}\n"]
 
 build_ctor_siblings decls =
   if length decls == 0 then []
@@ -5368,8 +5327,6 @@ build prefix asm_text =
     let rt_objs = if has_llm != "0" then cat [" ", rtdir, "/llm.o ", tmp, "_llm_tramp.o"] else ""
     -- Optional dylibs: each is weak-linked if present, auto-rebuilt if its
     -- source file is newer than the .dylib (gitignored, per-machine build artifact).
-    let has_gpu_lib = ensure_fresh_dylib "tools/metal/tensor_gpu_lib.m" "tools/metal/libtensor_gpu.dylib" "tools/metal/build_tensor_gpu.sh"
-    let gpu_lib = if has_gpu_lib == "1" then " -L tools/metal -weak-ltensor_gpu" else ""
     let has_jit_lib = ensure_fresh_dylib "tools/jit_call.c" "jit/libjit_call.dylib" "jit/build_trampoline.sh"
     let jit_lib = if has_jit_lib == "1" then " -L jit -weak-ljit_call" else ""
     let has_quartz_lib = ensure_fresh_dylib "tools/desk/quartz_bridge.m" "tools/desk/libquartz_bridge.dylib" "tools/desk/build_quartz_bridge.sh"
@@ -5381,7 +5338,7 @@ build prefix asm_text =
     -- resolve at link time, with zero cost for binaries that don't use it (same
     -- -weak-l pattern as the optional dylibs above). 2026-06-17: enables the
     -- Rail-native grounding oracle (PAOS Stage 3).
-    let ld_cmd = cat ["ld -o ", prefix, " ", tmp, ".o", rt_objs, gpu_lib, jit_lib, quartz_lib, concurrent_lib, " -weak-lsqlite3 -lSystem -syslibroot ", sdk, " -arch arm64 -stack_size 0x10000000 2>&1"]
+    let ld_cmd = cat ["ld -o ", prefix, " ", tmp, ".o", rt_objs, jit_lib, quartz_lib, concurrent_lib, " -weak-lsqlite3 -lSystem -syslibroot ", sdk, " -arch arm64 -stack_size 0x10000000 2>&1"]
     let ld_result = strip_trailing_ws (shell ld_cmd)
     let _ = if ld_result != "" then print (cat ["  ld: ", ld_result]) else print "  ld: OK"
     let _ = shell (cat ["codesign -s - ", prefix, " 2>&1"])
@@ -5863,9 +5820,6 @@ run_tests _ =
   let t64 = run_test "map_fusion" "double x = x * 2\ntriple x = x * 3\nmain = head (map double (map triple [1, 2, 3]))" "6"
   let _ = write_file "/tmp/rail_gen_code.rail" "fact n = if n <= 1 then 1 else n * fact (n - 1)\n"
   let t65 = run_test "generate_ct" "#generate \"factorial\"\nmain =\n  let _ = print (show (fact 10))\n  0" "3628800"
-  let _ = shell "ls /tmp/gpu_host >/dev/null 2>&1 && echo ok || clang -framework Metal -framework Foundation tools/gpu_host.m -o /tmp/gpu_host 2>/dev/null"
-  let t66 = run_test "gpu_map" "main =\n  let r = gpu_map (\\x -> x * 3 + 1) (range 8)\n  let _ = print (show (head r))\n  0" "1"
-  let t67 = run_test "gpu_auto" "main =\n  let r = map (\\x -> x * 2 + 1) (range 8)\n  let _ = print (show (head r))\n  0" "1"
   let t68 = run_test "nested_lam" "main = (\\a -> \\b -> a + b) 3 4" "7"
   let t69 = run_test "nested_lam_let" "main =\n  let f = \\a -> \\b -> a + b\n  f 3 4" "7"
   let t70 = run_test "nested_lam_cap" "main =\n  let n = 10\n  let f = \\a -> \\b -> a + b + n\n  f 3 4" "17"
@@ -5912,7 +5866,6 @@ run_tests _ =
   let t102 = run_test "sci_notation_frac" "main =\n  let v = 1.5e3 +. 2.5e-1 *. 4.0\n  let _ = print (show (to_int v))\n  0" "1501"
   let t103 = run_test "null_safe_eq" "type T = | T x\nmain =\n  let t = T 42\n  let a = arr_new 2 0\n  let _ = arr_set a 1 t\n  let v0 = arr_get a 0\n  let v1 = arr_get a 1\n  let z0 = if v0 == 0 then 1 else 0\n  let z1 = if v1 == 0 then 1 else 0\n  z0 * 10 + z1" "10"
   let t104 = run_test "f32_io_roundtrip" "main =\n  let src = float_arr_new 3 0.0\n  let _ = float_arr_set src 0 1.5\n  let _ = float_arr_set src 1 (0.0 -. 3.25)\n  let _ = float_arr_set src 2 0.125\n  let _ = float_arr_to_f32_file \"/tmp/rail_native_t104_f32roundtrip.bin\" src 3\n  let dst = float_arr_new 3 0.0\n  let _ = float_arr_from_f32_file \"/tmp/rail_native_t104_f32roundtrip.bin\" dst 3\n  let s = float_arr_get dst 0 +. float_arr_get dst 1 +. float_arr_get dst 2\n  let _ = print (show (to_int (s *. 8.0)))\n  0" "-13"
-  let t105 = run_test "tensor_prims" "import \"stdlib/tensor.rail\"\nmain =\n  let x = tensor_new (cons 4 []) 0.0\n  let _ = tensor_set_flat x 0 (0.0 - 2.0)\n  let _ = tensor_set_flat x 1 0.5\n  let _ = tensor_set_flat x 2 (0.0 - 1.0)\n  let _ = tensor_set_flat x 3 3.0\n  let m = tensor_relu_mask x\n  let n = tensor_get_flat m 0 + tensor_get_flat m 1 + tensor_get_flat m 2 + tensor_get_flat m 3\n  to_int n" "2"
   -- t106: runtime type-check promotion in float ops. When one operand is
   -- a float literal and the other is an int variable that isn't statically
   -- marked (because the function body contains floats → mark_int_params
@@ -5927,10 +5880,6 @@ run_tests _ =
   -- parse_int was silently broken by this, now `char_to_int c - 48`
   -- actually gives the digit value. Fix 2026-04-15.
   let t107 = run_test "char_to_int_runtime" "main =\n  let c = head (chars \"9\")\n  char_to_int c" "57"
-  -- Phase-1 tensor.rail gap fills (2026-04-16): rank, slice, layer_norm.
-  let t108 = run_test "tensor_rank" "import \"stdlib/tensor.rail\"\nmain =\n  let t = tensor_new (cons 2 (cons 3 (cons 4 []))) 0.0\n  tensor_rank t" "3"
-  let t109 = run_test "tensor_slice" "import \"stdlib/tensor.rail\"\nmain =\n  let t = tensor_new (cons 4 (cons 2 [])) 0.0\n  let _ = tensor_set_flat t 0 1.0\n  let _ = tensor_set_flat t 1 2.0\n  let _ = tensor_set_flat t 2 3.0\n  let _ = tensor_set_flat t 3 4.0\n  let _ = tensor_set_flat t 4 5.0\n  let _ = tensor_set_flat t 5 6.0\n  let _ = tensor_set_flat t 6 7.0\n  let _ = tensor_set_flat t 7 8.0\n  let s = tensor_slice t 1 3\n  let sum = tensor_sum s\n  to_int sum" "18"
-  let t110 = run_test "tensor_layer_norm" "import \"stdlib/tensor.rail\"\nmain =\n  let x = tensor_new (cons 1 (cons 4 [])) 0.0\n  let _ = tensor_set_flat x 0 1.0\n  let _ = tensor_set_flat x 1 2.0\n  let _ = tensor_set_flat x 2 3.0\n  let _ = tensor_set_flat x 3 4.0\n  let g = tensor_ones (cons 4 [])\n  let b = tensor_zeros (cons 4 [])\n  let y = tensor_layer_norm x g b 0.00001\n  let s = tensor_sum y\n  let scaled = s *. 1000.0\n  to_int scaled" "0"
   -- Track H: bit-operation primitives (foundation for SHA-256, ChaCha20, AEAD).
   let t111 = run_test "bit_and" "main = bit_and 255 15" "15"
   let t112 = run_test "bit_or"  "main = bit_or 240 15" "255"
@@ -6098,11 +6047,11 @@ run_tests _ =
   let s4 = (if t31 then 1 else 0) + (if t32 then 1 else 0) + (if t33 then 1 else 0) + (if t34 then 1 else 0) + (if t35 then 1 else 0) + (if t36 then 1 else 0) + (if t37 then 1 else 0) + (if t38 then 1 else 0) + (if t39 then 1 else 0) + (if t40 then 1 else 0)
   let s5 = (if t41 then 1 else 0) + (if t42 then 1 else 0) + (if t43 then 1 else 0) + (if t44 then 1 else 0) + (if t45 then 1 else 0) + (if t46 then 1 else 0) + (if t47 then 1 else 0) + (if t48 then 1 else 0) + (if t49 then 1 else 0) + (if t50 then 1 else 0)
   let s6 = (if t51 then 1 else 0) + (if t52 then 1 else 0) + (if t53 then 1 else 0) + (if t54 then 1 else 0) + (if t55 then 1 else 0) + (if t56 then 1 else 0) + (if t57 then 1 else 0) + (if t58 then 1 else 0) + (if t59 then 1 else 0) + (if t60 then 1 else 0)
-  let s7 = (if t61 then 1 else 0) + (if t62 then 1 else 0) + (if t63 then 1 else 0) + (if t64 then 1 else 0) + (if t65 then 1 else 0) + (if t66 then 1 else 0) + (if t67 then 1 else 0) + (if t68 then 1 else 0) + (if t69 then 1 else 0) + (if t70 then 1 else 0)
+  let s7 = (if t61 then 1 else 0) + (if t62 then 1 else 0) + (if t63 then 1 else 0) + (if t64 then 1 else 0) + (if t65 then 1 else 0) + (if t68 then 1 else 0) + (if t69 then 1 else 0) + (if t70 then 1 else 0)
   let s8 = (if t71 then 1 else 0) + (if t72 then 1 else 0) + (if t73 then 1 else 0) + (if t74 then 1 else 0) + (if t75 then 1 else 0) + (if t76 then 1 else 0) + (if t77 then 1 else 0) + (if t78 then 1 else 0) + (if t79 then 1 else 0) + (if t80 then 1 else 0)
   let s9 = (if t81 then 1 else 0) + (if t82 then 1 else 0) + (if t83 then 1 else 0) + (if t84 then 1 else 0) + (if t85 then 1 else 0) + (if t86 then 1 else 0) + (if t87 then 1 else 0) + (if t88 then 1 else 0) + (if t89 then 1 else 0) + (if t90 then 1 else 0)
   let s10 = (if t91 then 1 else 0) + (if t92 then 1 else 0) + (if t93 then 1 else 0) + (if t94 then 1 else 0) + (if t95 then 1 else 0) + (if t96 then 1 else 0) + (if t97 then 1 else 0) + (if t98 then 1 else 0)
-  let s11 = (if t99 then 1 else 0) + (if t100 then 1 else 0) + (if t101 then 1 else 0) + (if t102 then 1 else 0) + (if t103 then 1 else 0) + (if t104 then 1 else 0) + (if t105 then 1 else 0) + (if t106 then 1 else 0) + (if t107 then 1 else 0) + (if t108 then 1 else 0) + (if t109 then 1 else 0) + (if t110 then 1 else 0) + (if t111 then 1 else 0) + (if t112 then 1 else 0) + (if t113 then 1 else 0) + (if t114 then 1 else 0) + (if t115 then 1 else 0) + (if t116 then 1 else 0) + (if t117 then 1 else 0) + (if t118 then 1 else 0) + (if t119 then 1 else 0) + (if t120 then 1 else 0) + (if t121 then 1 else 0) + (if t122 then 1 else 0) + (if t123 then 1 else 0) + (if t124 then 1 else 0) + (if t125 then 1 else 0) + (if t126 then 1 else 0) + (if t127 then 1 else 0) + (if t128 then 1 else 0) + (if t129 then 1 else 0) + (if t130 then 1 else 0) + (if t131 then 1 else 0) + (if t132 then 1 else 0) + (if t133 then 1 else 0) + (if t134 then 1 else 0) + (if t135 then 1 else 0) + (if t136 then 1 else 0) + (if t137 then 1 else 0) + (if t138 then 1 else 0) + (if t139 then 1 else 0) + (if t140 then 1 else 0) + (if t141 then 1 else 0) + (if t142 then 1 else 0) + (if t143 then 1 else 0) + (if t144 then 1 else 0) + (if t145 then 1 else 0) + (if t146 then 1 else 0) + (if t147 then 1 else 0) + (if t148 then 1 else 0) + (if t149 then 1 else 0) + (if t150 then 1 else 0) + (if t151 then 1 else 0) + (if t152 then 1 else 0) + (if t153 then 1 else 0) + (if t154 then 1 else 0) + (if t155 then 1 else 0) + (if t156 then 1 else 0) + (if t157 then 1 else 0) + (if t158 then 1 else 0) + (if t159 then 1 else 0) + (if t160 then 1 else 0) + (if t161 then 1 else 0) + (if t162 then 1 else 0) + (if t163 then 1 else 0) + (if t164 then 1 else 0)
+  let s11 = (if t99 then 1 else 0) + (if t100 then 1 else 0) + (if t101 then 1 else 0) + (if t102 then 1 else 0) + (if t103 then 1 else 0) + (if t104 then 1 else 0) + (if t106 then 1 else 0) + (if t107 then 1 else 0) + (if t111 then 1 else 0) + (if t112 then 1 else 0) + (if t113 then 1 else 0) + (if t114 then 1 else 0) + (if t115 then 1 else 0) + (if t116 then 1 else 0) + (if t117 then 1 else 0) + (if t118 then 1 else 0) + (if t119 then 1 else 0) + (if t120 then 1 else 0) + (if t121 then 1 else 0) + (if t122 then 1 else 0) + (if t123 then 1 else 0) + (if t124 then 1 else 0) + (if t125 then 1 else 0) + (if t126 then 1 else 0) + (if t127 then 1 else 0) + (if t128 then 1 else 0) + (if t129 then 1 else 0) + (if t130 then 1 else 0) + (if t131 then 1 else 0) + (if t132 then 1 else 0) + (if t133 then 1 else 0) + (if t134 then 1 else 0) + (if t135 then 1 else 0) + (if t136 then 1 else 0) + (if t137 then 1 else 0) + (if t138 then 1 else 0) + (if t139 then 1 else 0) + (if t140 then 1 else 0) + (if t141 then 1 else 0) + (if t142 then 1 else 0) + (if t143 then 1 else 0) + (if t144 then 1 else 0) + (if t145 then 1 else 0) + (if t146 then 1 else 0) + (if t147 then 1 else 0) + (if t148 then 1 else 0) + (if t149 then 1 else 0) + (if t150 then 1 else 0) + (if t151 then 1 else 0) + (if t152 then 1 else 0) + (if t153 then 1 else 0) + (if t154 then 1 else 0) + (if t155 then 1 else 0) + (if t156 then 1 else 0) + (if t157 then 1 else 0) + (if t158 then 1 else 0) + (if t159 then 1 else 0) + (if t160 then 1 else 0) + (if t161 then 1 else 0) + (if t162 then 1 else 0) + (if t163 then 1 else 0) + (if t164 then 1 else 0)
   -- Track B: cross-function return-type inference (precise-GC plan).
   let i1 = run_infer_test "pure_int" "square x = x * x\nmain = square 7" "square" 1
   let i2 = run_infer_test "pure_float" "halve x = x +. 0.0\nmain = 0" "halve" 2
@@ -6345,8 +6294,8 @@ run_tests _ =
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
   let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t228 then 1 else 0) + (if t229 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t234 then 1 else 0) + (if t235 then 1 else 0) + (if t236 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/252 tests passed"])
-  if total == 252 then 0 else 1
+  let _ = print (cat [show total, "/246 tests passed"])
+  if total == 246 then 0 else 1
 
 -- ===========================================================================
 -- M6, self-hosted emit path. Replaces as/ld/codesign with the pure-Rail
@@ -8083,9 +8032,6 @@ x86_cg_bi2 fname args env ar lc sl tp fs =
     let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
     (cat [pa, x86_cg_pop_regs (length args) 0, "    call _rail_cat\n"], lc1, sl1)
   else if fname == "map" then
-    let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
-    (cat [pa, x86_cg_pop_regs (length args) 0, "    call _rail_map\n"], lc1, sl1)
-  else if fname == "gpu_map" then
     let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
     (cat [pa, x86_cg_pop_regs (length args) 0, "    call _rail_map\n"], lc1, sl1)
   else if fname == "filter" then

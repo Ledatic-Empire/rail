@@ -17,7 +17,7 @@ rt_dir = "runtime/arm64"
 -- the data section (data.s) is a second module: compile.rail imports it 640 lines after the
 -- code, where its constant was written. runtime_asm in compile.rail sets the emit order.
 rt_units = [
-  ("tools/runtime_arm64.rail", ["core", "list", "closure", "io", "args", "arith", "fiber", "gpu", "str_gc", "gc_1", "gc_2", "gc_3", "gc_4", "thread", "array", "string", "float", "effects", "syscall", "gc_5", "arena"]),
+  ("tools/runtime_arm64.rail", ["core", "list", "closure", "io", "args", "arith", "fiber", "str_gc", "gc_1", "gc_2", "gc_3", "gc_4", "thread", "array", "string", "float", "effects", "syscall", "gc_5", "arena"]),
   ("tools/runtime_arm64_data.rail", ["data"])]
 unit_files units = if units == [] then [] else
   let (_, fs) = head units

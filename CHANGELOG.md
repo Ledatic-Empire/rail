@@ -61,6 +61,21 @@ All notable changes to Rail are documented here.
     beacon chain audit had moved there on 2026-10-18; `dda_closeout_audit.sh` had no caller.
     `leak_check.sh`, the pre-push mirror of the CI leak guard, is `.githooks/leak_check.sh`,
     next to the hook that execs it (the first push of this cut was what found the caller).
+  - **Metal, and the stdlib ML stack that only Metal served.** `tools/metal/` (72 files: the
+    tensor dylib and its ObjC hosts, the attested training demos, the benches and probes),
+    `tools/gpu_host.m`, the `gpu_map` builtin with its compile-time kernel generation
+    (`ast_to_metal`, `gen_metal_kernel`, the auto-dispatch that rewrote a `map` over 50,000
+    elements, the x86 branch), the runtime's `_rail_gpu_map` (`runtime/arm64/gpu.s`), the
+    weak link of `libtensor_gpu.dylib`, and thirteen stdlib modules: `tensor` (82 foreign calls
+    into the dylib), `tensord`, `ijit`, `metal_kernel`, `jit`, `jit_emit`, `jit_match`,
+    `jit_node`, `jit_tape`, and the four that imported `tensor` and nothing else imported:
+    `checkpoint`, `infer_kv`, `optim`, `transformer`. With them the 26 smoke programs under
+    `tools/test/` that imported one of those and `examples/checkpoint_roundtrip.rail`. Six
+    suite tests go: t66 `gpu_map`, t67 `gpu_auto`, t105 `tensor_prims`, t108 to t110
+    (rank, slice, layer_norm); the suite is 246. The seed changes (the runtime lost a
+    routine) and was re-landed at its fixed point by a three-cycle bootstrap. The plan named
+    the GPU modules; the four ML modules follow because they cannot compile without
+    `tensor` and the inference product is a private repo's work, not this tier's.
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188
