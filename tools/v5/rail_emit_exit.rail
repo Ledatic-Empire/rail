@@ -10,7 +10,7 @@
 -- Same emitter as exit-42; this proves the pipeline is parameterised, not
 -- a one-shot hand-tuning.
 
-import "jit/arm64.rail"
+import "tools/v5/arm64.rail"
 import "stdlib/macho.rail"
 import "stdlib/codesign.rail"
 

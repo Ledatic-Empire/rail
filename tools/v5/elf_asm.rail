@@ -16,7 +16,7 @@
 -- Does NOT use tools/v5/asm.rail — the Linux feature set is large enough
 -- that a fresh module is cleaner than wrapping asm.rail.
 
-import "jit/arm64.rail"
+import "tools/v5/arm64.rail"
 import "stdlib/macho.rail"
 
 -- ============================================================================

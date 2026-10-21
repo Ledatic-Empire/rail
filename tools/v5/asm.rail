@@ -27,7 +27,7 @@
 -- Directives (.text / .global / .align / .p2align / .section) are
 -- ignored — our Mach-O writer owns layout.
 
-import "jit/arm64.rail"
+import "tools/v5/arm64.rail"
 import "stdlib/macho.rail"
 
 -- ============================================================================

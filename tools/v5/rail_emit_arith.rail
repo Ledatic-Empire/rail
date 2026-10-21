@@ -9,7 +9,7 @@
 --   ./rail_native run tools/v5/rail_emit_arith.rail
 --   /tmp/v5_arith ; echo $?    ->  42
 
-import "jit/arm64.rail"
+import "tools/v5/arm64.rail"
 import "stdlib/macho.rail"
 import "stdlib/codesign.rail"
 
