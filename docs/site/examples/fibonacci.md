@@ -35,8 +35,8 @@ main =
 
 ```
 Compiling examples/fibonacci.rail (433 chars)...
-  as: OK
-  ld: OK
+wrote /tmp/rail_out (50104 bytes); imports=10 rebases=13 main@0x1000005d4
+  link: OK
 Fibonacci sequence (0-15):
 0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610
 

@@ -109,6 +109,7 @@ lk_walk_r_step r records sec dataoff bssoff modoff syms =
     let cs = asm_skip_ws (chars line)
     if cs == [] then lk_walk_r (tail records) sec dataoff bssoff modoff syms
     else if (asm_cprefix cs ".zerofill") == 1 then lk_walk_zf_r line records sec dataoff bssoff modoff syms
+    else if (asm_cprefix cs ".comm") == 1 then lk_walk_comm_r line records sec dataoff bssoff modoff syms
     else if (asm_chars_end_colon cs) == 1 then
       (if sec == 1 then lk_walk_r (tail records) sec dataoff bssoff modoff (cons (asm_label_name (asm_ltrim line), 1, dataoff) syms)
        else lk_walk_r (tail records) sec dataoff bssoff modoff syms)
@@ -121,6 +122,18 @@ lk_walk_zf_r line records sec dataoff bssoff modoff syms =
   let name = head (tail (tail parts))
   let size = asm_imm (head (tail (tail (tail parts))))
   let algn = asm_imm (head (tail (tail (tail (tail parts)))))
+  let base = asm_align_up bssoff algn
+  lk_walk_r (tail records) sec dataoff (base + size) modoff (cons (name, 2, base) syms)
+-- `.comm _sym,size,align`: a bss symbol like `.zerofill __DATA,__bss,_sym,size,align`
+-- without the segment and section fields. The compiler emits one per
+-- auto-memoized function (`_memo_<fn>`, 8192 bytes, 2^3); the compiler's own
+-- source has none, so the first in-process link of a user program met it
+-- (Tier 3 step 6, t2 fact).
+lk_walk_comm_r line records sec dataoff bssoff modoff syms =
+  let parts = asm_split_commas (asm_after_lsl (asm_ltrim line))
+  let name = head parts
+  let size = asm_imm (head (tail parts))
+  let algn = asm_imm (head (tail (tail parts)))
   let base = asm_align_up bssoff algn
   lk_walk_r (tail records) sec dataoff (base + size) modoff (cons (name, 2, base) syms)
 
@@ -184,6 +197,14 @@ lk_needs_sqlite imports =
   if imports == [] then 0
   else if lk_sym_is_sqlite (head imports) then 1
   else lk_needs_sqlite (tail imports)
+-- The names behind the compiler's `_RAIL_UNDEFINED_IDENT_<name>` markers, in order.
+lk_undefined_idents imports acc =
+  if imports == [] then reverse acc
+  else
+    let sym = head imports
+    if (asm_starts sym "_RAIL_UNDEFINED_IDENT_") == 1
+    then lk_undefined_idents (tail imports) (cons (str_sub sym 22 ((length sym) - 22)) acc)
+    else lk_undefined_idents (tail imports) acc
 -- LC end (= text_foff) given nx extra dylib load commands (each 56 bytes).
 lk_lc_end_n nx = lk_lc_end + (56 * nx)
 
@@ -277,7 +298,12 @@ lk_maybe_bake buf off line datasyms textlabels lay =
   else
     let sym = lk_page_sym line
     let symaddr = lk_resolve sym datasyms textlabels lay
-    if symaddr < 0 then 1                       -- unresolved @PAGE symbol
+    if symaddr < 0 then
+      -- Counted by lk_bake_pass_r, refused by lk_link_file. Until Tier 3
+      -- step 6 the count was computed and dropped, and the adrp/add pair was
+      -- left pointing at page 0 (t2 fact: `.comm _memo_fact` was the symbol).
+      let _ = print (cat ["  link: unresolved symbol ", sym, " at text offset ", show off, ": ", asm_ltrim line])
+      1
     else
       let word = cb_read buf off
       let mn = head (asm_split_mn_ops (asm_ltrim line))
@@ -782,15 +808,20 @@ lk_emit_all_lc buf lay le imports n_imp text_size modinit_size data_size bss_siz
   let p9 = emit_load_dylinker buf p8
   let p10 = emit_uuid buf p9
   let p11 = emit_build_version buf p10 1703936 1703936
-  let p12 = emit_main buf p11 entryoff 0
+  -- LC_MAIN stacksize 0x10000000: the 256 MB main-thread stack every Rail
+  -- binary had from `ld -stack_size 0x10000000` while as/ld linked them.
+  -- Since Tier 3 step 6 this is the only link path, so the linker carries it
+  -- (a stacksize of 0 leaves the 8 MB default, which deep recursion blows).
+  let p12 = emit_main buf p11 entryoff 268435456
   let p13 = emit_load_dylib_ls buf p12
   let p14 = if nx > 0 then emit_load_dylib_sqlite buf p13 else p13
   emit_code_signature_lc buf p14 (lk_nth le 10) (lk_nth le 11)
 
--- Link a compiler .s (already on disk at src_path) into a complete signed,
--- runnable Mach-O at out_path with NO as/ld/codesign. Returns the file size.
--- (Was `main` hard-wired to /tmp/link_src.s -> /tmp/v5_rail; parameterized so
--- compile.rail can call it IN-PROCESS and the standalone runner passes /tmp.)
+-- Link a .s (already on disk at src_path) into a complete signed, runnable
+-- Mach-O at out_path with NO as/ld/codesign. Returns the file size, or -1
+-- (and writes nothing) when an instruction had no encoding. Since Tier 3
+-- step 6 this is the link path of every macOS compile (`build` and
+-- `self_compile` in tools/compile.rail), not only the compiler's own.
 lk_link_file src_path out_path =
   let src = read_file src_path
   -- Parse the source ONCE and build the label map ONCE, then thread `lines`,
@@ -812,12 +843,29 @@ lk_link_file src_path out_path =
   -- a rebase collided on one slot, corrupting it (garbage argv at runtime).
   let relocs = asm_relocs_r records textlabels
   let imports = lk_dedup_syms relocs []
+  -- An identifier the compiler could not resolve is emitted as a call to
+  -- `_RAIL_UNDEFINED_IDENT_<name>` (after a `; ERROR undefined: <name>` comment).
+  -- ld refused it as an undefined symbol; here it would bind to libSystem and
+  -- fail in dyld at launch, so it is refused by name before the layout.
+  let undef = lk_undefined_idents imports []
+  if undef != [] then
+    let _ = print (cat ["  link: refused, undefined identifier(s): ", join ", " undef])
+    0 - 1
+  else
   let n_imp = length imports
   let nx = lk_needs_sqlite imports
   let lay = lk_layout text_size n_imp dataoff bssoff modoff nx
   -- text: assemble, bake @PAGE, patch import bl -> stubs
-  let textbuf = asm_assemble_r records textlabels (text_size + 16)
-  let _ = lk_bake_pass_r records textbuf 0 1 syms textlabels lay 0
+  let (textbuf, asm_bad) = asm_assemble_r records textlabels (text_size + 16)
+  if asm_bad != 0 then
+    let _ = print (cat ["  link: refused, ", src_path, " has an instruction the assembler does not encode (named above)"])
+    0 - 1
+  else
+  let nbad = lk_bake_pass_r records textbuf 0 1 syms textlabels lay 0
+  if nbad > 0 then
+    let _ = print (cat ["  link: refused, ", show nbad, " @PAGE reference(s) in ", src_path, " did not resolve (named above)"])
+    0 - 1
+  else
   let _ = lk_patch_imports textbuf relocs imports (lk_nth lay 0) (lk_nth lay 2)
   -- data image + rebases
   let databuf = arr_new (dataoff + 16) 0

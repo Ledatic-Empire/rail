@@ -31,8 +31,8 @@ rail_native: Mach-O 64-bit executable arm64
 
 ```
 Compiling examples/hello.rail (244 chars)...
-  as: OK
-  ld: OK
+wrote /tmp/rail_out (50104 bytes); imports=10 rebases=11 main@0x1000005ac
+  link: OK
 hello, rail
 3628800
 42
@@ -102,8 +102,8 @@ This is the fixed-point property: the compiler's output is its own input. The bo
 
 ```
 Compiling examples/quicksort.rail (1089 chars)...
-  as: OK
-  ld: OK
+wrote /tmp/rail_out (66536 bytes); imports=10 rebases=15 main@0x1000007bc
+  link: OK
 Input:
 3 6 1 8 2 9 4 7 5
 Sorted:

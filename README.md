@@ -29,7 +29,7 @@
 
 ---
 
-Rail compiles itself. The compiler, 7,605 lines of Rail, produces a 992 KB ARM64 binary that compiles the compiler again and reaches a byte-identical fixed point in 2 cycles. There is no C in the runtime, no libc in the binary. The garbage collector is ARM64 assembly. The TLS 1.3 client is also Rail: `import "stdlib/anthropic_client.rail"` and your program talks HTTPS to `api.anthropic.com` with zero OpenSSL, zero curl, zero socat. As of **v5.2.0**, the toolchain stands entirely alone: Rail assembles, links, and code-signs its own Mach-O binaries in-process — no `as`, no `ld`, no `codesign` — so the self-compile is bit-reproducible (the committed seed reproduces itself byte-for-byte). It also emits its own aarch64 Linux ELF binaries and its own GPU kernels, generating Metal Shading Language from an op-DAG and JIT-compiling it at runtime (35× fused rmsnorm+QKV, 18× fused silu+hadamard). A frontier model + 1 KB Rail spec still compiles 30/30 on a held-out hard-bench — publicly reproducible.
+Rail compiles itself. The compiler, 7,546 lines of Rail, produces a 992 KB ARM64 binary that compiles the compiler again and reaches a byte-identical fixed point in 2 cycles. There is no C in the runtime, no libc in the binary. The garbage collector is ARM64 assembly. The TLS 1.3 client is also Rail: `import "stdlib/anthropic_client.rail"` and your program talks HTTPS to `api.anthropic.com` with zero OpenSSL, zero curl, zero socat. As of **v5.2.0**, the toolchain stands entirely alone: Rail assembles, links, and code-signs its own Mach-O binaries in-process — no `as`, no `ld`, no `codesign` — so the self-compile is bit-reproducible (the committed seed reproduces itself byte-for-byte). It also emits its own aarch64 Linux ELF binaries and its own GPU kernels, generating Metal Shading Language from an op-DAG and JIT-compiling it at runtime (35× fused rmsnorm+QKV, 18× fused silu+hadamard). A frontier model + 1 KB Rail spec still compiles 30/30 on a held-out hard-bench — publicly reproducible.
 
 ```
 RAIL_ARENA_MB=6000 ./rail_native self && cp /tmp/rail_self ./rail_native  # cycle 1
@@ -88,7 +88,7 @@ cmp rail_native /tmp/rail_self        -- and the output is identical
                                       --   (byte-identical fixed point)
 ```
 
-The GC, allocator, and runtime support are ARM64 assembly embedded in the compiler itself. No `gcc`, no `libc`, no linker scripts — and since v5.2.0 no `as` or `ld` either: Rail assembles, links, and code-signs itself.
+The GC, allocator, and runtime support are ARM64 assembly embedded in the compiler itself. No `gcc`, no `libc`, no linker scripts — and since v5.2.0 no `as` or `ld` either: Rail assembles, links, and code-signs itself, and since 2026-10-21 every program it compiles (one link path, in process).
 
 ### 2. Speaks HTTPS, natively ✨ *since v3.0.0*
 
@@ -143,7 +143,7 @@ publish both — a benchmark quoted without its failure mode is marketing.
 
 ## Why Rail
 
-- **No C in the core.** The seed binary links only `libSystem` (macOS's kernel interface; `otool -L rail_native` shows nothing else). Since v5.2.0 it assembles, links, and signs itself (no `as`/`ld`/`codesign`). No glibc, no OpenSSL, no runtime C; the GC is ~300 lines of ARM64 assembly inside the compiler. Optional concurrency, GPU (Metal), and JIT features use a small asm/ObjC/C boundary, tracked honestly in [`SHIMS.md`](SHIMS.md).
+- **No C in the core.** The seed binary links only `libSystem` (macOS's kernel interface; `otool -L rail_native` shows nothing else). Since v5.2.0 it assembles, links, and signs itself, and since 2026-10-21 every program it compiles (no `as`, `ld` or `codesign` anywhere on macOS). No glibc, no OpenSSL, no runtime C; the GC is ~300 lines of ARM64 assembly inside the compiler. The assembly and C that remain at the edges are tracked honestly in [`SHIMS.md`](SHIMS.md).
 - **Byte-identical self-compile.** `./rail_native self` produces output identical to the binary that produced it. The compiler's own source is the regression suite.
 - **One binary checks everything.** Training loops, tests, site generation, HTTPS clients — all compiled by the same binary you cloned. That makes the compiler a single, reproducible *checker* you can re-run yourself — not a proof of correctness: a program can compile and still be wrong. Compilation proves a program is *accepted by the binary you run*, nothing more.
 - **Production surface is narrow and honest.** Rail ships the crypto it uses (ChaCha20-Poly1305, x25519, SHA-256/384/512, ECDSA-P256/P384/P521, RSA-PSS/PKCS1) and nothing more. Every primitive is NIST- or RFC-vector-validated.

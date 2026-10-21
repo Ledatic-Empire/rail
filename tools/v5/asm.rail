@@ -195,6 +195,7 @@ asm_starts_cs sc pc =
 asm_classify2 line =
   let cs = asm_skip_ws (chars line)
   if cs == [] then "skip"
+  else if (head cs) == ";" then "skip"   -- a comment-only line (the compiler's `; ERROR ...` marker)
   else if (head cs) == "." then asm_classify_dot cs line
   else if (asm_chars_end_colon cs) == 1 then "label"
   else "insn"
@@ -242,9 +243,13 @@ asm_decode_str cs acc =
        else asm_decode_str (tail (tail cs)) (cons (asm_escape_byte (head (tail cs))) acc))
     else asm_decode_str (tail cs) (cons (char_to_int c) acc)
 
+-- The escapes the compiler's esc_asm_char writes: \n \t \r \" \\. Until Tier 3
+-- step 6 \r decoded as the letter r (t211 cr_escape found it the first time a
+-- user program was linked in process).
 asm_escape_byte e =
   if e == "n" then 10
   else if e == "t" then 9
+  else if e == "r" then 13
   else if e == (char_from_int 34) then 34
   else if e == (char_from_int 92) then 92
   else char_to_int e
@@ -342,6 +347,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "add"  then asm_enc_add ops
   else if mnemonic == "sub"  then asm_enc_ri ops enc_sub enc_sub_imm
   else if mnemonic == "mul"  then asm_enc_3reg ops enc_mul
+  else if mnemonic == "smulh" then asm_enc_3reg ops enc_smulh   -- mul_shr's high 64 bits (t185)
   else if mnemonic == "cmp"  then asm_enc_cmp ops
   else if mnemonic == "ret"  then enc_ret
   else if mnemonic == "nop"  then inst_nop
@@ -369,6 +375,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "eor"  then asm_enc_logical ops 3523215360 enc_eor
   else if mnemonic == "lsl"  then asm_enc_ri ops enc_lsl enc_lsl_imm
   else if mnemonic == "lsr"  then asm_enc_ri ops enc_lsr enc_lsr_imm
+  else if mnemonic == "ror"  then asm_enc_3reg ops enc_ror   -- register form only: rotl/rotr emit no immediate ror
   else if mnemonic == "asr"  then asm_enc_ri ops enc_asr enc_asr_imm
   else if mnemonic == "sdiv" then asm_enc_3reg ops enc_sdiv
   else if mnemonic == "udiv" then asm_enc_3reg ops enc_udiv
@@ -399,6 +406,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "clz"  then enc_clz (asm_reg_num (head ops)) (asm_reg_num (head (tail ops)))
   else if mnemonic == "csel" then asm_enc_csel ops
   else if mnemonic == "fcvt" then asm_enc_fcvt ops
+  else if mnemonic == "fneg" then enc_fneg_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
 
 -- add xD, xN, (xM | #imm | sym@PAGEOFF). 3-reg, immediate, or a @PAGEOFF
@@ -1050,25 +1058,34 @@ asm_textlen_r records off in_text =
     else asm_textlen_r (tail records) (off + (asm_seg_size off kind (asm_rec_raw r))) 1
 
 -- pass2 over records: emit bytes. Insn uses cached mn/ops (no re-split).
-asm_pass2_r records buf off in_text labels =
+-- `bad` is a one-slot array: set to 1 when an instruction has no encoding
+-- (asm_encode_insn returns -1). Until Tier 3 step 6 that -1 was written as
+-- 0xffffffff, a permanently undefined instruction, and the program died with
+-- SIGILL at run time with nothing said at link time; now the line is named
+-- here and lk_link_file refuses to write the file.
+asm_pass2_r records buf off in_text labels bad =
   if records == [] then off
   else
     let r = head records
     let kind = asm_rec_kind r
-    if kind == "sec_text" then asm_pass2_r (tail records) buf off 1 labels
-    else if kind == "sec_other" then asm_pass2_r (tail records) buf off 0 labels
-    else if in_text == 0 then asm_pass2_r (tail records) buf off 0 labels
-    else if kind == "skip" || kind == "label" then asm_pass2_r (tail records) buf off 1 labels
+    if kind == "sec_text" then asm_pass2_r (tail records) buf off 1 labels bad
+    else if kind == "sec_other" then asm_pass2_r (tail records) buf off 0 labels bad
+    else if in_text == 0 then asm_pass2_r (tail records) buf off 0 labels bad
+    else if kind == "skip" || kind == "label" then asm_pass2_r (tail records) buf off 1 labels bad
     else if kind == "asciz" then
-      asm_pass2_r (tail records) buf (asm_emit_str buf off (asm_decode_str (asm_str_arg (asm_rec_raw r)) []) 1) 1 labels
+      asm_pass2_r (tail records) buf (asm_emit_str buf off (asm_decode_str (asm_str_arg (asm_rec_raw r)) []) 1) 1 labels bad
     else if kind == "ascii" then
-      asm_pass2_r (tail records) buf (asm_emit_str buf off (asm_decode_str (asm_str_arg (asm_rec_raw r)) []) 0) 1 labels
+      asm_pass2_r (tail records) buf (asm_emit_str buf off (asm_decode_str (asm_str_arg (asm_rec_raw r)) []) 0) 1 labels bad
     else if kind == "align" then
-      asm_pass2_r (tail records) buf (asm_pad buf off (asm_align_up off (asm_p2align_n (asm_ltrim (asm_rec_raw r))))) 1 labels
+      asm_pass2_r (tail records) buf (asm_pad buf off (asm_align_up off (asm_p2align_n (asm_ltrim (asm_rec_raw r))))) 1 labels bad
     else
       let word = asm_encode_insn (asm_rec_mn r) (asm_rec_ops r) off labels
+      let _ = if word < 0 then
+        let _ = print (cat ["  asm: no encoding for `", asm_ltrim (asm_rec_raw r), "` at text offset ", show off])
+        arr_set bad 0 1
+      else 0
       let _ = cb_emit buf off word
-      asm_pass2_r (tail records) buf (off + 4) 1 labels
+      asm_pass2_r (tail records) buf (off + 4) 1 labels bad
 
 -- external-bl reloc collection over records.
 asm_collect_relocs_r records off in_text labels acc =
@@ -1093,9 +1110,11 @@ asm_collect_relocs_r records off in_text labels acc =
     else asm_collect_relocs_r (tail records) (off + (asm_seg_size off kind (asm_rec_raw r))) 1 labels acc
 
 -- record-taking public entries (parallel to the _l lines-taking ones).
+-- Returns (text bytes, bad): bad is 1 when some instruction had no encoding.
 asm_assemble_r records labels capacity =
   let buf = arr_new capacity 0
-  let _ = asm_pass2_r records buf 0 1 labels
-  buf
+  let bad = arr_new 1 0
+  let _ = asm_pass2_r records buf 0 1 labels bad
+  (buf, arr_get bad 0)
 asm_relocs_r records labels = asm_collect_relocs_r records 0 1 labels []
 asm_bytes_len_r records = asm_textlen_r records 0 1

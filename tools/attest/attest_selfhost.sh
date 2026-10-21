@@ -40,20 +40,15 @@ src_sha=$(shasum -a 256 "$src"   | awk '{print $1}')
 pulse_start=$(get_pulse)
 echo "selfhost: commit=$short seed=${seed_sha:0:16} pulse_start=$pulse_start"
 
-# Attest the reproducible path, not the fallback. verify_reproducible.sh says
-# it outright: RAIL_ARENA_MB below 5000 "selects the as/ld fallback (not
-# bit-reproducible)". This script had no arena set, so it ran at the 1GB
-# default and was certifying a fixed point in the mode the project's own
-# verifier documents as not bit-reproducible. It read green because the seed
-# it happened to be handed also converged there; the committed seed is built
-# at 6000, and at 6000 it reproduces itself exactly.
-#
-# Same value and same default as verify_reproducible.sh and the nightly repro
-# witness, so all three checkers now attest the same thing.
+# Since Tier 3 step 6 (2026-10-21) there is one link path and the seed is the
+# same at any arena from 2000 up (measured 2000 to 8000). Below 2000 the
+# compiler refuses: its own source thrashes there (this script once ran at the
+# 1 GB default and sat in that for hours). 6000 is the default the other
+# checkers (verify_reproducible.sh, the nightly witness) use.
 ARENA="${RAIL_ARENA_MB:-6000}"
-if [ "$ARENA" -lt 5000 ]; then
-  echo "selfhost: RAIL_ARENA_MB=$ARENA < 5000 is the as/ld fallback, which is not" >&2
-  echo "selfhost: bit-reproducible. Refusing to attest a fixed point from it." >&2
+if [ "$ARENA" -lt 2000 ]; then
+  echo "selfhost: RAIL_ARENA_MB=$ARENA < 2000: the compiler refuses to self-compile there." >&2
+  echo "selfhost: Re-run with RAIL_ARENA_MB>=2000 (6000 is the default)." >&2
   exit 2
 fi
 

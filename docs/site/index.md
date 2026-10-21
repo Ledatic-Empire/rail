@@ -14,8 +14,8 @@ Expected output:
 
 ```
 Compiling examples/hello.rail (244 chars)...
-  as: OK
-  ld: OK
+wrote /tmp/rail_out (50104 bytes); imports=10 rebases=11 main@0x1000005ac
+  link: OK
 hello, rail
 3628800
 42

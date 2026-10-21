@@ -28,6 +28,39 @@ All notable changes to Rail are documented here.
   value two ulps away and the Linux libc shim printed the digest as `0`.
 
 ### Changed
+- **One link path** (Tier 3, step 6). Every macOS compile now assembles, links and ad-hoc signs
+  in process through `tools/v5/link_lib.rail` (`lk_link_file`): `build`, which every
+  `./rail_native <file>`, `run` and suite test goes through, and `self_compile` alike. The
+  `as`/`ld`/`codesign` branch of `build`, the `self` fallback below 5000 MB and the
+  `/tmp/.rail_force_as_ld` switch are gone, with `get_runtime_dir`, `ensure_fresh_dylib`, the
+  `llm.o` trampoline and the weak links of `libquartz_bridge` and `libconcurrent`. Imports bind
+  to libSystem and, for `_sqlite3_*`, libsqlite3; `LC_MAIN` now carries the 256 MB main-thread
+  stack `-stack_size` used to give every binary (2,000,000 non-tail frames run; the 8 MB default
+  died at 10,000). The banner is `link: OK` (`stdlib/oracle.rail`, the LSP server and the fuzz
+  ladder's judge read the new line). The seed does not depend on the arena: at every
+  `RAIL_ARENA_MB` from 2000 to 8000 the self-compile reproduces the committed `rail_native`
+  byte for byte; the arena sets the first collection and so the peak (5.4 GB resident at 3000,
+  6.4 GB at 6000, 7.1 GB at 5000 and 7000, measured 2026-10-21), so CI self-compiles at 3000 on
+  the 7 GB runner and `cmp`s the result against the committed seed, then bootstraps once more
+  for the fixed point. `verify_reproducible.sh` and `tools/attest/attest_selfhost.sh` refuse
+  below 2000 (where the compiler itself refuses) instead of below 5000. The suite runs in about 70 s
+  (from about 110 with the shell-outs). The Linux and x86 cross backends keep their binutils;
+  they are other targets, not this path.
+  Found by the first in-process link of user programs, all fixed here, each with a loud path
+  where there was a silent one:
+  - the assembler decoded `\r` in `.asciz` as the letter r (t211); the committed seed's own
+    `"\r"` literal in `strip_trailing_ws_loop` had been `"r"` since v5.2.0;
+  - `ror` (register), `smulh` and `fneg` had no encoding and were written as `0xffffffff`;
+    now the line is named and the link refused (`tools/v5/arm64.rail`, `asm.rail`);
+  - `.comm _memo_<fn>,8192,3`, the auto-memo table of every memoized function, was not a
+    symbol the linker knew, so its `adrp`/`add` pair pointed at page 0 (t2 `fact` returned 175);
+    `lk_bake_pass_r` had counted the unresolved reference and `lk_link_file` dropped the count;
+  - an undefined identifier (`_RAIL_UNDEFINED_IDENT_<name>`, which ld refused) would have bound
+    to libSystem and failed in dyld at launch; the linker refuses it by name, and the assembler
+    skips the `; ERROR` comment line that precedes it;
+  - `./rail_native tools/compile.rail` had failed at ld for months: `build`'s
+    `grep -c 'b _llm'` matched its own string literal in the compiler's data section and asked
+    for a `runtime/llm.o` that left the tree. It now produces the seed byte for byte.
 - **The ARM64 runtime is source files, not strings** (Tier 3, step 1). The 21 `rt_*` constants
   that held it, 506 lines and 110 KB of `tools/compile.rail` (18% of the file), are now
   `runtime/arm64/*.s`: 4,706 lines of assembly, their comments kept. `tools/gen_runtime.rail`

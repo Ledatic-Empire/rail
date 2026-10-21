@@ -20,7 +20,7 @@ import "stdlib/parallel.rail"
 -- Runs the rail_native compiler on `code`, returns the combined
 -- stdout+stderr. The compiler prints one "file:line:col: error: msg"
 -- per parse/type/link error plus a trailing "N error(s) found" line
--- on failure, or "as: OK" + "ld: OK" on success.
+-- on failure, or "link: OK" on success (since Tier 3 step 6; "as: OK" + "ld: OK" before).
 --
 -- oracle_compile_at takes an explicit input path, which callers MUST
 -- use when invoking the oracle concurrently — the shared default path
@@ -52,7 +52,7 @@ oracle_errors code =
 -- signal.  Useful as a per-sample boolean for pass-rate metrics.
 oracle_ok code =
   let out = oracle_compile code
-  str_contains "ld: OK" out
+  str_contains "link: OK" out
 
 -- Full pass: compile AND run, capture the program's exit behavior.
 -- Returns the captured stdout of the generated program (or the compile
@@ -128,7 +128,7 @@ oracle_stats_impl code =
   let out = oracle_compile code
   let lines = str_split "\n" out
   let errs = count_error_lines lines 0
-  let ok_flag = if str_contains "ld: OK" out then 1 else 0
+  let ok_flag = if str_contains "link: OK" out then 1 else 0
   cons errs (cons ok_flag [])
 
 -- Min non-whitespace for the 10× compile-pass bonus to apply. Below this
@@ -255,7 +255,7 @@ ob_score_one code out =
   let uq = count_unique_chars code
   let lines = str_split "\n" out
   let errs = count_error_lines lines 0
-  let ok_flag = if str_contains "ld: OK" out then 1 else 0
+  let ok_flag = if str_contains "link: OK" out then 1 else 0
   if nw < 16 then cons errs (cons ok_flag (cons 0 []))
   else if uq < oracle_min_unique_chars then cons errs (cons ok_flag (cons 0 []))
   else

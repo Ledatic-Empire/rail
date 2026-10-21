@@ -35,7 +35,7 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (7,605 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
+- **Compiler source**: `tools/compile.rail` (7,546 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
 - **Seed binary**: `rail_native` (992K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
@@ -54,14 +54,14 @@ Self-hosting programming language. Compiler written in Rail, compiles itself to 
 
 ```bash
 ./rail_native test                    # run the suite (242/242)
-RAIL_ARENA_MB=6000 ./rail_native self # self-compile. The compiler now INLINES the pure-Rail
-                                      #   Mach-O linker (tools/v5/link_lib.rail), so self_compile
-                                      #   DEFAULTS to in-process rail-link (NO as/ld/codesign) when
-                                      #   RAIL_ARENA_MB>=5000, else falls back to as/ld. The inlined
-                                      #   source is bigger -> needs an arena (bare 1GB will thrash).
-                                      #   The committed rail_native seed IS this rail-linked binary;
-                                      #   it self-reproduces byte-identically (R1==R2 fixed point).
-                                      #   /tmp/.rail_force_as_ld forces the as/ld path.
+RAIL_ARENA_MB=6000 ./rail_native self # self-compile: the compiler compiles tools/compile.rail and
+                                      #   links it in process (tools/v5/link_lib.rail: assembler,
+                                      #   Mach-O linker, ad-hoc signer). One link path since Tier 3
+                                      #   step 6 (2026-10-21): every compile goes this way; no as,
+                                      #   ld or codesign runs on macOS. The seed is byte-identical
+                                      #   at any arena from 2000 up (CI uses 3000, 5.4 GB peak);
+                                      #   below 2000 the compiler refuses (its source thrashes).
+                                      #   Output /tmp/rail_self; cmp it with rail_native.
 ./rail_native run file.rail           # compile + execute
 ./rail_native file.rail               # compile only → /tmp/rail_out
 ./rail_native x86 file.rail           # compile to x86_64 Linux → /tmp/rail_x86.s
