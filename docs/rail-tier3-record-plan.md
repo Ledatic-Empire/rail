@@ -4,7 +4,11 @@ Status: a plan, not a mandate. Step 1 landed 2026-10-20 (#142) with the seed unc
 data section followed it out of the strings (#144). Step 2 landed 2026-10-21 in rail-plasma (its PR #1):
 `replay.sh` replays any pulse by id to MATCH or MISMATCH, every pulse since 9166580 names its
 program (`frame.rail_commit`, `frame.plasma_commit`, `frame.os_build`), and the gate replays a pinned
-record; the rest is not implemented. The owner's frame, 2026-10-21: humans
+record. Step 3 landed 2026-10-21: the KAT judges its double by the 64 bits (`stdlib/float_hex.rail`,
+exact arithmetic, no printer on the judging path); Linux ARM64 is declared non-replay until steps 4
+and 8: `linux_libc.s` gained `_exit` and `_sqrt`, the kernel still needs `sin`, and a Pi showed the
+hex identical for every computed value but a few ulps off for long literals, since every literal is
+parsed at run time by the platform's `atof`. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number

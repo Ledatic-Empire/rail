@@ -2345,6 +2345,49 @@ import "stdlib/<name>.rail"
 > reduces to float_arr_sum (the proven slice-5b readout), so it strictly generalizes.
 
 
+## `stdlib/float_hex.rail`
+
+### `fh_digit d`
+
+
+### `fh_hex_loop n w acc`
+
+> n as exactly w hex digits, most significant first (n >= 0, w <= 15).
+
+### `fh_hex n w`
+
+
+### `fh_exp_down m e`
+
+> The binary exponent of m > 0 and m scaled into [1, 2), by exact halvings and doublings.
+> Halving is exact while the result stays normal (it does: m >= 2 halves to m >= 1);
+> doubling is exact for every finite double short of overflow, subnormals included.
+
+### `fh_exp_up m e`
+
+
+### `fh_scale_down m`
+
+
+### `fh_scale_up m`
+
+
+### `fh_double m k`
+
+> m * 2^k by k exact doublings (k >= 0).
+
+### `fh_fields_pos x sign`
+
+> (sign and biased exponent as one 12-bit int, the 52-bit fraction) for x > 0, NaN or +inf.
+
+### `fh_fields x`
+
+> Zero keeps its sign: 1/(-0.0) is -inf, and -inf < 0 is a comparison, not a reinterpret.
+
+### `show_float_hex x`
+
+
+
 ## `stdlib/hash.rail`
 
 ### `hash_buckets`
