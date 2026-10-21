@@ -1,0 +1,227 @@
+-- tools/decimal64.rail: a float literal's text to the 64 bits of its nearest binary64, at
+-- compile time, by integer arithmetic only (Tier 3, step 8, 2026-10-21).
+--
+-- Until this file the compiler emitted every float literal as its text and called the
+-- platform's atof when the program ran. macOS's atof is correctly rounded; the Linux libc Rail
+-- ships for ARM64 accumulates and scales, and 12 of the beacon kernel's 29 literals came out
+-- one or two ulps off on a Pi (rail-plasma docs/REPLAY.md, 2026-10-21). The bits now come from
+-- here, once, when the program is compiled, so every platform holds the same double.
+--
+--   d64_fields "1.0"               = (1023, 0)                 sign+biased exponent, fraction
+--   d64_fields "0.1"               = (1019, 2702159776422298)  0x3fb999999999999a
+--   d64_fields "5.0e-324"          = (0, 1)                    the smallest subnormal
+--   d64_fields "1e999"             = (2047, 0)                 +inf, as atof gives
+--   d64_hex 1019 2702159776422298  = "3fb999999999999a"
+--
+-- The lexer admits W.F, W.FeSX and WeSX (digits W, F, X; S empty, + or -); no sign, so the
+-- sign bit is always 0 and the 12-bit top field is the biased exponent alone. Rounding is
+-- IEEE-754 round to nearest, ties to even, which is what CPython's float() and David Gay's
+-- strtod do, so the suite checks these bits against CPython's.
+--
+-- Method, with no shortcut: the literal is D * 10^E for an integer D (its digits) and an
+-- integer E. For E >= 0 let N = D * 10^E and T = 1; otherwise N = D and T = 10^-E. A binary
+-- shift k is chosen so that q = floor(N * 2^k / T) has 55 or 56 bits. q, and whether the
+-- division left a remainder (the sticky bit), decide the 53-bit significand by the usual
+-- rounding; the exponent is the position of q's top bit minus k. A literal whose decimal
+-- order of magnitude is past the format on either side is answered before any big integer is
+-- built, so the arrays stay a few hundred limbs at most. Big integers are int arrays of
+-- 28-bit limbs, little-endian, every function given the limb count; nothing here is reused
+-- from the stdlib because the compiler imports only tools/.
+
+d64_base = 268435456
+d64_mask = 268435455
+
+d64_is_digit c =
+  let n = char_to_int c
+  n >= 48 && n <= 57
+
+-- Digits from the front of cs, as a list of ints in reading order, and the rest.
+d64_digits cs acc =
+  if length cs > 0 then
+    if d64_is_digit (head cs) then d64_digits (tail cs) (cons (char_to_int (head cs) - 48) acc)
+    else (reverse acc, cs)
+  else (reverse acc, cs)
+
+-- The exponent digits as an int, saturating far past the format so a literal such as
+-- 1e99999999999999999999 is answered (inf) without overflowing the 63-bit int.
+d64_exp_value ds acc =
+  if length ds == 0 then acc
+  else if acc > 1000000 then acc
+  else d64_exp_value (tail ds) (acc * 10 + head ds)
+
+-- (whole digits, fraction digits, signed decimal exponent) of a literal.
+d64_parse cs =
+  let (wh, r1) = d64_digits cs []
+  let (fr, r2) = if length r1 > 0 then (if head r1 == "." then d64_digits (tail r1) [] else ([], r1)) else ([], r1)
+  if length r2 > 0 then
+    if head r2 == "e" || head r2 == "E" then
+      let r3 = tail r2
+      let neg = if length r3 > 0 then head r3 == "-" else false
+      let r4 = if length r3 > 0 then (if head r3 == "-" || head r3 == "+" then tail r3 else r3) else r3
+      let (ed, r5) = d64_digits r4 []
+      let ev = d64_exp_value ed 0
+      (wh, fr, if neg then 0 - ev else ev)
+    else (wh, fr, 0)
+  else (wh, fr, 0)
+
+d64_concat a b = if length a == 0 then b else cons (head a) (d64_concat (tail a) b)
+
+d64_strip_leading ds = if length ds > 0 then (if head ds == 0 then d64_strip_leading (tail ds) else ds) else ds
+
+-- Trailing zeros of the digit list are moved into the exponent: (digits, zeros removed).
+d64_strip_trailing_rev rs n = if length rs > 0 then (if head rs == 0 then d64_strip_trailing_rev (tail rs) (n + 1) else (rs, n)) else (rs, n)
+
+-- Bits in an int in [0, 2^62).
+d64_int_bits n = if n == 0 then 0 else 1 + d64_int_bits (n / 2)
+
+-- ---- big integers: int arrays of nl limbs, 28 bits each, little-endian ----
+
+-- a = a * m + c, in place (m * 2^28 + c must stay far below 2^62; m is 10 here).
+d64_bn_mul_small a nl i m c =
+  if i >= nl then 0
+  else
+    let t = arr_get a i * m + c
+    let _ = arr_set a i (t % d64_base)
+    d64_bn_mul_small a nl (i + 1) m (t / d64_base)
+
+d64_bn_from_digits_at a nl ds =
+  if length ds == 0 then a
+  else
+    let _ = d64_bn_mul_small a nl 0 10 (head ds)
+    d64_bn_from_digits_at a nl (tail ds)
+
+d64_bn_from_digits ds nl = d64_bn_from_digits_at (arr_new nl 0) nl ds
+
+d64_bn_mul_pow10 a nl e =
+  if e <= 0 then a
+  else
+    let _ = d64_bn_mul_small a nl 0 10 0
+    d64_bn_mul_pow10 a nl (e - 1)
+
+d64_bn_top a i = if i < 0 then 0 - 1 else if arr_get a i != 0 then i else d64_bn_top a (i - 1)
+
+d64_bn_bits a nl =
+  let i = d64_bn_top a (nl - 1)
+  if i < 0 then 0 else 28 * i + d64_int_bits (arr_get a i)
+
+-- b = a << k, a fresh array of nl limbs.
+d64_bn_shl_at a b nl i ls bs =
+  if i >= nl then b
+  else
+    let v = arr_get a i
+    let lo = bit_and (shl v bs) d64_mask
+    let hi = shr v (28 - bs)
+    let _ = if i + ls < nl then arr_set b (i + ls) (bit_or (arr_get b (i + ls)) lo) else 0
+    let _ = if i + ls + 1 < nl then arr_set b (i + ls + 1) (bit_or (arr_get b (i + ls + 1)) hi) else 0
+    d64_bn_shl_at a b nl (i + 1) ls bs
+
+d64_bn_shl a nl k = d64_bn_shl_at a (arr_new nl 0) nl 0 (k / 28) (k % 28)
+
+-- -1, 0 or 1, from the top limb down.
+d64_bn_cmp_at a b i =
+  if i < 0 then 0
+  else if arr_get a i < arr_get b i then 0 - 1
+  else if arr_get a i > arr_get b i then 1
+  else d64_bn_cmp_at a b (i - 1)
+
+d64_bn_cmp a b nl = d64_bn_cmp_at a b (nl - 1)
+
+-- a = a - b in place, for a >= b.
+d64_bn_sub_at a b nl i borrow =
+  if i >= nl then 0
+  else
+    let t = arr_get a i - arr_get b i - borrow
+    let _ = arr_set a i (if t < 0 then t + d64_base else t)
+    d64_bn_sub_at a b nl (i + 1) (if t < 0 then 1 else 0)
+
+d64_bn_sub a b nl = d64_bn_sub_at a b nl 0 0
+
+-- a = a >> 1 in place.
+d64_bn_shr1_at a nl i =
+  if i >= nl then 0
+  else
+    let up = if i + 1 < nl then bit_and (arr_get a (i + 1)) 1 else 0
+    let _ = arr_set a i (bit_or (shr (arr_get a i) 1) (shl up 27))
+    d64_bn_shr1_at a nl (i + 1)
+
+d64_bn_shr1 a nl = d64_bn_shr1_at a nl 0
+
+d64_bn_nonzero a nl = d64_bn_top a (nl - 1) >= 0
+
+-- q = floor(num / den) for a quotient under 2^57, by shift and subtract from bit 56 down; num
+-- is left holding the remainder. t is den << 56 on entry and is halved each step.
+d64_div_step num t nl i q =
+  if d64_bn_cmp num t nl >= 0 then
+    let _ = d64_bn_sub num t nl
+    q + shl 1 i
+  else q
+
+d64_div_loop num t nl i q =
+  if i < 0 then q
+  else
+    let q2 = d64_div_step num t nl i q
+    let _ = d64_bn_shr1 t nl
+    d64_div_loop num t nl (i - 1) q2
+
+d64_bn_div num den nl = d64_div_loop num (d64_bn_shl den nl 56) nl 56 0
+
+-- ---- rounding q * 2^-k (plus a sticky remainder) to binary64 ----
+
+-- (top, frac) from the 55- or 56-bit quotient q, the shift k and the sticky bit.
+d64_round q k sticky =
+  let bq = d64_int_bits q
+  let e = bq - 1 - k
+  if e > 1023 then (2047, 0)
+  else
+    let normal = e >= (0 - 1022)
+    let s = if normal then bq - 53 else bq - 53 + (0 - 1022 - e)
+    if s >= 62 then (0, 0)
+    else
+      let pw = shl 1 s
+      let m = q / pw
+      let rem = q % pw
+      let half = pw / 2
+      let odd = (m % 2) == 1
+      let up = if rem > half then true else if rem == half then (if sticky then true else odd) else false
+      let m2 = if up then m + 1 else m
+      let two52 = shl 1 52
+      if normal then
+        if m2 == (shl 1 53) then (if e + 1 > 1023 then (2047, 0) else (e + 1 + 1023, 0))
+        else (e + 1023, m2 - two52)
+      else
+        if m2 == two52 then (1, 0) else (0, m2)
+
+-- The exact path: D (digit list, no leading or trailing zeros, nd digits) times 10^e10.
+d64_exact ds nd e10 =
+  let abse = if e10 < 0 then 0 - e10 else e10
+  let nl = (4 * nd + 4 * abse + 256) / 28 + 1
+  let d = d64_bn_from_digits ds nl
+  let n0 = if e10 >= 0 then d64_bn_mul_pow10 d nl e10 else d
+  let t0 = if e10 >= 0 then d64_bn_from_digits [1] nl else d64_bn_mul_pow10 (d64_bn_from_digits [1] nl) nl abse
+  let k = 55 - (d64_bn_bits n0 nl - d64_bn_bits t0 nl)
+  let num = if k > 0 then d64_bn_shl n0 nl k else n0
+  let den = if k < 0 then d64_bn_shl t0 nl (0 - k) else t0
+  let q = d64_bn_div num den nl
+  d64_round q k (d64_bn_nonzero num nl)
+
+-- The 12-bit sign-and-exponent field and the 52-bit fraction of the literal's nearest double.
+d64_fields lit =
+  let (wh, fr, ex) = d64_parse (chars lit)
+  let digs = d64_strip_leading (d64_concat wh fr)
+  let (rs, tz) = d64_strip_trailing_rev (reverse digs) 0
+  let ds = reverse rs
+  let nd = length ds
+  let e10 = ex - length fr + tz
+  if nd == 0 then (0, 0)
+  else if nd + e10 > 309 then (2047, 0)
+  else if nd + e10 < (0 - 323) then (0, 0)
+  else d64_exact ds nd e10
+
+d64_hex_digit d = char_from_int (if d < 10 then 48 + d else 87 + d)
+
+d64_hex_loop n w acc =
+  if w <= 0 then acc
+  else d64_hex_loop (n / 16) (w - 1) (cat [d64_hex_digit (n % 16), acc])
+
+-- The 64 bits as 16 lowercase hex characters (the form stdlib/float_hex.rail prints).
+d64_hex top frac = cat [d64_hex_loop top 3 "", d64_hex_loop frac 13 ""]

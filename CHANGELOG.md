@@ -5,6 +5,28 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Added
+- **`tools/decimal64.rail`: a float literal's 64 bits, decided when the program is compiled**
+  (Tier 3, step 8). `d64_fields` turns the literal's text (every form the lexer admits: `W.F`,
+  `W.FeX`, `WeX`, upper or lower `E`, signed exponent) into the sign-and-exponent field and the
+  52-bit fraction of its nearest binary64, correctly rounded, ties to even, by integer arithmetic
+  alone: the literal is D * 10^E, a big-integer quotient of 55 or 56 bits is formed with the
+  shift that fits, and the quotient with its sticky remainder decides the significand; subnormals,
+  the overflow to inf and the underflow to 0 fall out of the same path, and a literal whose
+  decimal order is past the format either way is answered before any big integer is built.
+  `d64_hex` prints the bits the way `stdlib/float_hex.rail` does. t259 pins seventeen literals
+  against CPython's `float()` bits (the three beacon constants a Linux atof got wrong, the
+  smallest subnormal and the two decimals either side of half of it, the largest double and the
+  first overflow, 1e999, 1e-400, a tie to even at 2^53 + 1, 1e23, the last subnormal and the
+  first normal, a 57-digit literal one unit above a midpoint, an uppercase exponent); the suite
+  is 243 tests.
+- **`tools/fuzz/float_literals.py`**: literals through the real path. It writes generated
+  literals (random digit strings, decimals exactly at, just above and just below the midpoint
+  between two neighbouring doubles, the subnormal floor, the overflow line and far past the
+  format) into Rail programs, compiles and runs them with the compiler under test, and compares
+  the hex `show_float_hex` prints with CPython's bits for the same text. 1,520 literals agree
+  with the new seed; on a compiler built with a planted tie rule (round half up, no sticky bit)
+  64 of 620 differ, so the gate can fail.
+
 - **`stdlib/math_exact.rail`: sin, cos, exp, tanh, sqrt and gelu as fixed integer algorithms**
   (Tier 3, step 4). Fixed point at F = 24 (`fx_quant`, `fx_back`; `fx_sin_any`, `fx_cos_any`,
   `fx_exp`, `fx_tanh`, `fx_sqrt`, `fx_gelu`, and the double forms `sin_fixed`, `cos_fixed`,
@@ -28,6 +50,20 @@ All notable changes to Rail are documented here.
   value two ulps away and the Linux libc shim printed the digest as `0`.
 
 ### Changed
+- **Float literals are no longer parsed by `atof` at run time** (Tier 3, step 8). The ARM64
+  code generator used to emit every literal as `.asciz` text and call the platform's `atof` when
+  the program reached it (`cg`'s `FL` case; 133 calls in the beacon's assembly, 139 in the
+  known-answer test's); the x86 backend did the same through `atof@PLT`. Both now load the bits
+  `tools/decimal64.rail` computed (`emit_load_float_bits`: `movz` and up to three `movk`; on
+  x86 a 64-bit `mov` into the boxed cell). The self-compiled assembly has no `bl _atof`
+  instruction; the one `_atof` left in the compiler is `parse_float`'s own code string, the
+  builtin that still parses a string at run time. On macOS nothing changes numerically (its
+  atof is correctly rounded: the pinned beacon record replays to the same digest with the old
+  and the new seed, and `semantic.py` agrees with CPython on 664 of 664 comparisons); on Linux
+  ARM64 it does: on the Pi all 38 probed literals, the 31 of `mhd_kernel.rail` included, now
+  hold the same 64 bits as the Mini, where 12 of 29 were one or two ulps off through its
+  accumulate-then-scale `atof`. The seed grows from 991,800 to 1,008,360 bytes (the module and
+  the longer load sequences); gen1 == gen2 == gen3.
 - **One link path** (Tier 3, step 6). Every macOS compile now assembles, links and ad-hoc signs
   in process through `tools/v5/link_lib.rail` (`lk_link_file`): `build`, which every
   `./rail_native <file>`, `run` and suite test goes through, and `self_compile` alike. The
