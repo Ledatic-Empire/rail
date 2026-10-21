@@ -1,0 +1,223 @@
+-- stdlib/math_exact.rail: sin, cos, exp, tanh, sqrt and gelu as fixed integer algorithms, so
+-- the same input gives the same bits on every machine (Tier 3, step 4).
+--
+--   sin_fixed 0.5235987755982988        0.5 (exactly: fx_sin returns 8388608 = 0.5 * 2^24)
+--   fx_sin_any (fx_quant theta)         sin(theta) * 2^24, an integer, any theta in (-4096, 4096)
+--   fx_exp (fx_quant (0.0 - 1.0))       6171830 (= 0.36787942... * 2^24)
+--
+-- Representation: fixed point with F = 24 fractional bits, S = 2^24 = 16777216. A real x is
+-- the integer X = round(x * S); fx_quant and fx_back convert. Every fx_ function is integer
+-- arithmetic only (add, subtract, multiply, and a divide that truncates toward zero), so it is
+-- exact and associative: any machine, or any language with 64-bit integers and truncating
+-- division, that runs the same steps gets the same integer. No libm, no rounding mode, no
+-- fused multiply-add, no platform printer. The entropy beacon's initial condition and seeded
+-- perturbation take their sin from here, so a replay no longer depends on which libc's sin the
+-- replaying machine carries (rail-plasma docs/REPLAY.md).
+--
+-- Precision is the representation's, not libm's. F = 24 resolves 6e-8; measured on
+-- 2026-10-21 against libm at 8192 points over [0, 2pi), sin and cos are within 1.43e-7 and
+-- sin^2 + cos^2 is within 1.76e-7 of 1; exp, tanh and sqrt are within 1e-6 and gelu within
+-- 6e-6 on the tools/bitexact sweeps. These are deterministic approximations: the number is
+-- reproducible, not more correct than about seven decimals. A caller that needs 53-bit
+-- accuracy wants libm, and gives up replay across machines.
+--
+-- Domains, single 63-bit limb: fx_quant takes |x| < 2^38; fx_sin and fx_cos take a quantized
+-- angle in [0, 2pi); fx_sin_any and fx_cos_any reduce any angle in (-4096, 4096) first; fx_exp
+-- takes x in about (-50, 36) and saturates outside; fx_sqrt takes X >= 0 with X * S < 2^62.
+--
+-- Lifted unchanged from tools/bitexact/bx_fixed.rail (BX4 and R1a, 2026-06), which now
+-- forwards to this file, so the gates that proved it (bx4_fixed_transcendentals.rail,
+-- r1a_exact_trig.rail) exercise this code. Large constants are kept as operands, never as a
+-- bare value, and the digit loops ping-pong between two functions: the two codegen traps those
+-- shapes once hit (rail-bug-value-literal-tag-mov, rail-bug-self-loop-const-mul-arg) are fixed
+-- on master, and the shapes cost nothing.
+
+-- ================= float <-> fixed =================
+
+-- round(x * 2^24) as an integer, ties away from zero.
+fx_quant x =
+  let s = x *. 16777216.0 in
+  let r = if s <. 0.0 then s -. 0.5 else s +. 0.5 in
+  float_to_int r
+
+-- X / 2^24 as a double (exact: an integer below 2^53 over a power of two).
+fx_back xq = (int_to_float xq) /. 16777216.0
+
+-- ================= integer sqrt (digit by digit) =================
+
+fx_topbit_a n d = if d * 4 > n then d else fx_topbit_b n (d * 4)
+fx_topbit_b n d = if d * 4 > n then d else fx_topbit_a n (d * 4)
+fx_topbit n d = fx_topbit_a n d
+fx_isqrt_a n c d =
+  if d == 0 then c
+  else
+    let cd = c + d in
+    if n >= cd then fx_isqrt_b (n - cd) ((c / 2) + d) (d / 4)
+    else fx_isqrt_b n (c / 2) (d / 4)
+fx_isqrt_b n c d =
+  if d == 0 then c
+  else
+    let cd = c + d in
+    if n >= cd then fx_isqrt_a (n - cd) ((c / 2) + d) (d / 4)
+    else fx_isqrt_a n (c / 2) (d / 4)
+
+-- floor(sqrt n) for an integer n >= 0.
+fx_isqrt n = if n < 1 then 0 else fx_isqrt_a n 0 (fx_topbit n 1)
+
+-- sqrt(x) * S for X = x * S >= 0.
+fx_sqrt xq = fx_isqrt (xq * 16777216)
+
+-- 1 / sqrt(x) * S; 0 for X = 0.
+fx_rsqrt xq = let q = fx_sqrt xq in if q == 0 then 0 else 281474976710656 / q
+
+-- ================= exp (argument reduced by ln 2, unrolled Horner) =================
+
+fx_pow2_go acc k = if k == 0 then acc else fx_pow2_go (acc + acc) (k - 1)
+fx_pow2 k = if k < 1 then 1 else fx_pow2_go 1 k
+
+-- e^f * S for f = F / S in [0, ln 2). Degree 8; coefficients c_i = round(S / i!).
+fx_exp_poly fq =
+  let p8 = 416 in
+  let p7 = 3329 + (p8 * fq) / 16777216 in
+  let p6 = 23302 + (p7 * fq) / 16777216 in
+  let p5 = 139810 + (p6 * fq) / 16777216 in
+  let p4 = 699051 + (p5 * fq) / 16777216 in
+  let p3 = 2796203 + (p4 * fq) / 16777216 in
+  let p2 = 8388608 + (p3 * fq) / 16777216 in
+  let p1 = 16777216 + (p2 * fq) / 16777216 in
+  let p0 = 16777216 + (p1 * fq) / 16777216 in
+  p0
+
+-- e^x * S for x <= 0, given A = |x| * S. round(ln 2 * S) = 11629080.
+fx_exp_neg ax =
+  let k = ax / 11629080 in
+  let fq = ax - k * 11629080 in
+  let ef = fx_exp_poly fq in
+  let emf = 281474976710656 / ef in
+  if k >= 50 then 0
+  else let p2 = fx_pow2 k in (emf + p2 / 2) / p2
+
+-- e^x * S for x > 0; saturates at 2^35 * e^f above x = 36 ln 2.
+fx_exp_pos xq =
+  let k = xq / 11629080 in
+  let fq = xq - k * 11629080 in
+  let ef = fx_exp_poly fq in
+  if k >= 36 then ef * (fx_pow2 35)
+  else (ef * (fx_pow2 k))
+
+-- e^x * S for X = x * S.
+fx_exp xq =
+  if xq < 0 then fx_exp_neg (0 - xq)
+  else fx_exp_pos xq
+
+-- ================= tanh and gelu, built on exp of a non-positive argument =================
+
+fx_tanh_pos axq =
+  let em = fx_exp (0 - (axq + axq)) in
+  ((16777216 - em) * 16777216) / (16777216 + em)
+
+-- tanh(x) * S for X = x * S.
+fx_tanh xq = if xq < 0 then 0 - (fx_tanh_pos (0 - xq)) else fx_tanh_pos xq
+
+-- gelu(x) * S, the tanh form: 0.5 x (1 + tanh(g (x + a x^3))), g * S = 13386610, a * S = 750194.
+fx_gelu xq =
+  let x2 = (xq * xq) / 16777216 in
+  let x3 = (x2 * xq) / 16777216 in
+  let ax3 = (750194 * x3) / 16777216 in
+  let inner0 = xq + ax3 in
+  let inner = (13386610 * inner0) / 16777216 in
+  let th = fx_tanh inner in
+  let onep = 16777216 + th in
+  (xq * onep) / 33554432
+
+-- gelu'(x) * S: 0.5 (1 + t) + 0.5 x sech^2(u) du/dx with u = g (x + a x^3), t = tanh u,
+-- sech^2(u) = 1 - t^2, du/dx = g (1 + 3 a x^2).
+fx_gelu_grad xq =
+  let x2 = (xq * xq) / 16777216 in
+  let x3 = (x2 * xq) / 16777216 in
+  let ax3 = (750194 * x3) / 16777216 in
+  let inner0 = xq + ax3 in
+  let u = (13386610 * inner0) / 16777216 in
+  let t = fx_tanh u in
+  let term1 = (16777216 + t) / 2 in
+  let sech2 = 16777216 - (t * t) / 16777216 in
+  let a3x2 = (3 * (750194 * x2)) / 16777216 in
+  let inner1 = 16777216 + a3x2 in
+  let dudx = (13386610 * inner1) / 16777216 in
+  let p1 = (xq * sech2) / 16777216 in
+  let p2 = (p1 * dudx) / 16777216 in
+  let term2 = p2 / 2 in
+  term1 + term2
+
+-- ================= sin and cos (octant reduced, unrolled Horner in a^2) =================
+-- Coefficients c_i = round(S / i!), the fx_exp_poly family, with alternating signs.
+-- pi/2 * S = 26353589, pi/4 * S = 13176795, 2 pi * S = 105414357, 2 pi * 2^48 = 1768559438007110.
+
+-- sin(a) * S for a in [0, pi/4], A = a * S.
+fx_sin_unit aq =
+  let u = (aq * aq) / 16777216 in
+  let p4 = 46 in
+  let p3 = (p4 * u) / 16777216 - 3329 in
+  let p2 = (p3 * u) / 16777216 + 139810 in
+  let p1 = (p2 * u) / 16777216 - 2796203 in
+  let p0 = (p1 * u) / 16777216 + 16777216 in
+  (aq * p0) / 16777216
+
+-- cos(a) * S for a in [0, pi/4].
+fx_cos_unit aq =
+  let u = (aq * aq) / 16777216 in
+  let q5 = 0 - 5 in
+  let q4 = (q5 * u) / 16777216 + 416 in
+  let q3 = (q4 * u) / 16777216 - 23302 in
+  let q2 = (q3 * u) / 16777216 + 699051 in
+  let q1 = (q2 * u) / 16777216 - 8388608 in
+  let q0 = (q1 * u) / 16777216 + 16777216 in
+  q0
+
+-- sin(theta) * S for a quantized theta in [0, 2pi): quadrant, then the cofunction fold.
+fx_sin th =
+  let oc = th / 26353589 in
+  let rq = th - oc * 26353589 in
+  let useco = if rq > 13176795 then 1 else 0 in
+  let a = if useco == 1 then 26353589 - rq else rq in
+  let s = fx_sin_unit a in
+  let c = fx_cos_unit a in
+  let sh = if useco == 1 then c else s in
+  let ch = if useco == 1 then s else c in
+  if oc == 0 then sh else if oc == 1 then ch else if oc == 2 then 0 - sh else 0 - ch
+
+-- cos(theta) * S for a quantized theta in [0, 2pi).
+fx_cos th =
+  let oc = th / 26353589 in
+  let rq = th - oc * 26353589 in
+  let useco = if rq > 13176795 then 1 else 0 in
+  let a = if useco == 1 then 26353589 - rq else rq in
+  let s = fx_sin_unit a in
+  let c = fx_cos_unit a in
+  let sh = if useco == 1 then c else s in
+  let ch = if useco == 1 then s else c in
+  if oc == 0 then ch else if oc == 1 then 0 - sh else if oc == 2 then 0 - ch else sh
+
+-- A quantized angle of either sign, |theta| < 4096, reduced into [0, 2pi) against 2 pi held
+-- to 48 fractional bits, so the reduction error is the residue's, not k times a 24-bit 2 pi.
+fx_reduce_2pi th =
+  let k = th / 105414357 in
+  let r48 = th * 16777216 - k * 1768559438007110 in
+  let r0 = r48 / 16777216 in
+  let r1 = if r0 < 0 then r0 + 105414357 else r0 in
+  if r1 >= 105414357 then r1 - 105414357 else r1
+
+-- sin and cos of any quantized angle in (-4096, 4096).
+fx_sin_any th = fx_sin (fx_reduce_2pi th)
+fx_cos_any th = fx_cos (fx_reduce_2pi th)
+
+-- ================= the double-in, double-out forms =================
+-- Each is fx_back of the integer function at fx_quant of the argument: the result is an
+-- integer over 2^24, so its 64 bits are the same wherever the integer is.
+
+sin_fixed x = fx_back (fx_sin_any (fx_quant x))
+cos_fixed x = fx_back (fx_cos_any (fx_quant x))
+exp_fixed x = fx_back (fx_exp (fx_quant x))
+tanh_fixed x = fx_back (fx_tanh (fx_quant x))
+sqrt_fixed x = fx_back (fx_sqrt (fx_quant x))
+gelu_fixed x = fx_back (fx_gelu (fx_quant x))

@@ -5,6 +5,19 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Added
+- **`stdlib/math_exact.rail`: sin, cos, exp, tanh, sqrt and gelu as fixed integer algorithms**
+  (Tier 3, step 4). Fixed point at F = 24 (`fx_quant`, `fx_back`; `fx_sin_any`, `fx_cos_any`,
+  `fx_exp`, `fx_tanh`, `fx_sqrt`, `fx_gelu`, and the double forms `sin_fixed`, `cos_fixed`,
+  `exp_fixed`, `tanh_fixed`, `sqrt_fixed`, `gelu_fixed`): integer add, subtract, multiply and
+  truncating divide only, so the same input gives the same bits on any machine with 64-bit
+  integers, and no libm is on the path. Precision is the representation's: sin and cos are
+  within 1.43e-7 of libm over [0, 2pi) at 8192 points, measured. Lifted unchanged from
+  `tools/bitexact/bx_fixed.rail` (BX4 and R1a, 2026-06), which now forwards to it; the two
+  gates print the same numbers through the forwarder and the BX4 D3 dump is byte-identical.
+  t258 pins eleven integer known answers (each checked against Python `math` to within one
+  unit) and the double form by its 64 bits; the suite is 252 tests. The entropy beacon's
+  initial condition and seeded perturbation (rail-plasma `mhd_kernel.rail`) take their sin
+  from here, so its assembly has no `bl _sin`.
 - **`stdlib/float_hex.rail`: `show_float_hex`, the 64 bits of a double as 16 hex characters**
   (Tier 3, step 3). Derived by exact arithmetic alone (comparisons, multiplication by 2 and
   1/2, subtraction of 1, `float_to_int` on an integer-valued double), so the same bits print
