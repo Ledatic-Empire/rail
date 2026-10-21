@@ -11,7 +11,9 @@ target/
 .wrangler/
 .vscode/
 node_modules/
-runtime/
+# runtime/ holds build objects (llm.o); runtime/arm64/ is the ARM64 runtime's source.
+**/runtime/*
+!/runtime/arm64/
 # Whitelist exception: tools/runtime/ holds the v0 concurrency bridge
 # (libconcurrent.dylib is platform-specific, kept untracked below).
 !tools/runtime/

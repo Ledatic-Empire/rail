@@ -1,0 +1,140 @@
+-- tools/gen_runtime.rail: carry the ARM64 runtime from runtime/arm64/*.s into the compiler.
+--
+-- The runtime every native program links (equality, lists, strings, I/O, the collector, the
+-- arena) is hand-written assembly in runtime/arm64/, one file per rt_* constant. A compiled
+-- program carries that text, so the compiler must too: this tool turns each file back into a
+-- Rail string constant in tools/runtime_arm64.rail, which tools/compile.rail imports.
+--
+--   ./rail_native run tools/gen_runtime.rail          rewrite tools/runtime_arm64.rail
+--   ./rail_native run tools/gen_runtime.rail check    exit 1 if it is not what the .s files say
+--
+-- The file format (the //@ directives) is in runtime/arm64/README.md.
+
+rt_dir = "runtime/arm64"
+rt_out = "tools/runtime_arm64.rail"
+
+-- Declaration order. The compiler emits its own code and string data in this order, so the
+-- seed depends on it; runtime_asm in compile.rail sets the order the runtime is emitted in.
+rt_files = ["core", "list", "closure", "io", "args", "arith", "fiber", "gpu", "str_gc", "gc_1", "gc_2", "gc_3", "gc_4", "thread", "array", "string", "float", "effects", "syscall", "gc_5", "arena"]
+
+starts_with_acc pcs scs =
+  if pcs == [] then true
+  else if scs == [] then false
+  else if head pcs == head scs then starts_with_acc (tail pcs) (tail scs)
+  else false
+starts_with prefix s = starts_with_acc (chars prefix) (chars s)
+after prefix s = str_sub s (length prefix) (length s - length prefix)
+
+-- A Rail string literal whose value is s (the escapes the compiler's lexer reads back).
+rail_lit s = cat ["\"", str_replace "\n" "\\n" (str_replace "\"" "\\\"" (str_replace "\\" "\\\\" s)), "\""]
+
+-- The lines of a file, without the empty string a final newline leaves after split.
+file_lines src =
+  let ls = split "\n" src
+  if length src > 0 then (if str_sub src (length src - 1) 1 == "\n" then reverse (tail (reverse ls)) else ls)
+  else []
+
+-- A piece is (directive, name, reversed lines): "let" with its name, "piece" or "literal".
+close_piece cur pieces =
+  let (kind, nm, rls) = cur
+  if kind == "" then pieces else cons (kind, nm, rls) pieces
+
+-- Walk a file's lines into (pieces in order, the //@ cat line, error or "").
+walk ls cur pieces catl =
+  if ls == [] then (reverse (close_piece cur pieces), catl, "")
+  else
+    let l = head ls
+    let rest = tail ls
+    if starts_with "//@ let " l then walk rest ("let", after "//@ let " l, []) (close_piece cur pieces) catl
+    else if l == "//@ piece" then walk rest ("piece", "", []) (close_piece cur pieces) catl
+    else if l == "//@ literal" then walk rest ("literal", "", []) (close_piece cur pieces) catl
+    else if starts_with "//@ cat " l then walk rest ("", "", []) (close_piece cur pieces) (after "//@ cat " l)
+    else if starts_with "//@" l then ([], "", cat ["unknown directive: ", l])
+    else if starts_with "//" l then walk rest cur pieces catl
+    else
+      let (kind, nm, rls) = cur
+      if kind == "" then
+        (if l == "" then walk rest cur pieces catl
+         else ([], "", cat ["text outside a piece: ", l]))
+      else walk rest (kind, nm, cons l rls) pieces catl
+
+piece_text p =
+  let (_, _, rls) = p
+  cat [join "\n" (reverse rls), "\n"]
+piece_kind p =
+  let (kind, _, _) = p
+  kind
+piece_name p =
+  let (_, nm, _) = p
+  nm
+
+all_kind k ps = if ps == [] then true else if piece_kind (head ps) == k then all_kind k (tail ps) else false
+names_in ns lets = if ns == [] then true else if has (head ns) lets then names_in (tail ns) lets else false
+has x xs = if xs == [] then false else if head xs == x then true else has x (tail xs)
+
+let_line p = cat ["  let ", piece_name p, " = ", rail_lit (piece_text p), "\n"]
+
+-- The Rail declaration for one file, or ("", error).
+gen_decl name =
+  let path = cat [rt_dir, "/", name, ".s"]
+  let src = read_file path
+  let (pieces, catl, err) = walk (file_lines src) ("", "", []) [] ""
+  let head_line = cat ["rt_", name, " =\n"]
+  if length src == 0 then ("", cat [path, ": missing or empty"])
+  else if err != "" then ("", cat [path, ": ", err])
+  else if pieces == [] then ("", cat [path, ": no pieces"])
+  else if all_kind "let" pieces then
+    let lets = map piece_name pieces
+    let order = str_split ", " catl
+    if length order == length lets then
+      (if names_in order lets then
+         (if names_in lets order then (cat [head_line, join "" (map let_line pieces), "  cat [", catl, "]\n"], "")
+          else ("", cat [path, ": a let is missing from //@ cat"]))
+       else ("", cat [path, ": //@ cat names a piece that is not a let"]))
+    else ("", cat [path, ": //@ cat must name each let once"])
+  else if catl != "" then ("", cat [path, ": //@ cat needs every piece to be a let"])
+  else if all_kind "piece" pieces then (cat [head_line, "  cat [", join ",\n  " (map rail_lit (map piece_text pieces)), "]\n"], "")
+  else if all_kind "literal" pieces then
+    (if length pieces == 1 then (cat [head_line, "  ", rail_lit (piece_text (head pieces)), "\n"], "")
+     else ("", cat [path, ": //@ literal must be the only piece"]))
+  else ("", cat [path, ": pieces mix let, piece and literal"])
+
+gen_all names acc =
+  if names == [] then (join "\n" (reverse acc), "")
+  else
+    let (d, err) = gen_decl (head names)
+    if err != "" then ("", err) else gen_all (tail names) (cons d acc)
+
+-- Every .s in runtime/arm64 must be in rt_files, or it would silently be left out.
+orphans fs = if fs == [] then [] else
+  let f = head fs
+  if starts_with "." f then orphans (tail fs)
+  else if str_contains ".s" f then
+    (if has (str_sub f 0 (length f - 2)) rt_files then orphans (tail fs) else cons f (orphans (tail fs)))
+  else orphans (tail fs)
+
+header = "-- tools/runtime_arm64.rail: GENERATED by tools/gen_runtime.rail from runtime/arm64/*.s.\n-- Do not edit. Edit the .s file, run `./rail_native run tools/gen_runtime.rail`, then bootstrap\n-- twice (docs/COMPILER_BOOTSTRAP.md). CI fails when this file and the .s files disagree.\n\n"
+
+main =
+  let check = if length args > 1 then head (tail args) == "check" else false
+  let strays = orphans (file_lines (shell (cat ["/bin/ls ", rt_dir])))
+  let (body, err) = gen_all rt_files []
+  if strays != [] then
+    let _ = print (cat ["gen_runtime: not in rt_files: ", join " " strays])
+    1
+  else if err != "" then
+    let _ = print (cat ["gen_runtime: ", err])
+    1
+  else
+    let text = cat [header, body]
+    if check then
+      if read_file rt_out == text then
+        let _ = print (cat ["gen_runtime: ", rt_out, " matches ", rt_dir, " (", show (length rt_files), " files)"])
+        0
+      else
+        let _ = print (cat ["gen_runtime: ", rt_out, " differs from ", rt_dir, "; run ./rail_native run tools/gen_runtime.rail"])
+        1
+    else
+      let _ = write_file rt_out text
+      let _ = print (cat ["gen_runtime: wrote ", rt_out, " (", show (length rt_files), " files, ", show (length text), " bytes)"])
+      0

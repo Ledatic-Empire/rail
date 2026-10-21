@@ -4,6 +4,16 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Changed
+- **The ARM64 runtime is source files, not strings** (Tier 3, step 1). The 21 `rt_*` constants
+  that held it, 506 lines and 110 KB of `tools/compile.rail` (18% of the file), are now
+  `runtime/arm64/*.s`: 4,706 lines of assembly, their comments kept. `tools/gen_runtime.rail`
+  writes them back as `tools/runtime_arm64.rail` (generated, committed), which the compiler
+  imports where the constants were. Built from the new tree, the compiler is byte-identical to
+  the seed, and so is the assembly it emits; CI fails when the generated module and the `.s`
+  files disagree. `tools/compile.rail` is 8,619 lines. Format and workflow:
+  `runtime/arm64/README.md`.
+
 ### Removed
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four

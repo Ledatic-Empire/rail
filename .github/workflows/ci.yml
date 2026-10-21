@@ -46,6 +46,10 @@ jobs:
       runs-on: macos-latest
       steps:
         - uses: actions/checkout@v4
+        - name: The runtime's source and the compiler's copy agree
+          # runtime/arm64/*.s is the runtime; tools/runtime_arm64.rail is generated from it and
+          # is what the compiler imports. Exits 1 when the two disagree (runtime/arm64/README.md).
+          run: ./rail_native run tools/gen_runtime.rail check
         - name: Run test suite (n/n)
           shell: bash
           run: |
