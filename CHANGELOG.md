@@ -92,6 +92,12 @@ All notable changes to Rail are documented here.
     `/api/playground/compile` and its home page embeds no wasm, measured 2026-10-21) and
     `tools/deploy/build_wasm_demos.sh`. Four suite tests go: t228, t229 (`rail safe`), t234,
     t236 (the wasm string table); the suite is 242. The x86 backend keeps `guards_unsupported`.
+  - **`tools/deploy/`**: the ledatic.org generators are the site's own now
+    (`Ledatic-Empire/ledatic-site`, `railgen/`, its PR #62), where the 06:00 job runs them from;
+    the Rail half run from the new path gave the same output as from the old one before this cut.
+    `gen_status.rail`, which `tools/verify/check.sh` runs, is `tools/verify/gen_status.rail`.
+    `flash_pi.rail` goes with the fleet tooling (archive tag). What stays here is Rail's own:
+    the compiler, stdlib, tests, attestation, the verify scripts and the docs generator.
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188
