@@ -13,14 +13,16 @@ bit-identity for the float/libm/GPU paths.
   (`mul` low-64 + `smulh` high-64; `tools/compile.rail`), so fixed-point multiply
   does not overflow the 63-bit tag. This is the overflow-safe primitive behind
   Rail's bit-exact ML: the SmolLM2-135M and Qwen3 forward passes that reproduce
-  HuggingFace **bit-for-bit** run an **integer-exact** path (see
-  `tools/bitexact/`), not floating point.
+  HuggingFace **bit-for-bit** ran an **integer-exact** path (`tools/bitexact/` until
+  2026-10-21, tag `archive/tier3-step5-precut-2026-10-21`), not floating point. What of
+  it the replay record needs lives on as `stdlib/math_exact.rail`.
 - **`idot`** is an exact integer dot-product / matmul used on that path.
 - The integer path is bit-identical on any conforming ARM64. **This is the
   substrate the attestation claims rest on** — integers, not floats.
 
 Overflow is a real hazard on the 63-bit tag; guard multiplicative/loop code with
-`mul_shr` or two-limb arithmetic. See `tools/bitexact/` for the overflow tests.
+`mul_shr` or two-limb arithmetic. The overflow tests (`tools/bitexact/r4_overflow_audit.rail`)
+are at tag `archive/tier3-step5-precut-2026-10-21`.
 
 ## Deterministic per-platform: IEEE 754 doubles
 
@@ -64,7 +66,8 @@ bit-identity is **not** claimed for float, libm, or GPU paths.
 
 ## How to verify
 
-- `tools/bitexact/` — the integer-exact forward/train harness + overflow guards.
+- `stdlib/math_exact.rail` with t258: the integer-exact transcendentals, the one piece of the
+  bit-exact harness the replay record needs (the rest: tag `archive/tier3-step5-precut-2026-10-21`).
 - The HF-parity demos: SmolLM2 reproduced to a pinned sha; Qwen3 first-logit
   `g[0]=12095` matches HF greedy. These are reproducible, not asserted.
 - Provenance, not correctness: a bit-identical result proves *the same computation
