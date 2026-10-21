@@ -74,6 +74,14 @@ All notable changes to Rail are documented here.
   `runtime/arm64/README.md`.
 
 ### Removed
+- **`stdlib/concurrent.rail` and `stdlib/quartz.rail`, with `tools/runtime/` (`concurrent.c`, its
+  build script and smoke) and `tools/desk/` (`quartz_bridge.m`, its build script, smoke and
+  README)** (Tier 3, step 6). Both modules reached a per-machine dylib the old `ld` branch of
+  `build` weak-linked; the one link path binds libSystem and libsqlite3 only, so no path could
+  link them. Nothing in the tree imported either (the two `tools/test/concurrent_*` smokes,
+  removed too, were not in the suite). `SHIMS.md` is five rows, 31 files; the stdlib is 61
+  modules. Threads and fibers are unaffected: `spawn_thread` and `spawn` are the runtime's own
+  (`runtime/arm64/thread.s`, pthread through libSystem).
 - **Tier 3, step 5: the cut.** The tree before it is tag `archive/tier3-step5-precut-2026-10-21`
   (on `9050d0d`); every block below names it. The record is the inheritance, and the compiler
   is kept exactly as far as the record needs it to still build (`docs/rail-tier3-record-plan.md`).

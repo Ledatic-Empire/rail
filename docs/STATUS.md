@@ -11,8 +11,8 @@
 | Compiler | 7546 lines of Rail | `wc -l tools/compile.rail` |
 | Seed binary | 991800 bytes | `wc -c rail_native` |
 | Seed sha256 | `9154304db01b21ff7081c4164b4e1bfee8e237035f14628ea166422a0ac059f3` | `shasum -a 256 rail_native` |
-| Stdlib | 63 modules | `ls stdlib/*.rail \| wc -l` |
-| Non-Rail surface | 33 in-tree files | `SHIMS.md` |
+| Stdlib | 61 modules | `ls stdlib/*.rail \| wc -l` |
+| Non-Rail surface | 31 in-tree files | `SHIMS.md` |
 | Tests | runner self-reports N/N and exits 0 iff N == N | `./rail_native test; echo $?` |
 | Self-host | byte-identical fixed point | `RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self` |
 
@@ -21,9 +21,9 @@
 The seed binary has **no C**: the GC and runtime are ARM64 assembly embedded in the
 compiler, and since v5.2.0 it assembles, links, and code-signs itself (no `as` / `ld` /
 `codesign`). It links one system library, `libSystem` (`otool -L rail_native`), the
-kernel interface every macOS process has. Everyday `./rail_native file.rail` builds still
-use the system `as` and `ld`. The Linux and x86 syscall shims, the optional channels and
-Quartz bridges and the assembler fixtures are a small asm/C/ObjC boundary: 33 in-tree
+kernel interface every macOS process has. Since 2026-10-21 (Tier 3 step 6) every
+`./rail_native file.rail` build takes the same in-process path. The Linux and x86 syscall
+shims, the Pi display driver and the assembler fixtures are a small asm/C boundary: 31 in-tree
 non-Rail files, each named in [`SHIMS.md`](../SHIMS.md).
 
 ## Backends
