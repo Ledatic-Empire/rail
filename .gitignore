@@ -43,8 +43,6 @@ rail_native.new
 *.log
 doubled.txt
 numbers.txt
-# JIT trampoline dylib (built via jit/build_trampoline.sh; platform-specific).
-jit/libjit_call.dylib
 
 # Models + weights live in Ledatic-Empire/rail-training or on disk —
 # the compiler repo tracks none of them, cards included.

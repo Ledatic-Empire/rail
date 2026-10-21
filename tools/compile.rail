@@ -5327,8 +5327,6 @@ build prefix asm_text =
     let rt_objs = if has_llm != "0" then cat [" ", rtdir, "/llm.o ", tmp, "_llm_tramp.o"] else ""
     -- Optional dylibs: each is weak-linked if present, auto-rebuilt if its
     -- source file is newer than the .dylib (gitignored, per-machine build artifact).
-    let has_jit_lib = ensure_fresh_dylib "tools/jit_call.c" "jit/libjit_call.dylib" "jit/build_trampoline.sh"
-    let jit_lib = if has_jit_lib == "1" then " -L jit -weak-ljit_call" else ""
     let has_quartz_lib = ensure_fresh_dylib "tools/desk/quartz_bridge.m" "tools/desk/libquartz_bridge.dylib" "tools/desk/build_quartz_bridge.sh"
     let quartz_lib = if has_quartz_lib == "1" then " -L tools/desk -weak-lquartz_bridge -framework CoreGraphics -framework Foundation -framework AppKit -framework ApplicationServices" else ""
     let has_concurrent_lib = ensure_fresh_dylib "tools/runtime/concurrent.c" "tools/runtime/libconcurrent.dylib" "tools/runtime/build_concurrent.sh"
@@ -5338,7 +5336,7 @@ build prefix asm_text =
     -- resolve at link time, with zero cost for binaries that don't use it (same
     -- -weak-l pattern as the optional dylibs above). 2026-06-17: enables the
     -- Rail-native grounding oracle (PAOS Stage 3).
-    let ld_cmd = cat ["ld -o ", prefix, " ", tmp, ".o", rt_objs, jit_lib, quartz_lib, concurrent_lib, " -weak-lsqlite3 -lSystem -syslibroot ", sdk, " -arch arm64 -stack_size 0x10000000 2>&1"]
+    let ld_cmd = cat ["ld -o ", prefix, " ", tmp, ".o", rt_objs, quartz_lib, concurrent_lib, " -weak-lsqlite3 -lSystem -syslibroot ", sdk, " -arch arm64 -stack_size 0x10000000 2>&1"]
     let ld_result = strip_trailing_ws (shell ld_cmd)
     let _ = if ld_result != "" then print (cat ["  ld: ", ld_result]) else print "  ld: OK"
     let _ = shell (cat ["codesign -s - ", prefix, " 2>&1"])

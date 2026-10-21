@@ -1,6 +1,7 @@
--- jit/arm64.rail — ARM64 instruction encoder.
+-- tools/v5/arm64.rail: ARM64 instruction encoder (jit/arm64.rail until 2026-10-21; the v5
+-- assembler and the Mach-O writer are its users, so it lives with them).
 -- Each function returns a 32-bit ARM64 instruction word as a Rail int.
--- Encodings verified against `as` + `objdump -d` (see test_codegen.rail).
+-- Encodings verified against `as` + `objdump -d` (jit/test_codegen.rail at tag archive/tier3-step5-precut-2026-10-21).
 
 -- mov xD, xS   (alias of orr xD, xzr, xS)
 -- Base: 0xAA0003E0 | (S << 16) | D

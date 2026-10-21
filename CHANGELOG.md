@@ -76,6 +76,12 @@ All notable changes to Rail are documented here.
     routine) and was re-landed at its fixed point by a three-cycle bootstrap. The plan named
     the GPU modules; the four ML modules follow because they cannot compile without
     `tensor` and the inference product is a private repo's work, not this tier's.
+  - **`jit/`, the pure-Rail JIT** (33 of its 35 files, 7,422 lines before the move) with
+    `tools/jit_call.c` (the trampoline, the last C file on the link line), the `libjit_call`
+    weak link, `tools/repl_jit.rail` and its four smokes under `tools/test/`, and the site page
+    `docs/site/jit.md`. The two files the toolchain uses, the ARM64 instruction encoder and the
+    byte-oriented code buffer, are now `tools/v5/arm64.rail` and `tools/v5/codebuf.rail`
+    (imported by the v5 assembler, the ELF and Mach-O writers and `stdlib/macho.rail`).
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188

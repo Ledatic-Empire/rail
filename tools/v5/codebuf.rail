@@ -1,4 +1,5 @@
--- jit/codebuf.rail — byte-oriented code buffer.
+-- tools/v5/codebuf.rail: byte-oriented code buffer (jit/codebuf.rail until 2026-10-21; stdlib/macho.rail
+-- and the v5 assembler are its users).
 -- Internally an int_arr where each Rail int holds one byte (0..255).
 -- We keep it byte-granular so cb_emit can patch single bytes for branch
 -- targets without re-encoding the whole instruction.

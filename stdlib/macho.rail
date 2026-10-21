@@ -20,7 +20,7 @@
 --
 -- Phase 2 adds LC_CODE_SIGNATURE + the ad-hoc CodeDirectory blob.
 
-import "jit/codebuf.rail"
+import "tools/v5/codebuf.rail"
 
 -- ============================================================================
 -- Mach-O constants (sources: <mach-o/loader.h>, <mach/machine.h>)
