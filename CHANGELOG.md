@@ -54,6 +54,13 @@ All notable changes to Rail are documented here.
     ChaCha20, X25519, Ed25519 RFC 8032 sign and verify, ECDSA P-256 RFC 6979, the TLS 1.3
     RFC 8448 trace and the certificate signature check (t142 pins the auth oracle's Merkle
     root). `stdlib/tls13_client.rail` and the attestation path (`tools/attest`) are untouched.
+  - **`tools/audit/`** (9 shell walkers): estate audits that never belonged in the public compiler
+    repo. The six that launchd still runs (aliens manifest, attest endpoint, compound halt,
+    services drift, spurarm chain schema, system page) moved to `~/.ledatic/audits/walkers/`,
+    where `audit_run.sh` looks first, and were seen running from there before this cut; the
+    beacon chain audit had moved there on 2026-10-18; `dda_closeout_audit.sh` had no caller.
+    `leak_check.sh`, the pre-push mirror of the CI leak guard, is `.githooks/leak_check.sh`,
+    next to the hook that execs it (the first push of this cut was what found the caller).
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188
