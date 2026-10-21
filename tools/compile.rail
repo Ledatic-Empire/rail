@@ -2905,8 +2905,8 @@ ctor_name_strs cs i =
 
 -- P2 Stage B / B1: auth-type projection synthesis.
 -- For every ADT whose definition uses the `auth` field modifier, synthesize a
--- pair of functions reproducing the Stage A oracle (tools/auth/authkit.rail)
--- byte-for-byte:
+-- pair of functions reproducing the Stage A oracle (tools/auth/authkit.rail until
+-- 2026-10-21, tag archive/tier3-step5-precut-2026-10-21) byte-for-byte:
 --   proj_of_<TY> t = match t | Ctor f0 .. fn -> cat [<tag>, __auth_enc p0, ..]
 --   digest_<TY>  t = sha256_hex (proj_of_<TY> t)
 -- <tag> is the ctor's first char; each field piece is length-framed by __auth_enc
@@ -6007,7 +6007,8 @@ run_tests _ =
   -- t142 (P2 Stage B / B1): an auth-typed ADT triggers projection synthesis. The
   -- compiler auto-derives digest_Tree (proj_of_Tree + sha256_hex) from the `auth`
   -- markers; its Merkle root MUST be byte-identical to the hand-written Stage A
-  -- oracle (tools/auth/authkit.rail). The pinned hex is that oracle's live root.
+  -- oracle (tools/auth/authkit.rail, at tag archive/tier3-step5-precut-2026-10-21 since
+  -- 2026-10-21). The pinned hex is that oracle's live root.
   let t142 = run_test "auth_digest_merkle" "import \"stdlib/sha256.rail\"\ntype Tree = | Tip s | Bin auth Tree auth Tree\nmain =\n  let t = Bin (Bin (Tip \"alpha\") (Tip \"bravo\")) (Bin (Tip \"charlie\") (Tip \"delta\"))\n  let _ = print (digest_Tree t)\n  0" "afc59941de7c976817a9101ca0301139fca9a8fb844d4ccfbca8facbce8b9b5c"
   -- t143 (P2 Stage B / B2a): Ideal mode. The compiler synthesizes identity
   -- `unauth`/`auth_make`, so an auth-typed traversal written ONCE with `unauth`

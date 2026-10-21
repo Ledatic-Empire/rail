@@ -22,7 +22,7 @@ If you're evaluating this for any kind of production deployment, use OpenSSL / r
 
 ## Cryptographic primitives shipped
 
-Every one is validated against NIST or RFC test vectors. See `tools/tls/*.rail`.
+Every one is validated against NIST or RFC test vectors in the suite (`./rail_native test`: sha256, HMAC, ChaCha20, X25519, Ed25519 RFC 8032, ECDSA P-256 RFC 6979, the TLS 1.3 RFC 8448 trace). The 34 standalone probes that lived in `tools/tls/` until 2026-10-21 are at tag `archive/tier3-step5-precut-2026-10-21`.
 
 | Primitive | Source vector |
 |---|---|

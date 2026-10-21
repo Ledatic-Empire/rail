@@ -48,6 +48,12 @@ All notable changes to Rail are documented here.
     to R6 bit-exact harness and its foreign checks. What the replay record needs of it was
     lifted in step 4 as `stdlib/math_exact.rail`, checked by t258; the forwarder `bx_fixed.rail`
     and the BX4 and R1a gates go with the rest. No file outside the directory imported it.
+  - **`tools/tls/`** (36 files: 34 standalone probe programs and two fixtures) and **`tools/auth/`**
+    (`authkit.rail`, `authdict.rail`, the Stage A auth-type oracle). Nothing imported either; no
+    CI job, cron or suite test ran them. What they proved is in the suite: sha256, HMAC,
+    ChaCha20, X25519, Ed25519 RFC 8032 sign and verify, ECDSA P-256 RFC 6979, the TLS 1.3
+    RFC 8448 trace and the certificate signature check (t142 pins the auth oracle's Merkle
+    root). `stdlib/tls13_client.rail` and the attestation path (`tools/attest`) are untouched.
 - **The entropy beacon is its own repo, `Ledatic-Empire/rail-plasma`** (Tier 2, step 2):
   `tools/plasma/`, `stdlib/mhd_kernel.rail`, `mhd_axisym.rail` and `mhd_mpd.rail`, and the four
   suite tests that pinned the beacon's physics (t186 LxF invariants, t187 MUSCL divergence, t188

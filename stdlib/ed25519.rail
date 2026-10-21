@@ -1,7 +1,7 @@
 -- stdlib/ed25519.rail — Ed25519 signature verify (RFC 8032 §5.1).
 --
 -- v3.4.0: d constant fixed, mutual recursion flattened, RFC 8032 TEST
--- 1 vector at tools/tls/ed25519_test.rail. Not imported by
+-- 1 vector in the suite (ed25519_rfc8032_t1_verify). Not imported by
 -- tls13_client yet — no live endpoint in our caller set uses Ed25519
 -- certs today; wire in once a caller needs it.
 --
