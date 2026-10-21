@@ -3635,7 +3635,7 @@ import "stdlib/<name>.rail"
 > Runs the rail_native compiler on `code`, returns the combined
 > stdout+stderr. The compiler prints one "file:line:col: error: msg"
 > per parse/type/link error plus a trailing "N error(s) found" line
-> on failure, or "as: OK" + "ld: OK" on success.
+> on failure, or "link: OK" on success (since Tier 3 step 6; "as: OK" + "ld: OK" before).
 > 
 > oracle_compile_at takes an explicit input path, which callers MUST
 > use when invoking the oracle concurrently — the shared default path

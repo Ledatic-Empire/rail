@@ -29,7 +29,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(HERE)))  # tools/fuzz/ladder -> the tree
-BANNER = ("as: OK", "ld: OK")
+BANNER = ("link: OK",)  # "as: OK", "ld: OK" until Tier 3 step 6 (2026-10-21)
 SUITE_FLOOR = 205  # master after PR #77: 203 plus t211 (cr_escape) and t212 (bytes_to_str_100k)
 SELF_ARENA_MB = "6000"  # a bare self-compile refuses (1 GB thrashes for hours); 6000 = the in-process link
 RUNGS = {
@@ -41,11 +41,11 @@ RUNGS = {
 
 
 def printed(out):
-    """Only what the program printed: everything after the compiler's final `ld: OK` line. A check that
+    """Only what the program printed: everything after the compiler's final `link: OK` line. A check that
     imports stdlib (A imports http_client) makes the compiler print a symbol table before the link, which
     the banner filter alone let through on the first night (rung A's judge failed a correct program)."""
     lines = out.splitlines()
-    marks = [i for i, ln in enumerate(lines) if ln.strip() == "ld: OK"]
+    marks = [i for i, ln in enumerate(lines) if ln.strip() == "link: OK"]
     if marks:
         return lines[marks[-1] + 1 :]
     return [ln for ln in lines if not ln.startswith("Compiling ") and ln.strip() not in BANNER]

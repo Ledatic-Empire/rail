@@ -48,7 +48,7 @@ main =
   -- <user_args>. The child's args = [<binary_path>, <user_args>...], so
   -- args[1] is the user's first argv (what we want to round-trip).
   -- Print a leading TAG so we can isolate the child's stdout from the
-  -- compiler's "Compiling..." / "as: OK" / "ld: OK" preface that the
+  -- compiler's "Compiling..." / "wrote ..." / "link: OK" preface that the
   -- `rail_native run` driver intermixes.
   let child = cat ["main =\n",
                    "  let n = length args\n",

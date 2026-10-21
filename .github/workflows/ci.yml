@@ -69,15 +69,17 @@ jobs:
               grep -E "FAIL|^--- " /tmp/test.out | tail -40
               exit 1
             fi
-        - name: Self-compile (fixed point)
-          # The compiler inlines the pure-Rail linker (tools/v5/link_lib.rail), so
-          # self_compile needs an arena (the default 1GB thrashes the bigger source).
-          # CI uses the as/ld fallback (RAIL_ARENA_MB<5000) because the in-process
-          # rail-link path peaks ~8.5GB, over a 7GB macos runner. This still proves
-          # the compiler self-compiles to a byte-identical fixed point; the rail-link
-          # reproduction (RAIL_ARENA_MB=6000) is verified locally + is the committed seed.
+        - name: Self-compile reproduces the committed seed (one link path)
+          # Since Tier 3 step 6 every compile assembles, links and signs in process
+          # (tools/v5/link_lib.rail); there is no as/ld path for CI to fall back to.
+          # The seed is byte-identical at any RAIL_ARENA_MB from 2000 up (measured
+          # 2026-10-21, 2000 to 8000); the arena sets the first collection and so
+          # the peak: 5.4 GB resident at 3000, 6.4 GB at 6000, 7.1 GB at 5000 and
+          # 7000, on a 7 GB runner. The first cmp is the plan's proof: a machine the
+          # house does not own rebuilds the seed from source; the second is the fixed point.
           run: |
-            RAIL_ARENA_MB=4000 ./rail_native self
+            RAIL_ARENA_MB=3000 ./rail_native self
+            cmp /tmp/rail_self ./rail_native && echo "Seed reproduced: source -> committed rail_native"
             cp /tmp/rail_self ./rail_gen1
-            RAIL_ARENA_MB=4000 ./rail_gen1 self
-            diff <(xxd /tmp/rail_self) <(xxd ./rail_gen1) && echo "Fixed point: gen1 == gen2"
+            RAIL_ARENA_MB=3000 ./rail_gen1 self
+            cmp /tmp/rail_self ./rail_gen1 && echo "Fixed point: gen1 == gen2"

@@ -31,6 +31,21 @@ enc_sub dst a b =
 enc_mul dst a b =
   bit_or 2600500224 (bit_or (shl b 16) (bit_or (shl a 5) dst))
 
+-- smulh xD, xA, xB  (the high 64 bits of the signed 128-bit product)
+-- Base: 0x9B407C00 | (B << 16) | (A << 5) | D
+enc_smulh dst a b =
+  bit_or 2604694528 (bit_or (shl b 16) (bit_or (shl a 5) dst))
+
+-- ror xD, xA, xB    (rorv)
+-- Base: 0x9AC02C00 | (B << 16) | (A << 5) | D
+enc_ror dst a b =
+  bit_or 2596285440 (bit_or (shl b 16) (bit_or (shl a 5) dst))
+
+-- fneg dD, dN
+-- Base: 0x1E614000 | (N << 5) | D
+enc_fneg_d dst src =
+  bit_or 509689856 (bit_or (shl src 5) dst)
+
 -- cmp xA, xB        (subs xzr, xA, xB)
 -- Base: 0xEB00001F | (B << 16) | (A << 5)
 enc_cmp a b =

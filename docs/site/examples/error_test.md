@@ -26,9 +26,8 @@ main =
 
 ```
 Compiling examples/error_test.rail (206 chars)...
-  as: OK
-  ld: Undefined symbols for architecture arm64:
-/bin/sh: /tmp/rail_out: No such file or directory
+  link: refused, undefined identifier(s): y
+  link: FAILED (assembly kept at /tmp/rail_build_Otma1D.s)
 ```
 
 The assembler accepts the code (because Rail emits a label reference for `y` without checking), and the linker (`ld`) is the one that catches the missing symbol. The trailing `/bin/sh: /tmp/rail_out: ...` is the driver trying to execute a binary that was never produced.

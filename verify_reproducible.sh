@@ -12,8 +12,9 @@
 #
 # Requirements:
 #   - Apple Silicon macOS: the committed seed is an arm64 Mach-O and must run to rebuild.
-#   - RAM headroom for the in-process linker. Defaults to RAIL_ARENA_MB=6000; below 5000
-#     the build falls back to as/ld, which is NOT bit-reproducible and will not match.
+#   - RAM headroom for the compile. Defaults to RAIL_ARENA_MB=6000; the seed is the same at
+#     any arena from 2000 up (measured 2026-10-21, 2000 to 8000); below 2000 the compiler
+#     refuses (its own source thrashes there). Since Tier 3 step 6 there is no other link path.
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -28,13 +29,13 @@ sha() {
 if [ "$(uname -sm)" != "Darwin arm64" ]; then
   echo "verify: the committed seed is an arm64 macOS Mach-O — run this on Apple Silicon macOS"; exit 2
 fi
-if [ "$ARENA" -lt 5000 ] 2>/dev/null; then
-  echo "verify: RAIL_ARENA_MB=$ARENA < 5000 selects the as/ld fallback (not bit-reproducible)."
-  echo "verify: re-run with RAIL_ARENA_MB>=6000."; exit 2
+if [ "$ARENA" -lt 2000 ] 2>/dev/null; then
+  echo "verify: RAIL_ARENA_MB=$ARENA < 2000: the compiler refuses to self-compile there (it thrashes)."
+  echo "verify: re-run with RAIL_ARENA_MB>=2000 (6000 is the default)."; exit 2
 fi
 
 echo "verify: rebuilding the committed seed from source via the pure-Rail toolchain"
-echo "verify:   (arena=${ARENA}MB, no as/ld/codesign) — this takes a couple of minutes…"
+echo "verify:   (arena=${ARENA}MB, in-process assembler, linker and signer): about ten seconds"
 RAIL_ARENA_MB="$ARENA" ./rail_native self >/tmp/verify_reproducible.log 2>&1 \
   || { echo "verify: self-compile failed:"; tail -6 /tmp/verify_reproducible.log; exit 2; }
 

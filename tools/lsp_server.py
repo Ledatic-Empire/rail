@@ -185,7 +185,7 @@ def compile_and_get_diagnostics(file_path):
             continue
 
         # assembler errors
-        if line.startswith('as:') and line != 'as: OK':
+        if line.startswith('asm:'):  # 'asm: no encoding for ...' (one link path since Tier 3 step 6)
             diagnostics.append({
                 "range": _range(0, 0, 0, 1),
                 "severity": 1,
@@ -194,7 +194,7 @@ def compile_and_get_diagnostics(file_path):
             })
 
         # ld not OK
-        if line.startswith('ld:') and line != 'ld: OK' and 'Undefined' not in line:
+        if line.startswith('link:') and line != 'link: OK' and 'Undefined' not in line:
             # Parse ld errors that contain useful info
             if 'cannot be open' not in line:
                 diagnostics.append({
