@@ -1,7 +1,10 @@
 # Tier 3: the record is the inheritance (plan, 2026-10-21)
 
 Status: a plan, not a mandate. Step 1 landed 2026-10-20 (#142) with the seed unchanged, and the
-data section followed it out of the strings; the rest is not implemented. The owner's frame, 2026-10-21: humans
+data section followed it out of the strings (#144). Step 2 landed 2026-10-21 in rail-plasma (its PR #1):
+`replay.sh` replays any pulse by id to MATCH or MISMATCH, every pulse since 9166580 names its
+program (`frame.rail_commit`, `frame.plasma_commit`, `frame.os_build`), and the gate replays a pinned
+record; the rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number
