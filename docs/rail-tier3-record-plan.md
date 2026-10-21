@@ -25,7 +25,7 @@ it at 3000 on GitHub's 7 GB runner and `cmp`s it (the peak the plan feared, 8.5 
 once measured on the cut compiler); the first in-process link of user programs found five
 defects (`\r`, `ror`/`smulh`/`fneg`, `.comm`, undefined identifiers, the `llm` grep), each now
 loud; the channel and Quartz shims that only the old branch could link went with it (`SHIMS.md`
-five rows). The rest is not implemented. The owner's frame, 2026-10-21: humans
+five rows). Step 7 landed 2026-10-21 (estate, no Rail change: `~/.fleet/repro_witness.sh`, its Air half `repro_witness_remote.sh`, the plist back in LaunchAgents at 04:37, a manifest row): the Mini picks the newest seeded pulse ledatic.org serves and replays it; the Air, from anonymous public clones checked out at the commits the record names, fetches and replays the same record; each box logs its verdict, and a planted digest, a seedless record and a dead address each rang through the real path before the agent was loaded. First proof: pulse 9177957 (141 frames) `match` on both boxes. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number
