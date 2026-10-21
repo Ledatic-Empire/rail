@@ -35,7 +35,7 @@ The compiler is a 4-stage pipeline. Only stage 3 and 4 are hardware-specific:
 - `build_macos` — `as` + `ld -lSystem` (Mach-O ARM64)
 - `build_linux` — sed transform + `aarch64-elf-as` + `aarch64-elf-ld` (ELF ARM64)
 
-**Runtime** (`rt_core` + `rt_list` + `rt_closure` + `rt_io` + `rt_args` + `rt_arith` + `rt_fiber` + `rt_gpu`, ~170 lines of inline ASM strings):
+**Runtime** (`runtime/arm64/*.s`, carried into the compiler as the `rt_*` constants of the generated `tools/runtime_arm64.rail`):
 - `_rail_eq`, `_rail_ne`, `_rail_add`, `_rail_sub`, `_rail_mul`, `_rail_div`
 - `_rail_print`, `_rail_show`, `_rail_str_append`
 - `_rail_alloc` (bump allocator from `_rail_heap_ptr`)

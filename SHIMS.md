@@ -2,13 +2,13 @@
 
 Rail aims at zero non-Rail dependencies in the user program. The compiler is written in Rail and emits its own assembly; stdlib is Rail; tooling is primarily Rail, with external verification tools listed below. The files below exist because kernel boundaries, GPU drivers, framework C ABIs, and bare-metal CPU bringup demand a small irreducible surface in another language. Each entry names the boundary, the byte cost, and what would let us delete it.
 
-Totals below: **33 in-tree files in the build and runtime**, ~420 KB, plus a **7-file tree-sitter grammar** (~437 KB, almost all of it machine-generated `parser.c`) that ships for editors and is not part of the compiler, the runtime, or any build. Plus 8 gitignored UAV files (~213 KB) in their own section.
+Totals below: **54 in-tree files in the build and runtime**, ~527 KB, plus a **7-file tree-sitter grammar** (~437 KB, almost all of it machine-generated `parser.c`) that ships for editors and is not part of the compiler, the runtime, or any build. Plus 8 gitignored UAV files (~213 KB) in their own section.
 
 **Scope of the claim.** This document accounts for the non-Rail surface in the build and runtime. It is not a claim that the repository contains no other language: 153 tracked Python, shell, and JavaScript files (~714 KB) carry deploy, attestation, and CI plumbing that runs *around* Rail rather than inside it. The thesis is that nothing between your source and the binary is written in C, not that no script exists anywhere in the tree.
 
 ---
 
-## External semantic verification tooling (excluded from the 33 build/runtime files)
+## External semantic verification tooling (excluded from the 54 build/runtime files)
 
 | Path | Language | Purpose |
 |---|---|---|
@@ -17,7 +17,7 @@ Totals below: **33 in-tree files in the build and runtime**, ~420 KB, plus a **7
 
 These two files add testing infrastructure, not dependencies of the compiler or
 generated binaries. They are additional to the historical 153-file tooling
-inventory above and do not change the **33 build/runtime files** count. Obtain
+inventory above and do not change the **54 build/runtime files** count. Obtain
 their current byte sizes with `wc -c tools/fuzz/semantic.py tools/fuzz/test_semantic.py`.
 
 ## 1. Kernel / syscall boundary
@@ -115,17 +115,18 @@ Hardware whose driver is not in the kernel (or where the Linux driver requires r
 
 ---
 
-## 6. GC inner loop / concurrent runtime
+## 6. The runtime, and the concurrent bridge
 
-Hand-tuned C where Rail's emit pipeline isn't yet expressive enough.
+The runtime every native program links, and hand-tuned C where Rail's emit pipeline isn't yet expressive enough.
 
 | Path | Lang | Bytes | Reason | To retire |
 |---|---|---|---|---|
+| `runtime/arm64/*.s` (21 files) | asm-arm64 | 106,953 | The runtime every macOS and Linux ARM64 program links: equality and show, lists, strings, I/O, fibers, threads, `try`, the libc replacements, the conservative mark-sweep collector and the arena. The compiler carries it as text (`tools/gen_runtime.rail` writes `tools/runtime_arm64.rail`) and appends it to every program. | Not a target: it sits below the code generator. Single routines could move into Rail-emitted code as the emitter grows. |
 | `tools/runtime/concurrent.c` | C | 16,319 | Bounded blocking channels + `pthread_spawn` for `stdlib/concurrent.rail`. Uses `pthread_mutex` + `pthread_cond` — neither has a Rail-side abstraction yet. | When Rail emits its own threading primitives (deferred — `int64`-only channels suffice for v0). |
 
-Note: the conservative mark-sweep GC itself is **not** here — it is hand-written ARM64 assembly embedded inside `tools/compile.rail` as string literals, emitted by Rail. The compiler's `rt_*` runtime asm is Rail source, not a non-Rail file.
+Until 2026-10-21 the runtime's assembly was string literals inside `tools/compile.rail`, and this ledger counted it as Rail source. It was assembly then too; in files, it is counted.
 
-**Sub-total:** 1 file / 16,319 bytes.
+**Sub-total:** 22 files / 123,272 bytes.
 
 ---
 
@@ -190,12 +191,12 @@ Plus ~17 files under `tools/uav/archive/` (ES, GRU/MapGRU eval kernels, weight I
 | 4. CPU bringup (M4 + RISC-V) | 0 | 0 |
 | 4. v5 assembler fixtures | 5 | 1,997 |
 | 5. External device drivers | 1 | 4,571 |
-| 6. GC / concurrent runtime | 1 | 16,319 |
+| 6. The runtime + concurrent bridge | 22 | 123,272 |
 | 7. Reference + harness strays | 2 | 6,265 |
-| **In-tree total (build + runtime)** | **33** | **420,071** |
+| **In-tree total (build + runtime)** | **54** | **527,024** |
 | 8. tree-sitter grammar (editors only) | 7 | 437,258 |
 | 9. UAV (gitignored, private) | 8 | ~213,000 |
 
-Public-thesis count: **33 non-Rail files in the build and runtime**. The compiler, the stdlib (102 modules), the JIT tracer, the v5 assembler, the test harness, the package manager and the docs generator are Rail. The tree-sitter grammar is generated C for editor integration and touches neither. Deploy and attestation plumbing is a mix of Rail and shell, and is counted in the scope note at the top rather than claimed as Rail.
+Public-thesis count: **54 non-Rail files in the build and runtime**. The compiler, the stdlib (102 modules), the JIT tracer, the v5 assembler, the test harness, the package manager and the docs generator are Rail. The tree-sitter grammar is generated C for editor integration and touches neither. Deploy and attestation plumbing is a mix of Rail and shell, and is counted in the scope note at the top rather than claimed as Rail.
 
-Removable on next cleanup pass (no live caller, scaffolding only): `tensor_gpu_lib_stub.m`, `test_dylib.c`, `bench_matmul.m`, `fp16_probe.m`, `_dormant/plasma_3d_host.m`. Net would drop to 26 files / ~377 KB.
+Removable on next cleanup pass (no live caller, scaffolding only): `tensor_gpu_lib_stub.m`, `test_dylib.c`, `bench_matmul.m`, `fp16_probe.m`, `_dormant/plasma_3d_host.m`. Net would drop to 47 files / ~484 KB.

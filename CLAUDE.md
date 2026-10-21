@@ -35,12 +35,12 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (~9,700 lines), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
+- **Compiler source**: `tools/compile.rail` (8,619 lines on 2026-10-21; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
 - **Seed binary**: `rail_native` (984K ARM64): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
 - **Error messages**: `file:line:col: error: message`: parse errors halt cleanly instead of segfaulting.
-- **Runtime**: Zero C dependencies. GC is ARM64 assembly embedded in the compiler. Only needs `as` + `ld`.
+- **Runtime**: Zero C dependencies. ARM64 assembly in `runtime/arm64/*.s` (the GC included); `tools/gen_runtime.rail` regenerates `tools/runtime_arm64.rail`, which the compiler imports and embeds. Edit the `.s`, regenerate, bootstrap twice (`runtime/arm64/README.md`).
 - **GC**: Conservative mark-sweep garbage collector in ARM64 assembly. Scans stack frames, marks reachable tagged objects, sweeps into free list. Triggered when the arena's bump allocation fails; `RAIL_GC_STRESS=N` forces one every Nth allocation.
 - **Allocator**: bump arena inside a 64 GB address reservation that grows in place (`RAIL_ARENA_MB` is where the first collection happens, default 1 GB) + GC free list; no malloc spill on macOS. 256MB thread stack. `arena_mark`/`arena_reset` still work.
 - **Effect handlers**: `try body handler`: setjmp/longjmp non-local error recovery. Deep unwinding, nested handlers.
@@ -93,7 +93,7 @@ python3 tools/fuzz/gc_stress.py      # every suite test and tree program under R
 
 ### Modifying the Compiler
 
-Read `docs/COMPILER_BOOTSTRAP.md` before editing `tools/compile.rail`: bootstrap cycles, the diagnostic pattern, the data-section and ASCII-only traps. Always: `RAIL_ARENA_MB=6000 ./rail_native self`, then `./rail_native test` (254/254), then self again and `cmp` for the fixed point.
+Read `docs/COMPILER_BOOTSTRAP.md` before editing `tools/compile.rail`: bootstrap cycles, the diagnostic pattern, the data-section and ASCII-only traps. Always: `RAIL_ARENA_MB=6000 ./rail_native self`, then `./rail_native test` (every test must pass), then self again and `cmp` for the fixed point.
 
 ## Substrate beyond compile.rail (shipped 2026-05-11)
 

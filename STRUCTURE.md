@@ -9,6 +9,7 @@ cleanup candidate.
 | Entry | Purpose |
 |---|---|
 | `tools/` | Everything Rail-source-but-not-compiler-or-stdlib: the compiler driver (`compile.rail`), deploy generators, fleet control plane, attestation kernel, training-arm orchestrator, plasma + Metal kernels, JIT, package manager, fuzz / lint / trace foundations, test harness, third-party device shims. The kitchen. |
+| `runtime/arm64/` | The ARM64 runtime every native program links, as assembly (21 `.s` files). `tools/gen_runtime.rail` carries it into the compiler as the generated `tools/runtime_arm64.rail`. Root `runtime/` is otherwise gitignored build output. See its README. |
 | `stdlib/` | Rail's standard library — 102 modules. Everything `import`-able. |
 | `examples/` | Hand-curated `.rail` programs that demonstrate language features. 32 files. |
 | `tests/` | Placeholder dir; the actual test corpus is inside `tools/compile.rail` as `run_test` calls. See `tests/README.md`. |

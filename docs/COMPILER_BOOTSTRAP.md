@@ -12,7 +12,7 @@ inlined linker makes the compiler bigger; default rail-link path needs the arena
 
 **NOTE**: Self-compile works cleanly since the 256MB stack fix. No gen2_head bootstrap needed.
 
-**IMPORTANT**: If you change the runtime (`rt_core`, `rt_list`, `rt_string`, etc.), the old binary generates the old runtime. You must bootstrap: compile → install → compile again with new binary.
+**IMPORTANT**: The runtime is `runtime/arm64/*.s` (since 2026-10-21; `runtime/arm64/README.md`). After editing it, run `./rail_native run tools/gen_runtime.rail` to rewrite `tools/runtime_arm64.rail`, the generated module the compiler imports. Then: the old binary generates the old runtime. You must bootstrap: compile → install → compile again with new binary.
 
 **DATA SECTION BUG**: Changes to the `data` string literal in `compile_program` may not propagate. If you need new data section labels, construct strings at runtime via `malloc` + byte stores in the ARM64 assembly instead. See polymorphic show implementation in `rshow` for the pattern.
 
@@ -21,7 +21,7 @@ inlined linker makes the compiler bigger; default rail-link path needs the arena
 | Edit type | Cycles needed | Why |
 |---|---|---|
 | Source-only logic (e.g., `all_params_int` predicate, parser branches) | **1 cycle** | Compile-time decisions take effect when next binary parses code |
-| String literals embedded in `rt_*` runtime asm constants (e.g., `_rail_alloc` body) | **2 cycles** | Cycle 1 puts new strings in data section; cycle 2's emit USES them as runtime |
+| Runtime asm in `runtime/arm64/*.s` (e.g., `_rail_alloc` body), regenerated into the `rt_*` constants | **2 cycles** | Cycle 1 puts new strings in data section; cycle 2's emit USES them as runtime |
 | New runtime functions or data section symbols | **2 cycles** | Same: needs cycle 2 to bake the new emit pattern |
 | Both source + runtime asm in one edit | **2 cycles** | Source effect is immediate; runtime effect needs one more |
 | Verifying byte-identical fixed point | **3 cycles** | Cycle 3 compares to cycle 2 to prove convergence |

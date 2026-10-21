@@ -53,7 +53,7 @@ cmp rail_native /tmp/rail_self            # must be silent
 
 Step 5 is the hard part. The bootstrap is a 2-cycle limit cycle: gen0's shipped runtime asm does not necessarily match what gen0's source emits, so cycle 1 typically produces a different binary. Cycle 2 always lands the byte-identical fixed point (gen2 == gen3 == gen4). If `cmp` is silent after running `self` twice in a row from an already-installed binary, you have converged. If cycle 3 still differs from cycle 2, something in your codegen is non-deterministic and wants investigation. See [`notes/bootstrap_convergence_audit_2026-05-13.md`](notes/bootstrap_convergence_audit_2026-05-13.md) for the falsification of the "doesn't converge" claim.
 
-If you change the runtime — `rt_core`, `rt_list`, `rt_string`, the GC embedded in `compile.rail` — the old binary generates the old runtime. You have to bootstrap twice: compile, install, compile again with the new binary.
+If you change the runtime (`runtime/arm64/*.s`: equality, lists, strings, the collector), run `./rail_native run tools/gen_runtime.rail` first, then remember the old binary generates the old runtime. You have to bootstrap twice: compile, install, compile again with the new binary. `runtime/arm64/README.md` has the file format.
 
 ## The bar for an stdlib patch
 
