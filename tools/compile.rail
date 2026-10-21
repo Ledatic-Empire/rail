@@ -6421,13 +6421,15 @@ build_linux asm_text =
   -- meaning under ELF; (2) drop macOS-flavoured stubs that linux_libc.s
   -- redefines.
   let _ = shell "awk 'BEGIN{skip=0} /^\\.section __DATA,__mod_init_func/{skip=1;next} skip && /^\\.(text|data|bss|section)/{skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
-  -- Strip macOS-flavoured runtime stubs that linux_libc.s redefines. Stop
+  -- Strip macOS-flavoured runtime stubs that linux_libc.s redefines (the f32 file writer and
+  -- reader since 2026-10-21: they are raw Darwin syscalls, and on Linux they opened nothing).
+  -- Stop
   -- the strip on either the next `_lowercase` label OR a section directive
   --, without the section stop, a `.data` directive sandwiched between the
   -- last stripped stub and the next kept label gets eaten, and the
   -- following data items (_fmt_int / _rail_argc / etc.) silently end up
   -- in .text (read-only). Result on ELF: SIGSEGV at _main+4 storing argc.
-  let _ = shell "awk 'BEGIN{skip=0} /^_(strlen|strcmp|strcpy|strcat|atoi|strstr|read|free|fopen|fwrite|fread|fclose|fseek|ftell|fflush|malloc|setjmp|longjmp|write|printf|snprintf|open|close|ioctl|rail_arena_init|rail_print|rail_print_float|rail_shell|rail_malloc_chain_drain):$/{skip=1;next} skip && (/^_[a-z]/ || /^\\.(text|data|bss|section)/){skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
+  let _ = shell "awk 'BEGIN{skip=0} /^_(strlen|strcmp|strcpy|strcat|atoi|strstr|read|free|fopen|fwrite|fread|fclose|fseek|ftell|fflush|malloc|setjmp|longjmp|write|printf|snprintf|open|close|ioctl|rail_arena_init|rail_print|rail_print_float|rail_shell|rail_malloc_chain_drain|rail_float_arr_to_f32_file|rail_float_arr_from_f32_file):$/{skip=1;next} skip && (/^_[a-z]/ || /^\\.(text|data|bss|section)/){skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
   let _ = shell (cat ["cat /tmp/rail_linux_code.s /tmp/rail_linux_start.s ", libc_path, " ", data_path, " /tmp/rail_linux_bss.s > /tmp/rail_linux.s"])
   -- Detect if running on Linux (native) or macOS (cross)
   let uname = trim (shell "uname -s 2>/dev/null")

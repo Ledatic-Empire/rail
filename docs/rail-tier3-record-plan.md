@@ -25,7 +25,18 @@ it at 3000 on GitHub's 7 GB runner and `cmp`s it (the peak the plan feared, 8.5 
 once measured on the cut compiler); the first in-process link of user programs found five
 defects (`\r`, `ror`/`smulh`/`fneg`, `.comm`, undefined identifiers, the `llm` grep), each now
 loud; the channel and Quartz shims that only the old branch could link went with it (`SHIMS.md`
-five rows). Step 7 landed 2026-10-21 (estate, no Rail change: `~/.fleet/repro_witness.sh`, its Air half `repro_witness_remote.sh`, the plist back in LaunchAgents at 04:37, a manifest row): the Mini picks the newest seeded pulse ledatic.org serves and replays it; the Air, from anonymous public clones checked out at the commits the record names, fetches and replays the same record; each box logs its verdict, and a planted digest, a seedless record and a dead address each rang through the real path before the agent was loaded. First proof: pulse 9177957 (141 frames) `match` on both boxes. The rest is not implemented. The owner's frame, 2026-10-21: humans
+five rows). Step 7 landed 2026-10-21 (estate, no Rail change: `~/.fleet/repro_witness.sh`, its Air half `repro_witness_remote.sh`, the plist back in LaunchAgents at 04:37, a manifest row): the Mini picks the newest seeded pulse ledatic.org serves and replays it; the Air, from anonymous public clones checked out at the commits the record names, fetches and replays the same record; each box logs its verdict, and a planted digest, a seedless record and a dead address each rang through the real path before the agent was loaded. First proof: pulse 9177957 (141 frames) `match` on both boxes. Step 8 landed 2026-10-21 (Rail
+`tools/decimal64.rail`, t259, `tools/fuzz/float_literals.py`): every float literal's 64 bits are
+decided when the program is compiled, correctly rounded, ties to even, by integer arithmetic;
+the self-compiled assembly has no `bl _atof` and the beacon's assembly none (from 133); 1,520
+generated literals agree with CPython and a planted tie rule fails the gate. On the Pi all 38
+probed literals, the kernel's 31 included, hold the Mini's bits. The re-measurement answered the
+open question another way: the Pi's replay digest `a6619f48...` was the SHA-256 of 393,216 zero
+bytes, because the runtime's float32 file writer issues raw Darwin syscalls and wrote nothing on
+Linux; with Linux versions in `tools/linux_libc.s` the Pi replays the 38-frame record of step 4
+to the Mini's digest `acf59368...` with a byte-identical planes file, and `replay.rail` now
+refuses a planes file it did not write (`WRITE_FAILED`). The 64-frame pinned record exceeds the
+Pi's memory. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number

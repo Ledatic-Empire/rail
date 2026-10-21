@@ -207,6 +207,21 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **Linux ARM64 never wrote a float32 file** (Tier 3, step 8 found it). `float_arr_to_f32_file`
+  and `float_arr_from_f32_file` in `runtime/arm64/float.s` issue raw Darwin syscalls (`svc #0x80`
+  with `x16` = `0x2000005` open, `0x2000004` write, `0x2000003` read, `0x2000006` close), which a
+  Linux kernel does not understand; the writer's open failed, it returned false, and nothing was
+  written. The beacon replay then digested `read_file_bytes` of a path that did not exist, 393,216
+  zero bytes, whose SHA-256 is `a6619f48...`: the "Linux mismatch" measured on the Pi in step 4
+  and attributed to twelve literal ulps was this. `tools/linux_libc.s` now carries Linux versions
+  of both (openat, write, read, close; the same frames, conversions and return values) and
+  `build_linux` strips the macOS pair with the other Darwin stubs. Measured on the Pi Zero 2 W
+  (Debian 6.6.51) with the new seed: a 4-value probe writes 16 bytes and reads them back; the
+  38-frame record of step 4 replays to `acf59368...`, the digest the Mini gives it, and the
+  393,216-byte planes files from the two machines `cmp` equal. The record pinned in rail-plasma
+  `tests/` (64 frames) exceeds what the Pi's 416 MB gives a 1 GB static heap; the box reset twice
+  under it, so the Pi's verdict is on the 38-frame record. The replay itself (rail-plasma
+  `replay.rail`) now refuses with `WRITE_FAILED` and exit 2 when the planes file was not written.
 - **Linux ARM64 binaries link again: `tools/linux_libc.s` gained `_exit` and `_sqrt`.** The
   collector's out-of-memory path (`runtime/arm64/gc_2.s`) calls `_exit`, which libSystem
   provides on macOS and nothing provided on Linux, so every `rail_native linux` build since
