@@ -63,7 +63,7 @@ less grammar/rail.ebnf
 ## 5. The status numbers are recomputed live
 
 ```bash
-./rail_native run tools/deploy/gen_status.rail && git diff --exit-code docs/STATUS.md
+./rail_native run tools/verify/gen_status.rail && git diff --exit-code docs/STATUS.md
 ```
 
 [`docs/STATUS.md`](docs/STATUS.md) is a pure function of the source tree
