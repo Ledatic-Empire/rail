@@ -101,7 +101,6 @@ Foundation tools that landed 2026-05-11 and are still here (the lint, trace and 
 |---|---|---|
 | Test runner | `./rail_native run tools/test/rail_test.rail <dir>` | New tests. Convention: exit 0 AND last-line `PASS`. Exit-code-honest (relies on the 2026-05-02 fix) |
 | Diff fuzzer | `./rail_native run tools/fuzz/diff_fuzz.rail --seed=42 --n=20` | Before any compile.rail change. Catches silent miscompilation via two-path differential eval. Int-only grammar today |
-| Channels/spawn | `bash tools/runtime/build_concurrent.sh` then `import "stdlib/concurrent.rail"`: `rc_chan_make / rc_chan_send / rc_chan_recv / rc_spawn` | Producer/consumer, parallel work. int64-only values today. Symbols `rc_*` (Rail) / `rcon_*` (C) to avoid colliding with compiler-internal `_rail_spawn` |
 | Stdlib docs | `./rail_native run tools/docs/gen_stdlib_ref.rail` | After any stdlib edit, regen `docs/site/stdlib.md` |
 
 Public docs: **https://ledatic.org/rail/docs/**: md→html build + deploy recipe in memory entry `docs_deploy_rail.md`.
@@ -111,7 +110,6 @@ Public docs: **https://ledatic.org/rail/docs/**: md→html build + deploy recipe
 - **Phantom builtins** in `compile.rail:~2233` `str_returning_builtin` list: `trim`, `str_to_int`. Declared but no codegen → `ld` undefined symbol at link. Inline a helper or extend emit.
 - **`to_int "42"` silently returns 0**: `to_int` is float→int only. There is no string-to-int builtin. Write a digit-walking helper inline.
 - **3-movk codegen** (FIXED 2026-05-12, `feat/c-3-movk-literals`): `emit_load_int` at `compile.rail:829` now emits movz + up to 3 movk chunks (bits 0-15, 16-31, 32-47, 48-63), with zero chunks at >=#32 skipped. Both positive (`movz`+`movk`) and negative (`movn`+`movk` with inverted bits) paths handle the full 64-bit range. Regression tests: t132 (3-movk), t133 (4-movk), t134 (4-movk negative). Note: `k16/k32/k48` constants computed via `shl 1 N` so `opt` constant-folding doesn't bake them as 64-bit literals the seed can't emit.
-- **Stale FFI dylib at link time** (FIXED 2026-05-16): when ld errors point to an unrelated Rail function (e.g. `_mul_acc in rail_build_XXXXXX.o` referenced from when the real undefined symbol is `_tgl_matmul_bf16`), the "referenced from" is the nearest preceding label, not the actual call site. Root cause is usually a stale `tools/runtime/libconcurrent.dylib` or `tools/desk/libquartz_bridge.dylib` that lacks symbols added to the `.c`/`.m` source since last rebuild. `compile.rail`'s `ensure_fresh_dylib` helper auto-rebuilds when source mtime exceeds dylib mtime; the rebuild scripts are `tools/runtime/build_concurrent.sh` and `tools/desk/build_quartz_bridge.sh`. Both dylibs are gitignored (per-machine artifacts). The Metal and JIT dylibs left on 2026-10-21.
 
 ## Related repos
 

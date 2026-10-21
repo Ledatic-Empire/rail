@@ -14,13 +14,6 @@ node_modules/
 # runtime/ holds build objects (llm.o); runtime/arm64/ is the ARM64 runtime's source.
 **/runtime/*
 !/runtime/arm64/
-# Whitelist exception: tools/runtime/ holds the v0 concurrency bridge
-# (libconcurrent.dylib is platform-specific, kept untracked below).
-!tools/runtime/
-!tools/runtime/*.c
-!tools/runtime/*.rail
-!tools/runtime/*.sh
-tools/runtime/libconcurrent.dylib
 archive/
 # Whitelist exception: docs/archive/ holds dated retros / handoffs /
 # closed bug write-ups that we want browsable in git history.
@@ -78,7 +71,6 @@ selfhost/*/rail_self_2
 releases/**/rail_native
 releases/**/compile.rail
 
-tools/desk/libquartz_bridge.dylib
 flywheel-local/
 
 # Backup binaries (canonical rail_native is tracked; backups are scratch)

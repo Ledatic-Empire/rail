@@ -54,9 +54,9 @@ main =
   let _ = w out "The seed binary has **no C**: the GC and runtime are ARM64 assembly embedded in the\n"
   let _ = w out "compiler, and since v5.2.0 it assembles, links, and code-signs itself (no `as` / `ld` /\n"
   let _ = w out "`codesign`). It links one system library, `libSystem` (`otool -L rail_native`), the\n"
-  let _ = w out "kernel interface every macOS process has. Everyday `./rail_native file.rail` builds still\n"
-  let _ = w out (cat ["use the system `as` and `ld`. The Linux and x86 syscall shims, the optional channels and\n",
-                      "Quartz bridges and the assembler fixtures are a small asm/C/ObjC boundary: ", shims_n, " in-tree\n",
+  let _ = w out "kernel interface every macOS process has. Since 2026-10-21 (Tier 3 step 6) every\n"
+  let _ = w out (cat ["`./rail_native file.rail` build takes the same in-process path. The Linux and x86 syscall\n",
+                      "shims, the Pi display driver and the assembler fixtures are a small asm/C boundary: ", shims_n, " in-tree\n",
                       "non-Rail files, each named in [`SHIMS.md`](../SHIMS.md).\n\n"])
 
   let _ = w out "## Backends\n\n"
