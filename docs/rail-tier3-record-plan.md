@@ -18,7 +18,14 @@ tag `archive/tier3-step5-precut-2026-10-21`): `tools/bitexact`, `tools/tls`, `to
 (the encoder and code buffer kept under `tools/v5/`), the wasm backend with `rail safe`, and
 `tools/deploy` (the site generators are `ledatic-site/railgen`); the suite is 242, the seed
 991,800 bytes, `SHIMS.md` seven rows. `tools/fleet` stays until the owner repoints the
-`tb_autojoin` root daemon on both Macs. The rest is not implemented. The owner's frame, 2026-10-21: humans
+`tb_autojoin` root daemon on both Macs. Step 6 landed 2026-10-21 (Rail #160, #161): every macOS
+compile links in process through `tools/v5/link_lib.rail`; the `as`/`ld`/`codesign` branch and
+the sub-5000 MB fallback are gone; the seed is the same at any arena from 2000 up and CI rebuilds
+it at 3000 on GitHub's 7 GB runner and `cmp`s it (the peak the plan feared, 8.5 GB, was 5.4 GB
+once measured on the cut compiler); the first in-process link of user programs found five
+defects (`\r`, `ror`/`smulh`/`fneg`, `.comm`, undefined identifiers, the `llm` grep), each now
+loud; the channel and Quartz shims that only the old branch could link went with it (`SHIMS.md`
+five rows). The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number
