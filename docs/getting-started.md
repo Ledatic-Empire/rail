@@ -133,7 +133,6 @@ diff /tmp/rail_self /tmp/rail_out
 
 ```bash
 ./rail_native linux hello.rail    # cross-compile for Linux ARM64
-./rail_native wasm hello.rail     # compile to WASM (experimental)
 ./rail_native generate "desc"     # generate code via local LLM
 ./rail_native get json            # install stdlib package
 ./rail_native packages            # list installed packages

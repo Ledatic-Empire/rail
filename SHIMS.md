@@ -1,202 +1,38 @@
-# SHIMS.md — Non-Rail surface in the Rail build/runtime
+# SHIMS.md: the non-Rail surface in the build and runtime
 
-Rail aims at zero non-Rail dependencies in the user program. The compiler is written in Rail and emits its own assembly; stdlib is Rail; tooling is primarily Rail, with external verification tools listed below. The files below exist because kernel boundaries, GPU drivers, framework C ABIs, and bare-metal CPU bringup demand a small irreducible surface in another language. Each entry names the boundary, the byte cost, and what would let us delete it.
+Rail's claim is that nothing between your source and the binary is written in C. The compiler
+is Rail, the stdlib is Rail, the assembler, linker and signer the seed uses are Rail. What is
+not Rail is listed here, every file, counted from `git ls-files` on 2026-10-21 after Tier 3
+step 5 (tag `archive/tier3-step5-precut-2026-10-21` is the tree before it, with the Metal,
+JIT and wasm surfaces this file used to carry).
 
-Totals below: **55 in-tree files in the build and runtime**, ~529 KB, plus a **7-file tree-sitter grammar** (~437 KB, almost all of it machine-generated `parser.c`) that ships for editors and is not part of the compiler, the runtime, or any build. Plus 8 gitignored UAV files (~213 KB) in their own section.
+**33 in-tree files in the build and runtime, 247,901 bytes.** Recount:
+`git ls-files | grep -E '\.(s|c|m|h|S)$' | grep -v '^tree-sitter-rail/'`, then `wc -c`.
 
-**Scope of the claim.** This document accounts for the non-Rail surface in the build and runtime. It is not a claim that the repository contains no other language: 153 tracked Python, shell, and JavaScript files (~714 KB) carry deploy, attestation, and CI plumbing that runs *around* Rail rather than inside it. The thesis is that nothing between your source and the binary is written in C, not that no script exists anywhere in the tree.
-
----
-
-## External semantic verification tooling (excluded from the 55 build/runtime files)
-
-| Path | Language | Purpose |
-|---|---|---|
-| `tools/fuzz/semantic.py` | Python | Independent reference interpreter, generator, native comparison, reducer and replay. Runs in CPython so both evaluations do not depend on Rail's compiler. |
-| `tools/fuzz/test_semantic.py` | Python | Hand-calculated oracle controls and injected process-failure/replay tests. |
-
-These two files add testing infrastructure, not dependencies of the compiler or
-generated binaries. They are additional to the historical 153-file tooling
-inventory above and do not change the **55 build/runtime files** count. Obtain
-their current byte sizes with `wc -c tools/fuzz/semantic.py tools/fuzz/test_semantic.py`.
-
-## 1. Kernel / syscall boundary
-
-The Rail runtime makes raw Linux syscalls. macOS uses dyld + libc indirectly via the assembler's `bl _printf` etc., emitted from Rail. These files are the assembly trampolines that turn Rail's calling convention into the platform ABI.
-
-| Path | Lang | Bytes | Reason it must exist | To retire |
+| Boundary | Files | Bytes | Why it is not Rail | Goes when |
 |---|---|---|---|---|
-| `tools/linux_libc.s` | asm-arm64 | 35,459 | Pure-syscall libc (write/read/openat/close/lseek/exit/mmap, string ops) for cross-compiled Linux ARM64 binaries — no glibc dependency. | Never — this IS the Linux ABI boundary. |
-| `tools/linux_data.s` | asm-arm64 | 683 | Runtime data symbols for cross-compiled Linux binaries when the generated `.s` omits its own `.data` (Pi memory-pressure path). | When chunked `.s` writer lands; see `feedback_rail_compile_traps.md`. |
-| `tools/x86_libc.s` | asm-x86_64 | 6,220 | Pure-syscall libc for Rail x86_64 Linux (no glibc, no dynamic linking). | Never — kernel boundary. |
-| `tools/x86_rt.s` | asm-x86_64 | 59,385 | Rail x86_64 Linux runtime (glibc-linked variant): GC inner loop, list ops, string ops, tagged-int math in hand-written x86_64 asm. | Partial: GC + list ops can be ported to Rail-emitted asm; the glibc trampolines stay. |
+| `runtime/arm64/*.s` | 21 | 107,406 | The runtime every macOS and Linux ARM64 program links: equality and show, lists, strings, I/O, fibers, threads, `try`, the libc replacements, the mark-sweep collector, the arena, the data section. `tools/gen_runtime.rail` carries it into the compiler as `tools/runtime_arm64.rail` (`runtime/arm64/README.md`). | Not a target: it sits below the code generator. Single routines move into Rail-emitted code as the emitter grows. |
+| `tools/linux_libc.s`, `tools/linux_data.s` | 2 | 38,937 | Pure-syscall libc (write, read, openat, mmap, exit, string ops) for cross-compiled Linux ARM64 binaries: no glibc. | Never: this is the Linux ABI boundary. |
+| `tools/x86_libc.s`, `tools/x86_rt.s` | 2 | 65,957 | The same boundary and the runtime for the x86_64 Linux backend (GC inner loop, lists, strings, tagged-int math by hand). | With the x86 backend, or when the ARM64 runtime is emitted from one source for both. |
+| `tools/runtime/concurrent.c` | 1 | 16,319 | Bounded blocking channels and `pthread` spawn for `stdlib/concurrent.rail`: `pthread_mutex` and `pthread_cond` have no Rail-side form yet. Built per machine by `tools/runtime/build_concurrent.sh`, weak-linked. | When Rail emits its own threading primitives. |
+| `tools/desk/quartz_bridge.m` | 1 | 12,714 | `CGEventTap` on its own runloop thread, read by `stdlib/quartz.rail` over FFI. Quartz is selector-based ObjC; C ABI alone cannot reach it. | Never, while `stdlib/quartz.rail` exists. |
+| `tools/v5/*.s` | 5 | 1,997 | Byte-verification fixtures for the v5 ELF assembler (`exit42`, `hello`, `fib`, `.bss`, the smallest program). Test input, not linked into anything. | Never: deleting them deletes the proof that the assembler is bit-correct. |
+| `tools/fleet/spi_lcd.c` | 1 | 4,571 | ST7789 SPI LCD driver for the fleet display on the Pi. | With `tools/fleet`, staged behind the owner's `tb_autojoin` plist repoint (Tier 2 step 3). |
 
-**Sub-total:** 4 files / 101,747 bytes.
+Not counted above, by design:
 
----
+- **`tree-sitter-rail/`** (4 C and header files, 436,150 bytes, almost all machine-written
+  `src/parser.c`): syntax highlighting for editors, generated by the tree-sitter CLI from
+  `grammar.js`. Nothing compiles, links or runs it. Listed so a reader counting `.c` files does
+  not wonder why it is missing.
+- **49 Python, shell and JavaScript files** that run around Rail, not inside it: the independent
+  semantic oracle and the GC stress driver (`tools/fuzz/`), the release attestation scripts
+  and the Pi signing server (`tools/attest/`), the v5 gate diffs, the CI workflows' helpers,
+  `tools/lsp_server.py`, `editors/vscode/extension.js`. `git ls-files | grep -E '\.(py|sh|js)$'`
+  counts them.
+- **`tools/uav/`** is gitignored (the private `zemog` repo). Not part of this tree.
 
-## 2. GPU driver interop (Metal)
-
-Apple's Metal API is Objective-C. Rail can call C ABI but cannot speak ObjC selectors or `id` messaging. Every Metal-backed kernel needs a thin `.m` host that creates the device, command queue, and pipeline state, then dispatches the kernel. Rail talks to these via either dylib FFI (`tensor_gpu_lib.m`) or stdin/socket IPC (`tensor_daemond.m`).
-
-### Active
-
-| Path | Lang | Bytes | Reason | To retire |
-|---|---|---|---|---|
-| `tools/metal/tensor_gpu_lib.m` | ObjC | 98,135 | Metal tensor kernels (23 ops: matmul, rmsnorm, rope, silu, etc.) as a dylib that Rail's `stdlib/tensor.rail` FFIs into. | When Rail emits MSL + drives the Metal driver itself — Phase 3 of `rail-jit-fused-kernels-plan.md`. |
-| `tools/metal/tensor_gpu.m` | ObjC | 29,318 | Persistent stdin-protocol Metal compute server (predecessor of the dylib path). | Superseded by `tensor_gpu_lib.m`; kept while Rail self-train scripts still spawn the server. |
-| `tools/metal/tensor_daemond.m` | ObjC | 20,321 | Unix-socket daemon that keeps Metal device + pipelines warm across Rail invocations (avoids ~200 ms cold-start per call). | When Rail has a long-lived process model that owns the Metal handle directly. |
-| `tools/metal/libtensor_gpu_linux_stub.c` | C | 1,807 | No-op stub exporting the ~25 `tgl_*` symbols so Linux ELF programs that `import "stdlib/tensor.rail"` link — Metal is macOS-only. | When linker-level optional symbols land in the Rail backend. |
-| `tools/metal/tensor_gpu_lib_stub.m` | ObjC | 164 | Two-line isolation stub used to debug a link issue with `tensor_gpu_lib.m`. | Delete now — diagnostic-only, no live caller. |
-| `tools/gpu_host.m` | ObjC | 2,957 | Minimal generic Metal compute host: load `.metallib`, run kernel by name, print result. Reference impl for JIT path. | When `tools/metal/tensor_gpu_lib.m` covers all paths. |
-| `tools/jit_call.c` | C | 1,370 | Pre-compiled trampolines for the pure-Rail JIT — bridges Rail's calling convention into JITted machine code at runtime. | Never — this is the JIT/runtime interior boundary. |
-
-### Test / smoke harnesses (pure scaffolding, not in the runtime path)
-
-| Path | Lang | Bytes | Reason |
-|---|---|---|---|
-| `tools/metal/smoke_test.c` | C | 9,002 | Verifies every `libtensor_gpu.dylib` export before wiring into Rail. |
-| `tools/metal/test_dylib.c` | C | 2,266 | Single-symbol dylib link check (used once during dylib bringup). |
-| `tools/metal/tensor_daemond_smoke.c` | C | 3,330 | Socket-protocol smoke for `tensor_daemond` (PING + MATMUL roundtrip). |
-| `tools/metal/bench_matmul.m` | ObjC | 6,056 | Tiled vs blocked matmul throughput comparison — one-off benchmark, not shipped. |
-| `tools/metal/probes/fp16_probe.m` | ObjC | 9,177 | fp16-vs-fp32 matmul throughput probe (Option A decision gate for mixed precision). |
-
-All five are candidate deletions on the next cleanup pass — none is on a live caller path.
-
-**Sub-total:** 12 files / 177,915 bytes.
-
----
-
-## 3. Framework bridges (Quartz, Cocoa, Foundation)
-
-These call macOS frameworks whose public APIs are ObjC selectors on opaque handles (`CGEventTap`, `NSWindow`, `CVDisplayLink`). C ABI alone cannot reach them; a `.m` shim is the minimum viable bridge.
-
-| Path | Lang | Bytes | Reason | To retire |
-|---|---|---|---|---|
-| `tools/desk/quartz_bridge.m` | ObjC | 12,714 | CGEventTap on a dedicated runloop thread → fixed-size struct queue Rail reads via FFI. Backs `stdlib/quartz.rail`. | Never — Quartz is selector-based. |
-
-**Sub-total:** 6 files / 101,183 bytes.
-
----
-
-## 4. CPU bringup (bare-metal startup, pre-Rail-runtime)
-
-These run BEFORE the Rail runtime exists. On v5 Linux ARM64 test programs, `_start` is the bare ELF entry the kernel calls — these are stress fixtures for the v5 self-hosted assembler, not part of the Rail runtime.
-
-| Path | Lang | Bytes | Reason | To retire |
-|---|---|---|---|---|
-| (none since 2026-10-19) | | | The Cortex-M4 and RISC-V startup files left with their backends (tag `archive/tier1-precut-2026-10-19`). | |
-
-### v5 assembler fixtures (test-only)
-
-| Path | Lang | Bytes | Reason |
-|---|---|---|---|
-| `tools/v5/hello_linux.s` | asm-arm64 | 461 | `.data` + adrp + `:lo12:` + write syscall fixture. Byte-verifies the v5 ELF assembler. |
-| `tools/v5/fib_linux.s` | asm-arm64 | 918 | Multi-section fixture: calls, branches, stack frame writeback. |
-| `tools/v5/exit42_linux.s` | asm-arm64 | 72 | Minimum-viable fixture: `exit(42)`. |
-| `tools/v5/bss_test_linux.s` | asm-arm64 | 423 | `.bss` + `.comm` + adrp/`:lo12:` ldr/str fixture. |
-| `tools/v5/example_program.s` | asm-arm64 | 123 | Smallest possible v5 program. |
-
-These five fixtures stay because they're the byte-verification corpus for `tools/v5/elf_asm.rail` — deleting them deletes the test that proves the assembler is bit-correct.
-
-**Sub-total:** 7 files / 6,083 bytes.
-
----
-
-## 5. External device drivers
-
-Hardware whose driver is not in the kernel (or where the Linux driver requires running as root via `/dev/spidev*`). The bridge is small C glue around `ioctl` + `write`.
-
-| Path | Lang | Bytes | Reason | To retire |
-|---|---|---|---|---|
-| `tools/fleet/spi_lcd.c` | C | 4,571 | ST7789v2 SPI LCD driver (init / push RGB565 / backlight) for `fleet_display.rail` on Pi Zero 2 W. | When Rail has a raw `ioctl` FFI binding — moderate effort. |
-
-**Sub-total:** 1 file / 4,571 bytes.
-
----
-
-## 6. The runtime, and the concurrent bridge
-
-The runtime every native program links, and hand-tuned C where Rail's emit pipeline isn't yet expressive enough.
-
-| Path | Lang | Bytes | Reason | To retire |
-|---|---|---|---|---|
-| `runtime/arm64/*.s` (22 files) | asm-arm64 | 109,276 | The runtime every macOS and Linux ARM64 program links: equality and show, lists, strings, I/O, fibers, threads, `try`, the libc replacements, the conservative mark-sweep collector and the arena. The compiler carries it as text (`tools/gen_runtime.rail` writes `tools/runtime_arm64.rail` and, for the data section, `tools/runtime_arm64_data.rail`) and appends it to every program. | Not a target: it sits below the code generator. Single routines could move into Rail-emitted code as the emitter grows. |
-| `tools/runtime/concurrent.c` | C | 16,319 | Bounded blocking channels + `pthread_spawn` for `stdlib/concurrent.rail`. Uses `pthread_mutex` + `pthread_cond` — neither has a Rail-side abstraction yet. | When Rail emits its own threading primitives (deferred — `int64`-only channels suffice for v0). |
-
-Until 2026-10-21 the runtime's assembly was string literals inside `tools/compile.rail`, and this ledger counted it as Rail source. It was assembly then too; in files, it is counted.
-
-**Sub-total:** 22 files / 123,272 bytes.
-
----
-
-## 7. Reference fixtures and a bench harness
-
-Neither is on any build path. They were unlisted until 2026-08-28, which is
-the whole reason this document now counts from `git ls-files` rather than from
-memory.
-
-| File | Bytes | Boundary | Deletable when |
-|---|---|---|---|
-| `notes/v5_macho_ref/exit42.s` | 125 | Hand-written Mach-O reference used while writing the v5 linker | Now, really; it is a note |
-| `tools/metal/ikernel_harness.m` | 6,140 | Objective-C harness for timing integer Metal kernels outside the compiler | The JIT can time its own kernels |
-
----
-
-## 8. tree-sitter grammar (editor integration only)
-
-`tree-sitter-rail/` gives editors syntax highlighting and structural selection
-for Rail. It is generated by the tree-sitter CLI from `grammar.js`; `src/parser.c`
-alone is 417,695 bytes of machine-written state tables. **None of it is compiled
-into `rail_native`, linked by it, or executed by any build or test.** It is
-listed here because a reader counting `.c` files in this repo will find it, and
-an honesty document that made them wonder why it was missing would be doing the
-opposite of its job.
-
-| Files | Bytes | Deletable when |
-|---|---|---|
-| `src/parser.c`, `src/tree_sitter/{alloc,array,parser}.h`, `bindings/{c,python,swift}` headers and binding | 437,258 | Editors accept a grammar emitted by a Rail-written generator, which is a real project and not a small one |
-
----
-
-## 9. UAV / ZEMOG (gitignored, private repo `Ledatic-Empire/zemog`)
-
-Listed here because the `find` walk surfaces them, but `tools/uav/` is gitignored and lives in a separate private repo (`feedback_drone_private.md` — drone code is never in public repos). Not part of the Rail public-thesis surface. The files are the live ZEMOG flight controller + 3D simulator + brain inference; they predate Rail and have not been ported.
-
-| Path | Lang | Bytes | Reason |
-|---|---|---|---|
-| `tools/uav/zemog.h` | C header | 90,521 | Dual-mode quadrotor physics (TRAINING / RESEARCH). |
-| `tools/uav/zemog_3d.c` | C | 47,256 | SDL2 + OpenGL 3D viewer with motor-level sim. |
-| `tools/uav/zemog_brain.c` | C | 12,403 | Headless brain training driver. |
-| `tools/uav/zemog_flight.c` | C | 11,789 | Real-world Pi Zero 2 W flight controller (MSP UART → Betaflight). |
-| `tools/uav/failsafe.h` | C header | 19,601 | Safety-critical failsafe state machine (NOMINAL → HOVER_HOLD → LAND → DISARM). |
-| `tools/uav/msp.h` | C header | 15,391 | MSP v1 (MultiWii Serial Protocol) header-only library. |
-| `tools/uav/aigp/old/pilot_impl.c` | C | 14,267 | Old Python-ctypes pilot shim (dead — superseded by Rail native brain). |
-| `tools/uav/aigp/old/pilot_ffi.h` | C header | 2,386 | Old pilot FFI ABI. |
-
-Plus ~17 files under `tools/uav/archive/` (ES, GRU/MapGRU eval kernels, weight I/O) — all dead, gitignored, retained for paper-archaeology.
-
-**Sub-total (gitignored):** 8 in-tree files / ~213 KB; archive ~12 KB more. Not part of the public Rail surface.
-
----
-
-## Tally
-
-| Category | Files | Bytes |
-|---|---|---|
-| 1. Kernel / syscall | 4 | 101,747 |
-| 2. GPU driver interop (active) | 7 | 154,072 |
-| 2. GPU driver (test scaffolds) | 5 | 29,831 |
-| 3. Framework bridges | 6 | 101,183 |
-| 4. CPU bringup (M4 + RISC-V) | 0 | 0 |
-| 4. v5 assembler fixtures | 5 | 1,997 |
-| 5. External device drivers | 1 | 4,571 |
-| 6. The runtime + concurrent bridge | 22 | 123,272 |
-| 7. Reference + harness strays | 2 | 6,265 |
-| **In-tree total (build + runtime)** | **54** | **527,024** |
-| 8. tree-sitter grammar (editors only) | 7 | 437,258 |
-| 9. UAV (gitignored, private) | 8 | ~213,000 |
-
-Public-thesis count: **54 non-Rail files in the build and runtime**. The compiler, the stdlib (102 modules), the JIT tracer, the v5 assembler, the test harness, the package manager and the docs generator are Rail. The tree-sitter grammar is generated C for editor integration and touches neither. Deploy and attestation plumbing is a mix of Rail and shell, and is counted in the scope note at the top rather than claimed as Rail.
-
-Removable on next cleanup pass (no live caller, scaffolding only): `tensor_gpu_lib_stub.m`, `test_dylib.c`, `bench_matmul.m`, `fp16_probe.m`, `_dormant/plasma_3d_host.m`. Net would drop to 47 files / ~484 KB.
+What left this file on 2026-10-21 (Tier 3 step 5): the Metal tensor dylib and its ObjC hosts,
+`tools/gpu_host.m`, `tools/jit_call.c`, the runtime's `gpu.s`, `tools/wasm_runtime.wat`, and the
+`tools/metal` benches, probes and smoke harnesses. Cortex-M4 and RISC-V startup files left on
+2026-10-19 (tag `archive/tier1-precut-2026-10-19`).

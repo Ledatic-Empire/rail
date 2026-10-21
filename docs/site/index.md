@@ -1,6 +1,6 @@
 # Rail
 
-Rail is a self-hosted ARM64 language with four backends (macOS ARM64, Linux ARM64, Linux x86_64, WebAssembly), an LLM training substrate, and a verifiable provenance layer. The compiler is about 9,700 lines of Rail and compiles itself byte-identically at gen2; the runtime is ARM64 assembly embedded in the compiler. The compiler binary links only libSystem. Programs it builds may link small optional C and ObjC helpers (the JIT trampoline, the Metal host) and system libraries such as SQLite when they use them; `SHIMS.md` lists every one.
+Rail is a self-hosted ARM64 language with three backends (macOS ARM64, Linux ARM64, Linux x86_64) and a verifiable provenance layer. The compiler is about 9,700 lines of Rail and compiles itself byte-identically at gen2; the runtime is ARM64 assembly embedded in the compiler. The compiler binary links only libSystem. Programs it builds may link small optional C and ObjC helpers (the JIT trampoline, the Metal host) and system libraries such as SQLite when they use them; `SHIMS.md` lists every one.
 
 ## Quickstart
 
@@ -30,7 +30,6 @@ For Apple Silicon you're done. Other targets need cross-toolchains; see [backend
 - **[quickstart.md](quickstart.md)**: ten steps from `git clone` to a verified release. Real commands, real outputs.
 - **[stdlib.md](stdlib.md)**: auto-generated reference for every top-level function in `stdlib/*.rail`. Regenerate with `./rail_native run tools/docs/gen_stdlib_ref.rail`.
 - **[backends.md](backends.md)**: one-page-per-backend with the literal command line you'd type.
-- **[jit.md](jit.md)**: a self-hosted JIT in pure Rail. ARM64 emit + `mmap`-executable, called via a `pthread_create` trampoline. About 7,400 lines across 32 files.
 - **[examples/](examples/)**: 19 runnable programs with source, command, and real captured output. Start with [hello](examples/hello.md), [pattern_matching](examples/pattern_matching.md), [calculator](examples/calculator.md).
 - **[TODO.md](TODO.md)**: what's deferred for v0 and why.
 
@@ -60,7 +59,6 @@ Functions are `name args = body`. `main` is the entry point and returns an int. 
 ./rail_native run file.rail        # macOS ARM64 (native execute)
 ./rail_native linux file.rail      # Linux ARM64 (cross)
 ./rail_native x86 file.rail        # Linux x86_64 (cross, emits .s)
-./rail_native wasm file.rail       # WebAssembly
 ```
 
 The same source compiles to all of them. See [backends.md](backends.md) for toolchain requirements.

@@ -17,9 +17,9 @@ fx=$(mktemp -d /tmp/check_selftest_XXXXXX); trap 'rm -rf "$fx"' EXIT
 
 # Fixture: enough tree for sections 3, 4, 5, 6 to run, with 6 and 7 stubbed to
 # pass so the verdict under test is isolated to the stubbed rail_native.
-mkdir -p "$fx/tools/verify" "$fx/tools/attest" "$fx/tools/deploy" "$fx/grammar" "$fx/docs" "$fx/releases/v0.0.1"
+mkdir -p "$fx/tools/verify" "$fx/tools/attest" "$fx/grammar" "$fx/docs" "$fx/releases/v0.0.1"
 cp tools/verify/check.sh "$fx/tools/verify/check.sh"
-: > "$fx/grammar/rail.ebnf"; : > "$fx/docs/STATUS.md"; : > "$fx/tools/attest/verify.rail"; : > "$fx/tools/deploy/gen_status.rail"
+: > "$fx/grammar/rail.ebnf"; : > "$fx/docs/STATUS.md"; : > "$fx/tools/attest/verify.rail"; : > "$fx/tools/verify/gen_status.rail"
 printf '#!/bin/bash\nexit 0\n' > "$fx/tools/attest/verify_selftest.sh"
 printf '#!/bin/bash\nexit 0\n' > "$fx/tools/verify/check_selftest.sh"
 mkdir -p "$fx/tools/fuzz"; printf 'import sys; print("ok: stub"); sys.exit(0)\n' > "$fx/tools/fuzz/known_cases.py"

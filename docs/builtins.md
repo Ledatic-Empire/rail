@@ -423,15 +423,3 @@ import "stdlib/math.rail" as M
 ```
 
 See [Language Reference](language-reference.md#import-system) for details.
-
-## GPU
-
-### `gpu_map`
-
-Force GPU execution of a map operation via Metal compute shader.
-
-```rail
-let result = gpu_map (\x -> x * 3 + 1) (range 8)
-```
-
-The lambda must be GPU-safe: pure arithmetic on the parameter and integer literals only (no function calls, no string operations, no conditionals).

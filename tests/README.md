@@ -31,4 +31,4 @@ The 182 cases are grouped in `tools/compile.rail` under `test_main`:
 - string ops, list ops, array ops
 - error-handling primitives, type checker warnings
 - crypto (SHA-256/HMAC/HKDF/ChaCha20-Poly1305/x25519, Ed25519 RFC 8032 KATs), TLS 1.3 message parsers
-- authenticated dict / Merkle, tensor primitives, autograd `#grad`
+- authenticated dict / Merkle

@@ -419,8 +419,8 @@ classify n = match n
 ```
 
 When a guard is false, matching continues with the next arm; when no arm is left, the program
-stops with the no-match trap (exit 1). Guards are compiled by the native ARM64 backend; the x86,
-wasm backends refuse a program with a guard rather than ignore it.
+stops with the no-match trap (exit 1). Guards are compiled by the native ARM64 backend; the x86
+backend refuses a program with a guard rather than ignore it.
 
 #### Exhaustiveness Checking
 
@@ -677,24 +677,7 @@ constructor's field count and name, which `==` and `show` use to walk a construc
 |---------|---------|--------|
 | ARM64 native (macOS) | `./rail_native run file.rail` | Stable |
 | ARM64 native (Linux) | `./rail_native linux file.rail` | Cross-compile from macOS |
-| Metal GPU | Auto-dispatched for `map` on large lists | Working |
-| WASM | `./rail_native wasm file.rail` | Compiles, runtime segfaults |
 | x86_64 | Sandboxed subset in `tools/x86_codegen.rail` | Experimental |
-
-### GPU Auto-Dispatch
-
-When `map` is called with a GPU-safe lambda (pure arithmetic on the parameter and integer literals) on a list of 50,000+ elements, the compiler automatically dispatches to a Metal compute shader:
-
-```rail
--- Auto-dispatched to GPU if list is large enough
-let result = map (\x -> x * 2 + 1) (range 100000)
-```
-
-You can also force GPU execution with `gpu_map`:
-
-```rail
-let result = gpu_map (\x -> x * 3 + 1) (range 8)
-```
 
 ### Map Fusion
 
@@ -713,9 +696,7 @@ let result = map double (map triple [1, 2, 3])
 2. **No partial application**: nested lambdas flatten into one multi-parameter closure, and
    a closure called with the wrong number of arguments is not checked (see Nested Lambdas).
 
-3. **WASM backend**: Compiles but segfaults at runtime due to heap limits.
-
-4. **Closure arity**: a lambda takes at most 15 parameters (x0..x14; x15 and x16 carry the
+3. **Closure arity**: a lambda takes at most 15 parameters (x0..x14; x15 and x16 carry the
    closure and its code). Captures are unlimited.
 
 5. **No type inference**: The language is dynamically typed at the compilation level. Type annotations (like `i32 -> i32`) are parsed but ignored by the native compiler.
