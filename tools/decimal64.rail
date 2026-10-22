@@ -1,11 +1,16 @@
 -- tools/decimal64.rail: a float literal's text to the 64 bits of its nearest binary64, at
--- compile time, by integer arithmetic only (Tier 3, step 8, 2026-10-21).
+-- compile time, by integer arithmetic only (Tier 3, step 8, 2026-10-21); and, compiled into
+-- the program that calls it, parse_float at run time (the step's second half, 2026-10-22).
 --
 -- Until this file the compiler emitted every float literal as its text and called the
 -- platform's atof when the program ran. macOS's atof is correctly rounded; the Linux libc Rail
 -- ships for ARM64 accumulates and scales, and 12 of the beacon kernel's 29 literals came out
 -- one or two ulps off on a Pi (rail-plasma docs/REPLAY.md, 2026-10-21). The bits now come from
--- here, once, when the program is compiled, so every platform holds the same double.
+-- here, once, when the program is compiled, so every platform holds the same double. A text
+-- parsed while the program runs (parse_float, which stdlib/json.rail's numbers go through)
+-- comes through the same conversion: the compiler carries this file's text (the generated
+-- tools/decimal64_src.rail) and adds its declarations to any program that names parse_float,
+-- whose call then lands on d64_parse_float below. No Rail program calls atof.
 --
 --   d64_fields "1.0"               = (1023, 0)                 sign+biased exponent, fraction
 --   d64_fields "0.1"               = (1019, 2702159776422298)  0x3fb999999999999a
@@ -205,8 +210,11 @@ d64_exact ds nd e10 =
   d64_round q k (d64_bn_nonzero num nl)
 
 -- The 12-bit sign-and-exponent field and the 52-bit fraction of the literal's nearest double.
-d64_fields lit =
-  let (wh, fr, ex) = d64_parse (chars lit)
+d64_fields lit = d64_fields_chars (chars lit)
+
+-- The same, from the literal's characters (parse_float arrives here past its sign).
+d64_fields_chars cs =
+  let (wh, fr, ex) = d64_parse cs
   let digs = d64_strip_leading (d64_concat wh fr)
   let (rs, tz) = d64_strip_trailing_rev (reverse digs) 0
   let ds = reverse rs
@@ -225,3 +233,64 @@ d64_hex_loop n w acc =
 
 -- The 64 bits as 16 lowercase hex characters (the form stdlib/float_hex.rail prints).
 d64_hex top frac = cat [d64_hex_loop top 3 "", d64_hex_loop frac 13 ""]
+
+-- ---- parse_float at run time: the same conversion, on a text the program holds ----
+--
+-- The compiler used to answer parse_float by calling the platform atof. Now it adds this file to the
+-- program (inject_parse_float in tools/compile.rail) and calls d64_parse_float, so a JSON
+-- number read on a Pi holds the bits the Mini's compiler would have given the literal.
+-- Read, as atof reads: leading blanks, one sign, digits with an optional fraction and
+-- exponent, or inf, infinity, nan in any letter case; whatever follows the number is ignored
+-- and a text with no number is 0.0. Not read: hex floats (atof's "0x1p3" is 8.0; here 0.0).
+
+d64_is_blank c = c == " " || c == "\t" || c == "\n" || c == "\r"
+
+d64_skip_blanks cs = if length cs > 0 then (if d64_is_blank (head cs) then d64_skip_blanks (tail cs) else cs) else cs
+
+d64_lower c =
+  let n = char_to_int c
+  if n >= 65 && n <= 90 then char_from_int (n + 32) else c
+
+-- Whether cs begins with the lowercase word w (a char list), letter case ignored.
+d64_starts_word w cs =
+  if length w == 0 then true
+  else if length cs == 0 then false
+  else if d64_lower (head cs) == head w then d64_starts_word (tail w) (tail cs)
+  else false
+
+-- m * 2^k by k exact doublings or halvings. Each step is exact when its result is
+-- representable; d64_to_float only asks for steps that are.
+d64_scale m k =
+  if k > 0 then d64_scale (m *. 2.0) (k - 1)
+  else if k < 0 then d64_scale (m *. 0.5) (k + 1)
+  else m
+
+-- The double whose sign-and-exponent field is top (sign clear) and whose fraction is frac,
+-- by exact arithmetic alone, the reverse of stdlib/float_hex.rail: the significand is an
+-- integer below 2^53, which int_to_float converts exactly, scaled by a power of two. A
+-- normal is (2^52 + frac) * 2^(e - 52), and every value from that integer down (or up) to
+-- the result is itself a normal double, so no step rounds. A subnormal is frac * 2^-1074,
+-- and frac * 2^-j is representable for every j up to 1074 because frac has at most 52 bits.
+-- inf is 2^1024, reached by doubling past the format; NaN is 0/0 (its payload is not
+-- recoverable by arithmetic, so it is the quiet NaN float_hex prints).
+d64_to_float top frac =
+  if top == 2047 then (if frac == 0 then d64_scale 1.0 1024 else 0.0 /. 0.0)
+  else if top == 0 then d64_scale (int_to_float frac) (0 - 1074)
+  else d64_scale (int_to_float ((shl 1 52) + frac)) (top - 1023 - 52)
+
+-- The magnitude of a text whose sign has been read.
+d64_magnitude cs =
+  if d64_starts_word (chars "inf") cs then d64_to_float 2047 0
+  else if d64_starts_word (chars "nan") cs then d64_to_float 2047 1
+  else
+    let (top, frac) = d64_fields_chars cs
+    d64_to_float top frac
+
+-- The double atof would give the text, its bits decided here. A negative zero stays negative
+-- (fneg, not 0 - x).
+d64_parse_float s =
+  let cs0 = d64_skip_blanks (chars s)
+  let neg = if length cs0 > 0 then head cs0 == "-" else false
+  let cs = if length cs0 > 0 then (if head cs0 == "-" || head cs0 == "+" then tail cs0 else cs0) else cs0
+  let mag = d64_magnitude cs
+  if neg then fneg mag else mag

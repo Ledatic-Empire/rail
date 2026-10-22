@@ -6,9 +6,12 @@ E, signed exponents), including decimals placed just above, at and just below th
 between two neighbouring doubles and decimals around the subnormal floor and the overflow
 line, writes them into Rail programs as literals, compiles and runs the programs with the
 compiler under test, and compares the hex that stdlib/float_hex.rail prints for each (the 64
-bits, by exact arithmetic) with the bits CPython's float() gives the same text. Both are
-correctly rounded, ties to even, so a difference is a defect in tools/decimal64.rail, the
-compiler's literal emitter, or float_hex. Nothing from the compiler is imported.
+bits, by exact arithmetic) with the bits CPython's float() gives the same text. Each literal
+goes through both doors: written as a literal (converted when the program is compiled) and
+handed to parse_float as a string (converted when the program runs, by the same
+tools/decimal64.rail compiled into the program). Both are correctly rounded, ties to even, so
+a difference is a defect in tools/decimal64.rail, the compiler's literal emitter, the
+parse_float path, or float_hex. Nothing from the compiler is imported.
 
     python3 tools/fuzz/float_literals.py --seed 42 --cases 600
     python3 tools/fuzz/float_literals.py --compiler /tmp/rail_self --cases 3000
@@ -91,23 +94,23 @@ def gen(rng: random.Random, n: int) -> list[str]:
 def program(lits: list[str]) -> str:
     lines = ['import "stdlib/float_hex.rail"', "main ="]
     for lit in lits:
-        lines.append(f'  let _ = print (cat ["{lit} ", show_float_hex {lit}])')
+        lines.append(f'  let _ = print (cat ["{lit} ", show_float_hex {lit}, " ", show_float_hex (parse_float "{lit}")])')
     lines.append("  0")
     return "\n".join(lines) + "\n"
 
 
-def run_chunk(compiler: str, repo: str, lits: list[str], work: Path, idx: int, timeout: int) -> tuple[dict[str, str], str]:
+def run_chunk(compiler: str, repo: str, lits: list[str], work: Path, idx: int, timeout: int) -> tuple[dict[str, tuple[str, str]], str]:
     src = work / f"lits_{idx}.rail"
     src.write_text(program(lits))
     proc = subprocess.run(
         [compiler, "--out-prefix", str(work / f"lits_{idx}"), "run", str(src)],
         cwd=repo, capture_output=True, text=True, timeout=timeout, check=False,
     )
-    got: dict[str, str] = {}
+    got: dict[str, tuple[str, str]] = {}
     for line in proc.stdout.splitlines():
         parts = line.split()
-        if len(parts) == 2 and len(parts[1]) == 16:
-            got[parts[0]] = parts[1]
+        if len(parts) == 3 and len(parts[1]) == 16 and len(parts[2]) == 16:
+            got[parts[0]] = (parts[1], parts[2])
     err = "" if len(got) == len(lits) else (proc.stderr or proc.stdout)[-1500:]
     return got, err
 
@@ -153,13 +156,14 @@ def main() -> int:
             for lit in chunk:
                 checked += 1
                 exp = bits_of(lit)
-                if got[lit] != exp:
+                compiled, parsed = got[lit]
+                if compiled != exp or parsed != exp:
                     bad += 1
                     if shown < 12:
                         shown += 1
-                        print(f"DIFF {lit[:70]}  rail={got[lit]}  cpython={exp}")
+                        print(f"DIFF {lit[:70]}  literal={compiled}  parse_float={parsed}  cpython={exp}")
     verdict = "PASS" if bad == 0 else "FAIL"
-    print(f"{verdict} {checked} literals, {bad} differ from CPython (seed={args.seed}, compiler={compiler})")
+    print(f"{verdict} {checked} literals through both doors, {bad} differ from CPython (seed={args.seed}, compiler={compiler})")
     return 0 if bad == 0 else 1
 
 

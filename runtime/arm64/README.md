@@ -56,4 +56,6 @@ in `rt_units` fails the generator.
 
 CI runs `./rail_native run tools/gen_runtime.rail check`, which exits 1 when either generated
 module is not what these files say: an edit here without step 2, or an
-edit to the generated file by hand.
+edit to the generated file by hand. The same tool and check carry `tools/decimal64.rail` as text
+into `tools/decimal64_src.rail` (`src_units`): the compiler compiles that text into any program
+that calls `parse_float`, so the run-time conversion is the compile-time one.

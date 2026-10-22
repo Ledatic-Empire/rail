@@ -36,7 +36,14 @@ bytes, because the runtime's float32 file writer issues raw Darwin syscalls and 
 Linux; with Linux versions in `tools/linux_libc.s` the Pi replays the 38-frame record of step 4
 to the Mini's digest `acf59368...` with a byte-identical planes file, and `replay.rail` now
 refuses a planes file it did not write (`WRITE_FAILED`). The 64-frame pinned record exceeds the
-Pi's memory. The rest is not implemented. The owner's frame, 2026-10-21: humans
+Pi's memory. Step 8's run-time half landed 2026-10-22: `parse_float` is `tools/decimal64.rail`
+compiled into the program that calls it (the compiler carries the file's text in the generated
+`tools/decimal64_src.rail` and adds it to any program that names `parse_float`; the builtin calls
+`d64_parse_float`, which builds the double from its fields by exact arithmetic), `_atof` is gone
+from `tools/linux_libc.s`, and `grep -c _atof` on the self-compiled assembly is 0, the proof the
+step's row asks for (it was 1). `tools/fuzz/float_literals.py` sends each literal through both
+doors; t260; the suite is 244. On the Pi a 26-text probe, JSON numbers and a subnormal included,
+printed the Mini's bits line for line. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number
