@@ -7,9 +7,8 @@
 --
 --   ./rail_native linux tools/v5/ffi_sqlite_demo.rail   # writes the macOS .s to
 --                                                        #   /tmp/rail_macos.s
---   cp /tmp/rail_macos.s /tmp/link_src.s
---   ./rail_native --out-prefix /tmp/v5_linker tools/v5/link_macho.rail
---   RAIL_ARENA_MB=4000 /tmp/v5_linker                   # -> /tmp/v5_rail (signed)
+--   ./rail_native run tools/independence/link_file.rail /tmp/rail_macos.s /tmp/v5_rail
+--                                                        #   the signed Mach-O, linked in process
 --   /tmp/v5_rail                                         # runs this demo's main
 --
 -- otool -L /tmp/v5_rail shows libSystem + libsqlite3; it prints "sqlite says: 42".

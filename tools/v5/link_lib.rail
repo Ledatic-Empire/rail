@@ -1,4 +1,4 @@
--- tools/v5/link_macho.rail — the "ld half": turn a real .s into a runnable
+-- tools/v5/link_lib.rail: the "ld half": turn a real .s into a runnable
 -- Mach-O executable with NO as/ld/codesign, generalizing tools/v5/dyld_macho.rail
 -- (N=1 import demo) to the full compiler. Spec: ~/.ledatic/ld_half_spec_2026-06-18.md.
 --
