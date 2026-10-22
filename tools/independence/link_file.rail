@@ -1,0 +1,13 @@
+-- tools/independence/link_file.rail: lk_link_file (tools/v5/link_lib.rail) on a named .s,
+-- the Rail half of the seed-format gate (docs/SEED_FORMAT.md, Tier 3 step 9):
+--   ./rail_native run tools/independence/link_file.rail tools/independence/exit42.s /tmp/exit42_rail
+-- Exit 0 when the Mach-O was written, 1 when the linker refused the input, 2 on usage.
+import "tools/v5/link_lib.rail"
+
+main =
+  if length args < 3 then
+    let _ = print "usage: link_file <in.s> <out>"
+    2
+  else
+    let sz = lk_link_file (head (tail args)) (head (tail (tail args)))
+    if sz < 0 then 1 else 0

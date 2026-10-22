@@ -43,7 +43,16 @@ compiled into the program that calls it (the compiler carries the file's text in
 from `tools/linux_libc.s`, and `grep -c _atof` on the self-compiled assembly is 0, the proof the
 step's row asks for (it was 1). `tools/fuzz/float_literals.py` sends each literal through both
 doors; t260; the suite is 244. On the Pi a 26-text probe, JSON numbers and a subnormal included,
-printed the Mini's bits line for line. The rest is not implemented. The owner's frame, 2026-10-21: humans
+printed the Mini's bits line for line. Step 9 landed 2026-10-22: `docs/SEED_FORMAT.md` states
+the container region by region, and `tools/independence/seed_writer.py`, a Python writer written
+from the document, rebuilds `tools/independence/exit42.s` to the bytes `lk_link_file` writes
+(`seed_format_gate.sh`: 49,608 bytes identical, exit 42, in CI after the self-compile; a planted
+stack size or signing identifier fails the `cmp`); `docs/NUMERICS.md` is eighteen sentences with
+a suite test and a platform triple each, t261 to t266 new (suite 250), measured on the Pi through
+`tools/verify/numerics_probe.rail` (every line the Mini's but `show_float_exact`, whose Linux
+`snprintf` prints six digits: claimed as different). Writing the sentences found two defects, now
+fixed and tested: an integer literal at or past 2^61 was emitted with its tag overflowed (2^61
+read as -2^61), and the assembler had no `fsqrt` encoding. The rest is not implemented. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number

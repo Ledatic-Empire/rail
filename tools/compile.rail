@@ -1046,6 +1046,36 @@ emit_load_int_reg r v =
       let base = cat ["    movz ", r, ", #", show lo, "\n    movk ", r, ", #", show hi1, ", lsl #16\n    movk ", r, ", #", show hi2, ", lsl #32\n"]
       if hi3 == 0 then base else cat [base, "    movk ", r, ", #", show hi3, ", lsl #48\n"]
 
+-- An integer literal's tagged form (2v + 1) into r (Tier 3, step 9, 2026-10-22). For a
+-- literal at or past 2^61 in either direction the product 2v + 1 does not fit the compiler's
+-- own 63-bit int, and until this helper every such literal was emitted with the overflowed
+-- value: 2^61 read as -2^61 and 2^62 - 1 as -1, while the same values computed at run time
+-- were right (docs/NUMERICS.md, t262). The four 16-bit chunks of 2v + 1 are built from v
+-- without ever forming the product; a literal within +-2^61 takes the old path unchanged.
+emit_load_tagged_reg r v =
+  let n = str_to_int v
+  let k61 = shl 1 61
+  if (n >= (0 - k61)) && (n < k61) then emit_load_int_reg r (show ((n * 2) + 1))
+  else
+    let k15 = shl 1 15
+    let k31 = shl 1 31
+    let k47 = shl 1 47
+    if n >= 0 then emit_load_tagged_chunks r (((n % k15) * 2) + 1) ((n / k15) % 65536) ((n / k31) % 65536) (n / k47) 0
+    else
+      let m = (0 - n) - 1
+      emit_load_tagged_chunks r ((m % k15) * 2) ((m / k15) % 65536) ((m / k31) % 65536) (m / k47) 1
+-- neg = 0: the chunks are those of 2v + 1 (movz, then movk per nonzero chunk). neg = 1: the
+-- chunks are those of ~(2v + 1) = 2(-v - 1); movn plants the first inverted and every other
+-- chunk is written as its complement (a zero chunk is already all ones after movn).
+emit_load_tagged_chunks r c0 c1 c2 c3 neg =
+  let first = if neg == 0 then cat ["    movz ", r, ", #", show c0, "\n"] else cat ["    movn ", r, ", #", show c0, "\n"]
+  let w1 = if neg == 0 then c1 else 65535 - c1
+  let w2 = if neg == 0 then c2 else 65535 - c2
+  let w3 = if neg == 0 then c3 else 65535 - c3
+  let a = if c1 == 0 then first else cat [first, "    movk ", r, ", #", show w1, ", lsl #16\n"]
+  let b = if c2 == 0 then a else cat [a, "    movk ", r, ", #", show w2, ", lsl #32\n"]
+  if c3 == 0 then b else cat [b, "    movk ", r, ", #", show w3, ", lsl #48\n"]
+
 -- A float literal's 64 bits into r (Tier 3, step 8, 2026-10-21): the 12-bit sign-and-exponent
 -- field and the 52-bit fraction from tools/decimal64.rail, as four 16-bit chunks, movz then
 -- movk. A 63-bit int never holds the whole word, so the top chunk is built from both fields.
@@ -1180,9 +1210,9 @@ emit_x1 node env = match node
   | NVar nm -> emit_x1_var nm env
   | _ -> "    mov x1, x0\n"
 emit_x1_int v =
-  let tagged = str_to_int v * 2 + 1
-  if tagged >= 0 && tagged <= 65535 then cat ["    mov x1, #", show tagged, "\n"]
-  else cat [emit_load_int (show tagged), "    mov x1, x0\n"]
+  let n = str_to_int v
+  if (n >= 0) && (n <= 32767) then cat ["    mov x1, #", show ((n * 2) + 1), "\n"]
+  else cat [emit_load_tagged_reg "x0" v, "    mov x1, x0\n"]
 emit_x1_var nm env =
   let off = efind nm env
   if off >= 0 then cat ["    ldr x1, [x29, #", show off, "]\n"]
@@ -1620,9 +1650,7 @@ cg_bi3 fname args env ar lc sl tp fs =
 cg node env ar lc sl tp fs =
   let tg = nd_tag node
   if tg == "I" then
-    let v = nd_s1 node
-    let tagged = str_to_int v * 2 + 1
-    (emit_load_int (show tagged), lc, sl)
+    (emit_load_tagged_reg "x0" (nd_s1 node), lc, sl)
   else if tg == "FL" then
     -- The literal's bits, decided here (tools/decimal64.rail), never by atof at run time.
     let (top, frac) = d64_fields (nd_s1 node)
@@ -6076,7 +6104,29 @@ run_tests _ =
   -- dot, inf and nan in either case, a negative zero, and no number at all. Expected values are
   -- CPython's float() bits (NaN prints as the quiet NaN float_hex prints for every NaN).
   let t260 = run_test "parse_float_bits" "import \"stdlib/float_hex.rail\"\nmain =\n  let _ = print (show_float_hex (parse_float \"0.1\"))\n  let _ = print (show_float_hex (parse_float \"-0.3\"))\n  let _ = print (show_float_hex (parse_float \" 2.77777777777778\"))\n  let _ = print (show_float_hex (parse_float \"5.0e-324\"))\n  let _ = print (show_float_hex (parse_float \"1.7976931348623157e308\"))\n  let _ = print (show_float_hex (parse_float \"1e999\"))\n  let _ = print (show_float_hex (parse_float \"-1e-400\"))\n  let _ = print (show_float_hex (parse_float \"9007199254740993\"))\n  let _ = print (show_float_hex (parse_float \"1e23\"))\n  let _ = print (show_float_hex (parse_float \"2.2250738585072011e-308\"))\n  let _ = print (show_float_hex (parse_float \"42.5xyz\"))\n  let _ = print (show_float_hex (parse_float \"+.5\"))\n  let _ = print (show_float_hex (parse_float \"inf\"))\n  let _ = print (show_float_hex (parse_float \"-Infinity\"))\n  let _ = print (show_float_hex (parse_float \"NaN\"))\n  let _ = print (show_float_hex (parse_float \"-0\"))\n  let _ = print (show_float_hex (parse_float \"abc\"))\n  let _ = print (show_float_hex (parse_float \"\"))\n  let _ = print (show_float_hex (parse_float \"-7.25E+2\"))\n  0" "3fb999999999999a\nbfd3333333333333\n400638e38e38e393\n0000000000000001\n7fefffffffffffff\n7ff0000000000000\n8000000000000000\n4340000000000000\n44b52d02c7e14af6\n000fffffffffffff\n4045400000000000\n3fe0000000000000\n7ff0000000000000\nfff0000000000000\n7ff8000000000000\n8000000000000000\n0000000000000000\n0000000000000000\nc086a80000000000"
-  let s_flt = (if t183 then 1 else 0) + (if t184 then 1 else 0) + (if t257 then 1 else 0) + (if t258 then 1 else 0) + (if t259 then 1 else 0) + (if t260 then 1 else 0)
+  -- t261 to t266: one test per sentence of docs/NUMERICS.md (Tier 3, step 9, 2026-10-22).
+  -- t261: `/` truncates toward zero and `%` takes the dividend's sign (sdiv, msub); a zero
+  -- divisor gives 0 and leaves the dividend as the remainder (ARM64 sdiv, no trap). Both the
+  -- run-time path (a function) and the compiler's constant folder agree.
+  let t261 = run_test "int_div_mod_signs" "dv a b = a / b\nmd a b = a % b\nmain =\n  let _ = print (show (dv (0 - 7) 2))\n  let _ = print (show (dv 7 (0 - 2)))\n  let _ = print (show (md (0 - 7) 2))\n  let _ = print (show (md 7 (0 - 2)))\n  let _ = print (show (dv 7 0))\n  let _ = print (show (md 7 0))\n  let _ = print (show ((0 - 7) / 2))\n  let _ = print (show ((0 - 7) % 2))\n  0" "-3\n-3\n-1\n1\n0\n7\n-3\n-1"
+  -- t262: the int is 63-bit two's complement, [-2^62, 2^62): a literal anywhere in it denotes
+  -- that integer (until step 9 a literal at or past 2^61 was emitted with its tag overflowed:
+  -- 2^61 read as -2^61, 2^62 - 1 as -1), and arithmetic past either end wraps, no trap.
+  let t262 = run_test "int_range_and_wrap" "inc a = a + 1\ndbl a = a * 2\ndec a = a - 1\nmain =\n  let _ = print (show 2305843009213693952)\n  let _ = print (show 4611686018427387903)\n  let _ = print (show (0 - 2305843009213693953))\n  let _ = print (show (0 - 4611686018427387903 - 1))\n  let m = parse_int \"4611686018427387903\"\n  let _ = print (show (inc m))\n  let _ = print (show (dbl m))\n  let _ = print (show (dec (dec (0 - m))))\n  0" "2305843009213693952\n4611686018427387903\n-2305843009213693953\n-4611686018427387904\n-4611686018427387904\n-2\n4611686018427387903"
+  -- t263: a float reduction is evaluated in source order, left to right, never reassociated:
+  -- 1e16 + 1 + 1 - 1e16 is 0 that way (each 1 is lost to the spacing of 2 at 1e16) and 2 any
+  -- other way; through a list (boxed floats) and through a float array (raw).
+  let t263 = run_test "float_sum_order" "import \"stdlib/float_hex.rail\"\nsuml xs acc = if xs == [] then acc else suml (tail xs) (acc +. head xs)\nsuma a i n acc = if i >= n then acc else suma a (i + 1) n (acc +. float_arr_get a i)\nmain =\n  let xs = [1.0e16, 1.0, 1.0, 0.0 -. 1.0e16]\n  let _ = print (show_float_hex (suml xs 0.0))\n  let a = float_arr_new 4 0.0\n  let _ = float_arr_set a 0 1.0e16\n  let _ = float_arr_set a 1 1.0\n  let _ = float_arr_set a 2 1.0\n  let _ = float_arr_set a 3 (0.0 -. 1.0e16)\n  let _ = print (show_float_hex (suma a 0 4 0.0))\n  0" "0000000000000000\n0000000000000000"
+  -- t264: to_int truncates toward zero (fcvtzs).
+  let t264 = run_test "float_to_int_truncates" "main =\n  let _ = print (show (to_int 2.7))\n  let _ = print (show (to_int (0.0 -. 2.7)))\n  let _ = print (show (to_int 0.999))\n  let _ = print (show (to_int (0.0 -. 0.5)))\n  0" "2\n-2\n0\n0"
+  -- t265: a float stored into a tuple, a list or an ADT field (boxed, tag 6) and read back
+  -- holds the same 64 bits: 0.1, the smallest subnormal, and a NaN.
+  let t265 = run_test "float_box_roundtrip_bits" "import \"stdlib/float_hex.rail\"\ntype Box = | B float | N\nunbox b = match b\n  | B x -> x\n  | N -> 0.0\nmain =\n  let t = (0.1, 7)\n  let (tx, _) = t\n  let l = [5.0e-324, 1.0]\n  let z = 0.0\n  let bx = B (z /. z)\n  let _ = print (show_float_hex tx)\n  let _ = print (show_float_hex (head l))\n  let _ = print (show_float_hex (unbox bx))\n  0" "3fb999999999999a\n0000000000000001\n7ff8000000000000"
+  -- t266: +. -. *. /. and fsqrt are IEEE-754 binary64 operations, round to nearest, ties to
+  -- even: 1/3, 0.1 * 3 (one ulp above 0.3), an overflow to +inf, a negative zero, a positive
+  -- zero from x - x, sqrt 2.
+  let t266 = run_test "float_ops_bits" "import \"stdlib/float_hex.rail\"\nmain =\n  let _ = print (show_float_hex (1.0 /. 3.0))\n  let _ = print (show_float_hex (0.1 *. 3.0))\n  let _ = print (show_float_hex (1.0e308 *. 10.0))\n  let _ = print (show_float_hex (0.0 *. (0.0 -. 1.0)))\n  let _ = print (show_float_hex (2.0 -. 2.0))\n  let _ = print (show_float_hex (fsqrt 2.0))\n  0" "3fd5555555555555\n3fd3333333333334\n7ff0000000000000\n8000000000000000\n0000000000000000\n3ff6a09e667f3bcd"
+  let s_flt = (if t183 then 1 else 0) + (if t184 then 1 else 0) + (if t257 then 1 else 0) + (if t258 then 1 else 0) + (if t259 then 1 else 0) + (if t260 then 1 else 0) + (if t261 then 1 else 0) + (if t262 then 1 else 0) + (if t263 then 1 else 0) + (if t264 then 1 else 0) + (if t265 then 1 else 0) + (if t266 then 1 else 0)
   let t185 = driver_run_returns_exit_code 0
   let t191 = runner_judges_evidence 0
   let t205 = driver_self_refuses_small_arena 0
@@ -6247,8 +6297,8 @@ run_tests _ =
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
   let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/244 tests passed"])
-  if total == 244 then 0 else 1
+  let _ = print (cat [show total, "/250 tests passed"])
+  if total == 250 then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE. The compiler compiles tools/compile.rail and links it in

@@ -1,0 +1,81 @@
+-- tools/verify/numerics_probe.rail: the numerics contract (docs/NUMERICS.md) as one program, so a
+-- platform other than the suite's can be measured: cross-compile it, run it there, diff the output
+-- against tools/verify/numerics_probe.expected (the macOS output). The blocks are the suite's
+-- t261 to t266, t257, t173, t106 and t196 (Tier 3, step 9, 2026-10-22).
+--   ./rail_native run tools/verify/numerics_probe.rail | diff - tools/verify/numerics_probe.expected
+--   ./rail_native linux tools/verify/numerics_probe.rail   (then run /tmp/rail_linux on the box)
+import "stdlib/float_hex.rail"
+dv a b = a / b
+md a b = a % b
+inc a = a + 1
+dbl a = a * 2
+dec a = a - 1
+suml xs acc = if xs == [] then acc else suml (tail xs) (acc +. head xs)
+suma a i n acc = if i >= n then acc else suma a (i + 1) n (acc +. float_arr_get a i)
+type Box = | B float | N
+unbox b = match b
+  | B x -> x
+  | N -> 0.0
+main =
+  let _ = print "t261"
+  let _ = print (show (dv (0 - 7) 2))
+  let _ = print (show (dv 7 (0 - 2)))
+  let _ = print (show (md (0 - 7) 2))
+  let _ = print (show (md 7 (0 - 2)))
+  let _ = print (show (dv 7 0))
+  let _ = print (show (md 7 0))
+  let _ = print (show ((0 - 7) / 2))
+  let _ = print (show ((0 - 7) % 2))
+  let _ = print "t262"
+  let _ = print (show 2305843009213693952)
+  let _ = print (show 4611686018427387903)
+  let _ = print (show (0 - 2305843009213693953))
+  let _ = print (show (0 - 4611686018427387903 - 1))
+  let m = parse_int "4611686018427387903"
+  let _ = print (show (inc m))
+  let _ = print (show (dbl m))
+  let _ = print (show (dec (dec (0 - m))))
+  let _ = print "t263"
+  let xs = [1.0e16, 1.0, 1.0, 0.0 -. 1.0e16]
+  let _ = print (show_float_hex (suml xs 0.0))
+  let a = float_arr_new 4 0.0
+  let _ = float_arr_set a 0 1.0e16
+  let _ = float_arr_set a 1 1.0
+  let _ = float_arr_set a 2 1.0
+  let _ = float_arr_set a 3 (0.0 -. 1.0e16)
+  let _ = print (show_float_hex (suma a 0 4 0.0))
+  let _ = print "t264"
+  let _ = print (show (to_int 2.7))
+  let _ = print (show (to_int (0.0 -. 2.7)))
+  let _ = print (show (to_int 0.999))
+  let _ = print (show (to_int (0.0 -. 0.5)))
+  let _ = print "t265"
+  let t = (0.1, 7)
+  let (tx, _) = t
+  let l = [5.0e-324, 1.0]
+  let z = 0.0
+  let bx = B (z /. z)
+  let _ = print (show_float_hex tx)
+  let _ = print (show_float_hex (head l))
+  let _ = print (show_float_hex (unbox bx))
+  let _ = print "t266"
+  let _ = print (show_float_hex (1.0 /. 3.0))
+  let _ = print (show_float_hex (0.1 *. 3.0))
+  let _ = print (show_float_hex (1.0e308 *. 10.0))
+  let _ = print (show_float_hex (0.0 *. (0.0 -. 1.0)))
+  let _ = print (show_float_hex (2.0 -. 2.0))
+  let _ = print (show_float_hex (fsqrt 2.0))
+  let _ = print "t257"
+  let one = 1.0
+  let _ = print (show_float_hex (fneg z))
+  let _ = print (show_float_hex (0.1 + 0.2))
+  let _ = print (show_float_hex (one / z))
+  let _ = print (show_float_hex 1.7976931348623157e308)
+  let _ = print "t173"
+  let _ = print (show (mul_shr 320000000000 320000000000 24))
+  let _ = print "t106"
+  let _ = print (show (to_int (0.0 + 3)))
+  let _ = print "t196"
+  let _ = print (show_float_exact (0.1 + 0.2))
+  let _ = print (show_float_exact (1.0 /. 3.0))
+  0

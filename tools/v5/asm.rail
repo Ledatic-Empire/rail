@@ -407,6 +407,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "csel" then asm_enc_csel ops
   else if mnemonic == "fcvt" then asm_enc_fcvt ops
   else if mnemonic == "fneg" then enc_fneg_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
+  else if mnemonic == "fsqrt" then enc_fsqrt_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
 
 -- add xD, xN, (xM | #imm | sym@PAGEOFF). 3-reg, immediate, or a @PAGEOFF

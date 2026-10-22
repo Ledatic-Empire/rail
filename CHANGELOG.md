@@ -5,6 +5,32 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Added
+- **`docs/SEED_FORMAT.md`: the seed's container, written** (Tier 3, step 9, 2026-10-22). The
+  Mach-O that `tools/v5/link_lib.rail` writes around every program, the seed included, region by
+  region: the `.s` subset the linker reads, the layout formulas, the header and the fourteen load
+  commands field by field, the `@PAGE` baking, the stubs, the data image and its rebases, the
+  rebase and bind opcode streams, the symbol, indirect and string tables, the ad-hoc signature
+  with its page hashes, and the transcription artefacts the bytes keep. Its proof is
+  `tools/independence/seed_writer.py`, a Python writer written from the document that imports
+  nothing from the tree: `tools/independence/seed_format_gate.sh` links
+  `tools/independence/exit42.s` (every region of the format in thirty lines; the process stores 42
+  and exits with it) through the Rail linker (`tools/independence/link_file.rail`) and through the
+  writer, `cmp`s the two files and runs the result. 49,608 bytes identical; a planted stack size or
+  signing identifier fails the `cmp` (the second still runs). CI runs the gate after the
+  self-compile. Apple's `codesign --verify` reads the file as valid.
+- **`docs/NUMERICS.md` rewritten as a contract: a test per sentence, a platform per claim.**
+  Eighteen sentences, each naming its suite test and the triples it was measured on
+  (`arm64-apple-darwin25.6` by the suite; `aarch64-linux` on the Pi Zero 2 W by
+  `tools/verify/numerics_probe.rail`, the suite's numerics tests as one program, with its macOS
+  output in `tools/verify/numerics_probe.expected`; `x86_64-linux` claims nothing). New tests
+  t261 to t266 pin what no test had: `/` and `%` signs and the zero divisor (t261), the 63-bit
+  range, its literals and the wrap (t262), source-order float reductions through a list and a
+  float array (t263), `to_int` truncation (t264), a float's bits through a tuple, a list and an
+  ADT field, a subnormal and a NaN included (t265), and the bits of `+. -. *. /.` and `fsqrt`
+  (t266). The suite is 250. On the Pi every line of the probe is the Mini's except
+  `show_float_exact`, whose Linux `snprintf` ignores the precision (`0.3` for
+  `0.30000000000000004`): claimed as different, judged by bits instead. Stale claims left with
+  the step 5 cut (`idot`, the bf16 regime, `SAFE_SUBSET.md`) are gone from the document.
 - **`tools/decimal64.rail`: a float literal's 64 bits, decided when the program is compiled**
   (Tier 3, step 8). `d64_fields` turns the literal's text (every form the lexer admits: `W.F`,
   `W.FeX`, `WeX`, upper or lower `E`, signed exponent) into the sign-and-exponent field and the
@@ -233,6 +259,16 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **An integer literal at or past 2^61 was emitted with its tag overflowed** (Tier 3, step 9,
+  2026-10-22). The compiler formed `2v + 1` in its own 63-bit int, so `2305843009213693952`
+  (2^61) read as -2^61 and `4611686018427387903` (2^62 - 1) as -1, while the same values
+  computed at run time were right. `emit_load_tagged_reg` builds the four 16-bit chunks of the
+  tagged word from `v` without the product; literals within +-2^61 take the old path and their
+  assembly is unchanged. Found by writing sentence 2 of the numerics contract; t262.
+- **The assembler had no encoding for `fsqrt`**, so any program that called the `fsqrt` builtin
+  was refused at link (loud since step 6, silent before it: 0xffffffff, SIGILL at run time).
+  `enc_fsqrt_d` in `tools/v5/arm64.rail`; the first constant tried was `fabs` and t266 caught it
+  (sqrt 2 printed as 2) before the Pi's GNU-assembled build did.
 - **`./rail_native test` exited 1 with every test passing**: the exit line compared the total with
   242 while the suite had 243; it now compares with the suite's size (244). CI parses the `n/n`
   line and never saw it.
