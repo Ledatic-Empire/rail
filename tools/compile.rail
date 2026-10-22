@@ -5742,7 +5742,7 @@ infer_dump_kinds ks n_acc k_acc =
 
 -- Smoke-test subset for fast DX iteration. Targets the most-likely-to-break
 -- pathways: parse, codegen, GC, float arith, TCO, closures, ADTs.
--- Runs in ~30s vs run_tests' 10+min. Use `./rail_native quick` for daily check.
+-- About 5 s (measured 2026-10-22) against the suite's 70 s.
 run_tests_quick _ =
   let _ = print "=== Rail Quick Smoke ==="
   let _ = print ""

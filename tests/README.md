@@ -71,7 +71,7 @@ In the order they appear in `run_tests`:
 
 | Gate | Command | What it proves |
 |---|---|---|
-| Quick smoke | `./rail_native quick` | fifteen cases across parse, codegen, GC, floats, TCO, closures, ADTs (about 30 s) |
+| Quick smoke | `./rail_native quick` | fifteen cases across parse, codegen, GC, floats, TCO, closures, ADTs (about 5 s) |
 | Collector stress | `python3 tools/fuzz/gc_stress.py` | every suite case and tree program gives the same answer with a collection every Nth allocation and freed blocks poisoned |
 | Independent semantics | `python3 tools/fuzz/semantic.py --seed 42 --cases 20` | native execution agrees with an oracle written outside Rail (`tools/fuzz/SEMANTICS.md`) |
 | Known miscompiles | `python3 tools/fuzz/known_cases.py` | the fixed cases of `tools/fuzz/known` still pass and the open ones still fail (`tools/fuzz/KNOWN_CASES.md`) |
