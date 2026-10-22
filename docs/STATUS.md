@@ -8,9 +8,9 @@
 | Fact | Value | Verify it yourself |
 |---|---|---|
 | Release | v5.5.0 | `git describe --tags` |
-| Compiler | 7546 lines of Rail | `wc -l tools/compile.rail` |
-| Seed binary | 991800 bytes | `wc -c rail_native` |
-| Seed sha256 | `9154304db01b21ff7081c4164b4e1bfee8e237035f14628ea166422a0ac059f3` | `shasum -a 256 rail_native` |
+| Compiler | 7655 lines of Rail | `wc -l tools/compile.rail` |
+| Seed binary | 1024840 bytes | `wc -c rail_native` |
+| Seed sha256 | `a64e5a811b6c75dfa7a6840e1d088e6f79bceab6e2e44948b9574b1d040564be` | `shasum -a 256 rail_native` |
 | Stdlib | 61 modules | `ls stdlib/*.rail \| wc -l` |
 | Non-Rail surface | 31 in-tree files | `SHIMS.md` |
 | Tests | runner self-reports N/N and exits 0 iff N == N | `./rail_native test; echo $?` |

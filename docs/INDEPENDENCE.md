@@ -66,6 +66,18 @@ GNU Mes / Wheeler's DDC with a genuinely different compiler).
 Not "the compiler is proven correct." Coverage is the corpus; the claim is bounded by
 it, and [STATUS.md](STATUS.md) / [VERIFY.md](../VERIFY.md) should state that bound.
 
+## The container, independently rebuilt (Tier 3 step 9, 2026-10-22)
+
+The seed is not only a fixed point of the compiler; it is a file in a format. Until step 9 that
+format existed only in the Rail linker's code, transcribed from one `ld` output whose notes were
+lost. [SEED_FORMAT.md](SEED_FORMAT.md) now states it, and `tools/independence/seed_writer.py`,
+a Python writer written from the document, rebuilds `tools/independence/exit42.s` to the same
+bytes `lk_link_file` writes (`tools/independence/seed_format_gate.sh`, run by CI). This is the
+same kind of independence as Option A, applied to the container rather than the semantics: a
+second implementation, in another language, that the Rail toolchain cannot reach. It bounds
+what a reader must trust to "the loader accepts these bytes", which Apple's `codesign` and
+`otool` can be asked about without Rail.
+
 ## Decision needed before the prototype (Phase 3b/3c-independent #11)
 
 The reference interpreter introduces **non-Rail code** into the repo for the first

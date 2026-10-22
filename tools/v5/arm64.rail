@@ -46,6 +46,12 @@ enc_ror dst a b =
 enc_fneg_d dst src =
   bit_or 509689856 (bit_or (shl src 5) dst)
 
+-- fsqrt dD, dN (the `fsqrt` builtin; the assembler had no encoding for it until Tier 3
+-- step 9, 2026-10-22, so a program that called it was refused at link; t266)
+-- Base: 0x1E61C000 | (N << 5) | D
+enc_fsqrt_d dst src =
+  bit_or 509722624 (bit_or (shl src 5) dst)
+
 -- cmp xA, xB        (subs xzr, xA, xB)
 -- Base: 0xEB00001F | (B << 16) | (A << 5)
 enc_cmp a b =

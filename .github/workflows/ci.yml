@@ -83,3 +83,8 @@ jobs:
             cp /tmp/rail_self ./rail_gen1
             RAIL_ARENA_MB=3000 ./rail_gen1 self
             cmp /tmp/rail_self ./rail_gen1 && echo "Fixed point: gen1 == gen2"
+        - name: The seed format is derivable from its document (two writers, one cmp)
+          # docs/SEED_FORMAT.md: the Rail linker and a Python writer written from the document
+          # (tools/independence/seed_writer.py) each build tools/independence/exit42.s; the
+          # bytes must be identical and the file must run and exit 42 (Tier 3 step 9).
+          run: bash tools/independence/seed_format_gate.sh
