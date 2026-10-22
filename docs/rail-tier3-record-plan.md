@@ -52,7 +52,14 @@ a suite test and a platform triple each, t261 to t266 new (suite 250), measured 
 `tools/verify/numerics_probe.rail` (every line the Mini's but `show_float_exact`, whose Linux
 `snprintf` prints six digits: claimed as different). Writing the sentences found two defects, now
 fixed and tested: an integer literal at or past 2^61 was emitted with its tag overflowed (2^61
-read as -2^61), and the assembler had no `fsqrt` encoding. The rest is not implemented. The owner's frame, 2026-10-21: humans
+read as -2^61), and the assembler had no `fsqrt` encoding. Step 10 landed 2026-10-22: eighteen
+section banners in `tools/compile.rail` (comments only; the seed is byte-identical),
+`docs/COMPILER_TOUR.md` with one numbered section per banner, and `tools/verify/tour_check.rail`
+in CI, which fails on a cited symbol defined nowhere, a section out of banner order, a
+`Defined here` symbol outside its section, a missing path, or a quoted test count other than
+the suite's literal (seven planted defects each failed it); `tests/README.md` and
+`CONTRIBUTING.md` are off 182 and the language reference off v1.4.0. The tier is complete; the
+carried items are in the handoff. The owner's frame, 2026-10-21: humans
 become a spacefaring species; Ledatic is a 100-year company; what position does Rail take so
 that, eventually, it is the right tool for someone? Ten positions were written, two were argued
 by separate read-only crawls of this repo, a third crawl verified both and ruled. Every number

@@ -195,7 +195,7 @@ main =
 | **Tagged pointers** | Inline | Integers: `(v << 1) \| 1`. Heap: raw pointer. Tag bit 0 distinguishes. |
 | **Runtime float** | d-registers | Unboxed IEEE 754. `fadd`/`fmul` direct, no heap boxing. ~10× vs boxed. |
 
-Tail-recursive loops match C `-O2` (5 instructions per iteration). The full architecture is documented in [`CHANGELOG.md`](CHANGELOG.md) — see v2.0.0 for the compiler/runtime; v3.0.0 for the TLS stack.
+Tail-recursive loops match C `-O2` (5 instructions per iteration). The compiler itself is walked section by section, in file order, in [`docs/COMPILER_TOUR.md`](docs/COMPILER_TOUR.md); a gate in CI keeps every symbol it names and the order it claims honest. The history is in [`CHANGELOG.md`](CHANGELOG.md): v2.0.0 for the compiler and runtime, v3.0.0 for the TLS stack.
 
 ## What moved out
 

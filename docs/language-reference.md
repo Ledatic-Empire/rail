@@ -1,6 +1,6 @@
 # Rail Language Reference
 
-Complete syntax and semantics reference for Rail v1.4.0.
+Complete syntax and semantics reference for Rail. The current release is the `Release` row of [STATUS.md](STATUS.md), which is measured, not typed; the grammar as the parser reads it is `grammar/rail.ebnf`, and `COMPILER_TOUR.md` walks the compiler that implements this document.
 
 ## Program Structure
 
