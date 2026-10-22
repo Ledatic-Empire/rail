@@ -8,7 +8,7 @@
 | Fact | Value | Verify it yourself |
 |---|---|---|
 | Release | v5.5.0 | `git describe --tags` |
-| Compiler | 7655 lines of Rail | `wc -l tools/compile.rail` |
+| Compiler | 7704 lines of Rail | `wc -l tools/compile.rail` |
 | Seed binary | 1024840 bytes | `wc -c rail_native` |
 | Seed sha256 | `a64e5a811b6c75dfa7a6840e1d088e6f79bceab6e2e44948b9574b1d040564be` | `shasum -a 256 rail_native` |
 | Stdlib | 61 modules | `ls stdlib/*.rail \| wc -l` |

@@ -50,6 +50,10 @@ jobs:
           # runtime/arm64/*.s is the runtime; tools/runtime_arm64.rail is generated from it and
           # is what the compiler imports. Exits 1 when the two disagree (runtime/arm64/README.md).
           run: ./rail_native run tools/gen_runtime.rail check
+        - name: The reader's path cites what exists, in file order
+          # docs/COMPILER_TOUR.md against the compiler's banners and definitions, and every
+          # test count the docs quote against the suite's literal (Tier 3 step 10).
+          run: ./rail_native --out-prefix /tmp/tour_check run tools/verify/tour_check.rail
         - name: Run test suite (n/n)
           shell: bash
           run: |

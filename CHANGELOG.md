@@ -5,6 +5,25 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Added
+- **`docs/COMPILER_TOUR.md`: the compiler, in file order, with a gate** (Tier 3, step 10,
+  2026-10-22). Eighteen section banners in `tools/compile.rail` (a `-- ====` line, a title, a
+  `-- ====` line: lexer, parser, codegen support, expression codegen, calls and the float
+  boundary, self-loop TCO, function analysis, auth types, autograd, function codegen, the
+  runtime import and optimizer, checks, program drivers, the test harness, self-compile, command
+  dispatch, the x86_64 back end, main), and a tour with one numbered section per banner naming
+  what each defines and how a program travels through them. The banners are comments: the
+  self-compile reproduces the committed seed byte for byte. `tools/verify/tour_check.rail`
+  (Rail, a CI step) fails when a symbol the tour names in backticks is defined nowhere (the
+  compiler and its imports, the compiler's string literals, constructors, runtime labels), when
+  the tour's sections are not the banners in the same order, when a `Defined here` symbol lies
+  outside its section, when a path in the tour, `tests/README.md`, `CONTRIBUTING.md` or
+  `docs/COMPILER_BOOTSTRAP.md` does not exist, or when any of those documents or `CLAUDE.md`
+  quotes an `N/N` test count other than the literal `run_tests` compares with. Seven planted
+  defects (a renamed symbol, swapped sections, a symbol in the wrong section, a wrong count, a
+  missing path, a changed banner, a moved suite literal) each failed it. `tests/README.md` and
+  `CONTRIBUTING.md` no longer say 182 (they say how the count is measured), the stale
+  `as`/`ld` fallback, line-count and convergence-note claims are gone from `CONTRIBUTING.md`,
+  and `docs/language-reference.md` no longer calls itself v1.4.0.
 - **`docs/SEED_FORMAT.md`: the seed's container, written** (Tier 3, step 9, 2026-10-22). The
   Mach-O that `tools/v5/link_lib.rail` writes around every program, the seed included, region by
   region: the `.s` subset the linker reads, the layout formulas, the header and the fourteen load

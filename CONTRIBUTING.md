@@ -1,6 +1,6 @@
 # Contributing to Rail
 
-Rail is a real project with a narrow but honest feature set. Contributions are welcome — this file covers build, test, and the practical bar for a patch that lands.
+Rail is a real project with a narrow but honest feature set. Contributions are welcome: this file covers build, test, and the practical bar for a patch that lands.
 
 ## Build + test in 30 seconds
 
@@ -8,30 +8,30 @@ Rail is a real project with a narrow but honest feature set. Contributions are w
 git clone https://github.com/Ledatic-Empire/rail
 cd rail
 
-./rail_native test       # 182/182 core tests
-RAIL_ARENA_MB=6000 ./rail_native self       # self-compile → /tmp/rail_self
-RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self
-# ↑ may print a one-byte-or-more difference on a clean tree; that is
-#   expected — the shipped seed differs from its own emit by one
-#   bootstrap cycle. Run `cp /tmp/rail_self rail_native` once and
-#   repeat, and the second cmp will be silent (fixed point at gen2).
-#   See notes/bootstrap_convergence_audit_2026-05-13.md.
+./rail_native test                          # the suite: the last line is N/N tests passed, exit 0 only then
+RAIL_ARENA_MB=6000 ./rail_native self       # self-compile -> /tmp/rail_self (about 6 s)
+cmp rail_native /tmp/rail_self              # silent: the committed seed is what its own source builds
 ```
 
-If any of those three fails on `master`, that's a bug — please open an issue.
+The `cmp` is silent on a clean tree. Since Tier 3 step 6 (2026-10-21) CI rebuilds the committed
+seed from source on a GitHub runner and compares the bytes; a difference there is a bug.
+
+If any of those three fails on `master`, that is a bug: please open an issue.
 
 ## Prerequisites
 
 - Apple Silicon Mac (ARM64 macOS) is the primary development target.
-- No other dependencies. Since v5.2.0 the compiler assembles, links, and
-  code-signs itself — no Xcode `as`/`ld` in the build. (The legacy `as`/`ld`
-  fallback engages automatically when `RAIL_ARENA_MB < 5000`.)
+- No other dependencies. The compiler assembles, links and code-signs itself in
+  process (`tools/v5/link_lib.rail`); no Xcode `as`, `ld` or `codesign` runs, and
+  since Tier 3 step 6 there is no other link path. Below `RAIL_ARENA_MB=2000` the
+  self-compile refuses (the compiler's own source thrashes there); 6000 is the usual
+  setting, CI uses 3000.
 
 Linux ARM64 and Linux x86_64 work as cross-compile targets. See `./rail_native linux` and `./rail_native x86`.
 
 ## The bar for a compiler patch
 
-The compiler is `tools/compile.rail` (~9,200 lines of Rail). It compiles itself. Every change goes through this loop:
+The compiler is `tools/compile.rail` (one file; the measured line count is in `docs/STATUS.md`). It compiles itself. Read [`docs/COMPILER_TOUR.md`](docs/COMPILER_TOUR.md) first: it walks the file section by section in file order, and a gate keeps it honest. Every change goes through this loop:
 
 ```bash
 # 1. Edit tools/compile.rail.
@@ -43,7 +43,7 @@ RAIL_ARENA_MB=6000 ./rail_native self                        # → /tmp/rail_sel
 cp /tmp/rail_self ./rail_native
 
 # 4. Verify the test suite still passes.
-./rail_native test                        # must be 182/182
+./rail_native test                        # every case: N/N tests passed, exit 0
 
 # 5. Verify the fixed-point property (≥2 cycles).
 RAIL_ARENA_MB=6000 ./rail_native self && cp /tmp/rail_self ./rail_native
@@ -51,7 +51,7 @@ RAIL_ARENA_MB=6000 ./rail_native self
 cmp rail_native /tmp/rail_self            # must be silent
 ```
 
-Step 5 is the hard part. The bootstrap is a 2-cycle limit cycle: gen0's shipped runtime asm does not necessarily match what gen0's source emits, so cycle 1 typically produces a different binary. Cycle 2 always lands the byte-identical fixed point (gen2 == gen3 == gen4). If `cmp` is silent after running `self` twice in a row from an already-installed binary, you have converged. If cycle 3 still differs from cycle 2, something in your codegen is non-deterministic and wants investigation. See [`notes/bootstrap_convergence_audit_2026-05-13.md`](notes/bootstrap_convergence_audit_2026-05-13.md) for the falsification of the "doesn't converge" claim.
+Step 5 is the hard part. The bootstrap is a 2-cycle limit cycle: gen0's shipped runtime asm does not necessarily match what gen0's source emits, so cycle 1 typically produces a different binary. Cycle 2 always lands the byte-identical fixed point (gen2 == gen3 == gen4). If `cmp` is silent after running `self` twice in a row from an already-installed binary, you have converged. If cycle 3 still differs from cycle 2, something in your codegen is non-deterministic and wants investigation (the 2026-05-13 convergence audit falsified the claim that the bootstrap does not converge; its note left with the tool shed in #80).
 
 If you change the runtime (`runtime/arm64/*.s`: equality, lists, strings, the collector), run `./rail_native run tools/gen_runtime.rail` first, then remember the old binary generates the old runtime. You have to bootstrap twice: compile, install, compile again with the new binary. `runtime/arm64/README.md` has the file format.
 
@@ -77,7 +77,7 @@ The full list lives in `CLAUDE.md`. The top five:
 
 Rail codebases tend to use a terse functional style:
 
-- Short, lowercase function names: `add`, `fib`, `eval` — not `addTwoNumbers`.
+- Short, lowercase function names: `add`, `fib`, `eval`, not `addTwoNumbers`.
 - Named functions defined before `main =`.
 - `let _ = print "..."` for side-effect expressions.
 - `show n` for int-to-string; `show_float` for floats.
@@ -95,7 +95,7 @@ For bigger changes, opening an issue first to talk about the approach saves time
 
 ## Reporting security issues
 
-See [SECURITY.md](SECURITY.md). Rail v3.0.0 is **not** constant-time and has no side-channel-resistance guarantees. Don't deploy the crypto to side-channel-sensitive environments; that's not what it's for.
+See [SECURITY.md](SECURITY.md). Rail's crypto is **not** constant-time and has no side-channel-resistance guarantees. Don't deploy the crypto to side-channel-sensitive environments; that's not what it's for.
 
 ## License
 

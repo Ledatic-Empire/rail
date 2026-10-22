@@ -1,0 +1,448 @@
+-- tools/verify/tour_check.rail: the reader's path cites what exists, in file order
+-- (Tier 3, step 10, 2026-10-22).
+--
+-- docs/COMPILER_TOUR.md walks tools/compile.rail section by section. This program is the
+-- document's gate. It reads the compiler and every module it imports (transitively), the
+-- runtime assembly, and the tour, and fails when:
+--
+--   1. a symbol the tour names in backticks is defined nowhere: not a top-level definition
+--      in the compiler or an imported module, not a string literal in the compiler (the
+--      builtins, the keywords, the environment variables and markers are strings there),
+--      not a constructor, not a label in the runtime assembly;
+--   2. the tour's numbered sections are not the compiler's banners (a `-- ====` line, a
+--      title, a `-- ====` line) in the same order with the same titles;
+--   3. a symbol on a section's `Defined here:` line is not defined between that section's
+--      banner and the next;
+--   4. a path named in backticks or as a Markdown link target, in the tour or in
+--      tests/README.md, CONTRIBUTING.md, CLAUDE.md or docs/COMPILER_BOOTSTRAP.md, does not
+--      exist in the tree;
+--   5. an `N/N` on a line about tests in any of those documents is not the count the suite
+--      compares with at the end of run_tests (the `/N tests passed` literal).
+--
+-- Every finding is printed; the last line is PASS or FAIL. Exit 0 iff PASS.
+-- Run from the repo root:  ./rail_native run tools/verify/tour_check.rail
+-- A symbol that is renamed or removed fails this until the tour catches up: that is the
+-- gate's purpose (memory feedback_if_two_things_must_agree_compare_them).
+
+import "stdlib/map.rail"
+
+cat parts = join "" parts
+trim s = head (split "\n" s)
+
+-- ---------------------------------------------------------------------------
+-- characters and words
+-- ---------------------------------------------------------------------------
+
+is_lower c =
+  let k = char_to_int c
+  if k == 95 then true else if k < 97 then false else k <= 122
+is_upper c =
+  let k = char_to_int c
+  if k < 65 then false else k <= 90
+is_digit_c c =
+  let k = char_to_int c
+  if k < 48 then false else k <= 57
+is_ident_c c = is_lower c || is_upper c || is_digit_c c
+is_path_c c = is_ident_c c || c == "/" || c == "." || c == "-"
+is_label_c c = is_ident_c c || c == "." || c == "$"
+
+all_c pred cs = if cs == [] then true else if pred (head cs) then all_c pred (tail cs) else false
+
+-- the leading run of chars satisfying pred, and the rest
+lead pred cs acc =
+  if cs == [] then (join "" (reverse acc), [])
+  else if pred (head cs) then lead pred (tail cs) (cons (head cs) acc)
+  else (join "" (reverse acc), cs)
+
+skip_spaces cs = if cs == [] then [] else if head cs == " " then skip_spaces (tail cs) else cs
+
+ident_shaped s =
+  let cs = chars s
+  if cs == [] then false
+  else if is_lower (head cs) || is_upper (head cs) then all_c is_ident_c cs
+  else false
+
+-- a path in the tree: every char path-shaped, a lowercase letter somewhere, a "/" or "." in it,
+-- and not starting with "." (an extension such as .s or an assembler directive) or "/" (a
+-- run-time output under /tmp, not a file of the tree)
+path_shaped s =
+  let cs = chars s
+  if cs == [] then false
+  else if head cs == "." || head cs == "/" then false
+  else if all_c is_path_c cs == false then false
+  else if any_c is_lower cs == false then false
+  else str_contains "/" s || str_contains "." s
+
+any_c pred cs = if cs == [] then false else if pred (head cs) then true else any_c pred (tail cs)
+
+lower_c c =
+  let k = char_to_int c
+  if k < 65 then c else if k > 90 then c else char_from_int (k + 32)
+lower s = join "" (map lower_c (chars s))
+
+starts_with prefix s = if length prefix > length s then false else str_sub s 0 (length prefix) == prefix
+
+-- the chars before the first c of the string (the whole string if c is absent)
+before c s =
+  let i = str_find c s
+  if i < 0 then s else str_sub s 0 i
+
+-- trailing spaces off
+rstrip s = join "" (reverse (skip_spaces (reverse (chars s))))
+
+-- a section or banner title, normalised: the text before ":" or "(", lowercased, trimmed
+norm_title s = rstrip (lower (before "(" (before ":" s)))
+
+-- ---------------------------------------------------------------------------
+-- the symbol table: name -> line (compile.rail) or -1 (defined elsewhere)
+-- ---------------------------------------------------------------------------
+
+-- Adds the names a line of Rail source makes known: the leading identifier when the line is
+-- a top-level definition (followed by a space or "="), the name after `foreign` or `type`,
+-- every identifier-shaped string literal, every constructor after "|".
+add_line_syms m line ln elsewhere =
+  let cs = chars line
+  let m1 = if cs == [] then m else if is_lower (head cs) then add_def m cs ln elsewhere else m
+  let m2 = add_strings m1 cs [] false false elsewhere
+  add_ctors m2 (split "|" line) elsewhere
+
+-- A definition in the compiler (ln > 0) outranks the same name seen as a string or in a module:
+-- "main" is a string literal long before `main =` is defined.
+put_sym m name ln elsewhere =
+  if name == "" then m
+  else if map_has m name == false then map_put m name (if elsewhere then 0 - 1 else ln)
+  else if elsewhere then m
+  else if map_get m name < 0 then map_put m name ln
+  else m
+
+add_def m cs ln elsewhere =
+  let (name, rest) = lead is_ident_c cs []
+  let follows = if rest == [] then "" else head rest
+  if follows == " " || follows == "=" then
+    let m1 = put_sym m name ln elsewhere
+    if name == "foreign" || name == "type" || name == "import" then add_second m1 (skip_spaces rest) ln elsewhere else m1
+  else m
+
+add_second m cs ln elsewhere =
+  let (name, _) = lead is_ident_c cs []
+  put_sym m name ln elsewhere
+
+-- string literals: "..." with backslash escapes; only identifier-shaped contents are names
+add_strings m cs acc inside esc elsewhere =
+  if cs == [] then m
+  else
+    let c = head cs
+    if inside then
+      if esc then add_strings m (tail cs) acc true false elsewhere
+      else if c == "\\" then add_strings m (tail cs) (cons "?" acc) true true elsewhere
+      else if c == "\"" then
+        let s = join "" (reverse acc)
+        let m1 = if ident_shaped s then put_sym m s 0 true else m
+        add_strings m1 (tail cs) [] false false elsewhere
+      else add_strings m (tail cs) (cons c acc) true false elsewhere
+    else if c == "\"" then add_strings m (tail cs) [] true false elsewhere
+    else add_strings m (tail cs) acc false false elsewhere
+
+add_ctors m pieces elsewhere =
+  if pieces == [] then m
+  else if tail pieces == [] then m
+  else
+    let cs = skip_spaces (chars (head (tail pieces)))
+    let m1 = if cs == [] then m else if is_upper (head cs) then add_second m cs 0 true else m
+    add_ctors m1 (tail pieces) elsewhere
+
+-- the imports a line names: import "path"
+import_of line =
+  if starts_with "import \"" line then before "\"" (str_sub line 8 (length line - 8)) else ""
+
+-- Walks one Rail file. Returns (symbols, banners, imports, exit literal):
+-- banners are (title, line) for every `-- ====` / `-- title` / `-- ====` triple.
+walk_rail path elsewhere =
+  let src = read_file path
+  let lines = split "\n" src
+  walk_lines lines 1 (map_new 0) [] [] "" elsewhere
+
+bar_line s = starts_with "-- ====================" s
+
+walk_lines lines ln m banners imports lit elsewhere =
+  if lines == [] then (m, reverse banners, reverse imports, lit)
+  else
+    let line = head lines
+    let m1 = add_line_syms m line ln elsewhere
+    let imp = import_of line
+    let imports1 = if imp == "" then imports else cons imp imports
+    let banners1 = banner_at lines ln banners
+    let lit1 = if lit != "" then lit else exit_literal line
+    walk_lines (tail lines) (ln + 1) m1 banners1 imports1 lit1 elsewhere
+
+banner_at lines ln banners =
+  if bar_line (head lines) == false then banners
+  else if tail lines == [] then banners
+  else if tail (tail lines) == [] then banners
+  else if bar_line (head (tail (tail lines))) == false then banners
+  else
+    let title = head (tail lines)
+    if starts_with "-- " title then cons (str_sub title 3 (length title - 3), ln) banners else banners
+
+-- the N of the suite's `"/N tests passed"` literal
+exit_literal line =
+  let i = str_find "/" line
+  if str_contains " tests passed\"" line == false then ""
+  else if str_contains "quick" line then ""
+  else if i < 0 then ""
+  else
+    let rest = str_sub line (i + 1) (length line - i - 1)
+    let (digits, _) = lead is_digit_c (chars rest) []
+    digits
+
+-- Merge the symbols of every imported file, transitively.
+walk_imports pending seen m =
+  if pending == [] then m
+  else
+    let p = head pending
+    if has_str p seen then walk_imports (tail pending) seen m
+    else if file_exists p == false then
+      let _ = print (cat ["  note: import not found, skipped: ", p])
+      walk_imports (tail pending) (cons p seen) m
+    else
+      let (m2, _, imps, _) = walk_rail p true
+      walk_imports (append (tail pending) imps) (cons p seen) (merge_syms m m2 imps)
+
+-- map.rail has no fold; the imported file's names are re-read as a list of (name, -1).
+-- Cheap enough: the modules are a few thousand lines in all.
+merge_syms m m2 imps = merge_tree m m2
+merge_tree m t = match t
+  | MapEmpty -> m
+  | MapNode k v l r -> merge_tree (merge_tree (put_sym m k 0 true) l) r
+
+has_str s xs = if xs == [] then false else if head xs == s then true else has_str s (tail xs)
+
+file_exists p = trim (shell (cat ["test -e '", p, "' && echo yes || echo no"])) == "yes"
+
+-- labels and strings of the runtime assembly: `_name:` at the start of a line, `.global _name`
+add_asm_file m path =
+  let lines = split "\n" (read_file path)
+  add_asm_lines m lines
+add_asm_lines m lines =
+  if lines == [] then m
+  else
+    let cs = chars (head lines)
+    let (word, rest) = lead is_label_c cs []
+    let m1 = if rest == [] then m else if head rest == ":" then put_sym m word 0 true else m
+    let m2 = if word == ".global" || word == ".globl" then add_second m1 (skip_spaces rest) 0 true else m1
+    let m3 = add_strings m2 cs [] false false true
+    add_asm_lines m3 (tail lines)
+add_asm_files m paths = if paths == [] then m else if head paths == "" then add_asm_files m (tail paths) else add_asm_files (add_asm_file m (head paths)) (tail paths)
+
+-- ---------------------------------------------------------------------------
+-- the documents
+-- ---------------------------------------------------------------------------
+
+-- the backticked tokens of a line: the odd pieces of a split on "`"
+ticked line = odd_pieces (split "`" line) false
+odd_pieces ps take =
+  if ps == [] then []
+  else if take then cons (head ps) (odd_pieces (tail ps) false)
+  else odd_pieces (tail ps) true
+
+-- Markdown link targets: the text after "](" up to ")"; http links skipped; "#..." stripped
+link_targets line = link_pieces (tail (str_split "](" line))
+link_pieces ps =
+  if ps == [] then []
+  else
+    let t = before ")" (head ps)
+    let t1 = before "#" t
+    if starts_with "http" t1 then link_pieces (tail ps)
+    else if t1 == "" then link_pieces (tail ps)
+    else cons t1 (link_pieces (tail ps))
+
+dir_of path =
+  let i = last_slash (chars path) 0 (0 - 1)
+  if i < 0 then "." else str_sub path 0 i
+last_slash cs i best = if cs == [] then best else last_slash (tail cs) (i + 1) (if head cs == "/" then i else best)
+
+join_path dir rel = if starts_with "/" rel then rel else if dir == "." then rel else cat [dir, "/", rel]
+
+-- a path token for the existence check: a trailing "/" or ":line" stripped; "" when not a path
+path_token t =
+  let t1 = before ":" t
+  let t2 = if length t1 > 1 then strip_slash t1 else t1
+  if path_shaped t2 then t2 else ""
+strip_slash s = if str_sub s (length s - 1) 1 == "/" then str_sub s 0 (length s - 1) else s
+
+-- "a/b" pairs with equal numeric sides on a line about tests
+equal_fracs cs = fracs_scan cs [] []
+fracs_scan cs run acc =
+  if cs == [] then reverse acc
+  else
+    let c = head cs
+    if is_digit_c c then fracs_scan (tail cs) (cons c run) acc
+    else if c == "/" && run != [] then
+      let a = join "" (reverse run)
+      let (b, rest) = lead is_digit_c (tail cs) []
+      if b == a then fracs_scan rest [] (cons a acc) else fracs_scan rest [] acc
+    else fracs_scan (tail cs) [] acc
+
+-- ---------------------------------------------------------------------------
+-- the checks; each returns the number of findings it printed
+-- ---------------------------------------------------------------------------
+
+-- 4 and 5, for one document. paths = false checks only the counts (CLAUDE.md names branches,
+-- tags and repositories in backticks, which are not files of the tree).
+check_doc path syms want paths =
+  let lines = split "\n" (read_file path)
+  check_doc_lines path (dir_of path) lines 1 want paths 0
+
+check_doc_lines path dir lines ln want paths n =
+  if lines == [] then n
+  else
+    let line = head lines
+    let n1 = if paths then n + check_paths path dir ln (append (map path_token (ticked line)) (link_targets line)) else n
+    let n2 = n1 + check_counts path ln line want
+    check_doc_lines path dir (tail lines) (ln + 1) want paths n2
+
+check_paths path dir ln toks =
+  if toks == [] then 0
+  else
+    let t = head toks
+    let rest = check_paths path dir ln (tail toks)
+    if t == "" then rest
+    else if file_exists t then rest
+    else if file_exists (join_path dir t) then rest
+    else
+      let _ = print (cat ["  FAIL ", path, ":", show ln, ": path does not exist: ", t])
+      rest + 1
+
+check_counts path ln line want =
+  if str_contains "test" line == false && str_contains "Test" line == false then 0
+  else count_findings path ln (equal_fracs (chars line)) want
+count_findings path ln fr want =
+  if fr == [] then 0
+  else if head fr == want then count_findings path ln (tail fr) want
+  else
+    let _ = print (cat ["  FAIL ", path, ":", show ln, ": says ", head fr, "/", head fr, " tests; run_tests compares with ", want])
+    1 + count_findings path ln (tail fr) want
+
+-- 1, 2 and 3: the tour against the symbols and the banners
+-- Walks the tour once. sect = index of the current numbered section (-1 before the first).
+check_tour path syms banners =
+  let lines = split "\n" (read_file path)
+  let (n, titles) = tour_lines path lines 1 syms banners (0 - 1) 0 []
+  n + check_order (reverse titles) banners
+
+tour_lines path lines ln syms banners sect n titles =
+  if lines == [] then (n, titles)
+  else
+    let line = head lines
+    let title = header_title line
+    if title != "" then
+      tour_lines path (tail lines) (ln + 1) syms banners (sect + 1) n (cons (norm_title title) titles)
+    else
+      let toks = ticked line
+      let n1 = n + check_symbols path ln syms toks
+      let n2 = if starts_with "Defined here:" line then n1 + check_range path ln syms banners sect toks else n1
+      tour_lines path (tail lines) (ln + 1) syms banners sect n2 titles
+
+-- the title of a numbered `## N. Title` header, "" for any other line
+header_title line =
+  if starts_with "## " line == false then ""
+  else
+    let rest = str_sub line 3 (length line - 3)
+    if numbered rest then after_number rest else ""
+numbered s = if s == "" then false else is_digit_c (str_sub s 0 1)
+-- "12. Title" -> "Title"
+after_number s =
+  let i = str_find ". " s
+  if i < 0 then s else str_sub s (i + 2) (length s - i - 2)
+
+check_symbols path ln syms toks =
+  if toks == [] then 0
+  else
+    let t = head toks
+    let rest = check_symbols path ln syms (tail toks)
+    if ident_shaped t == false then rest
+    else if map_has syms t then rest
+    else
+      let _ = print (cat ["  FAIL ", path, ":", show ln, ": no definition anywhere for `", t, "`"])
+      rest + 1
+
+-- every identifier on a Defined here line is a compile.rail definition inside the section
+check_range path ln syms banners sect toks =
+  if sect < 0 then
+    let _ = print (cat ["  FAIL ", path, ":", show ln, ": Defined here before the first numbered section"])
+    1
+  else if sect >= length banners then
+    let _ = print (cat ["  FAIL ", path, ":", show ln, ": section ", show (sect + 1), " has no banner in the compiler"])
+    1
+  else
+    let (_, lo) = nth_pair banners sect
+    let hi = if sect + 1 >= length banners then 100000000 else snd_of (nth_pair banners (sect + 1))
+    range_toks path ln syms toks lo hi
+
+nth_pair xs i = if i == 0 then head xs else nth_pair (tail xs) (i - 1)
+snd_of p = let (_, b) = p in b
+
+range_toks path ln syms toks lo hi =
+  if toks == [] then 0
+  else
+    let t = head toks
+    let rest = range_toks path ln syms (tail toks) lo hi
+    if ident_shaped t == false then rest
+    else if map_has syms t == false then rest
+    else
+      let at = map_get syms t
+      if at < 0 then
+        let _ = print (cat ["  FAIL ", path, ":", show ln, ": `", t, "` is not a top-level definition of tools/compile.rail (string, constructor or import only)"])
+        rest + 1
+      else if at < lo || at >= hi then
+        let _ = print (cat ["  FAIL ", path, ":", show ln, ": `", t, "` is defined at compile.rail:", show at, ", outside its section (lines ", show lo, " to ", show hi, ")"])
+        rest + 1
+      else rest
+
+-- 2: the tour's numbered sections are the banners, in order
+check_order titles banners =
+  if titles == [] && banners == [] then 0
+  else if titles == [] then
+    let (b, at) = head banners
+    let _ = print (cat ["  FAIL docs/COMPILER_TOUR.md: no section for banner `", b, "` (compile.rail:", show at, ")"])
+    1 + check_order [] (tail banners)
+  else if banners == [] then
+    let _ = print (cat ["  FAIL docs/COMPILER_TOUR.md: section `", head titles, "` has no banner in the compiler"])
+    1 + check_order (tail titles) []
+  else
+    let (b, at) = head banners
+    if head titles == norm_title b then check_order (tail titles) (tail banners)
+    else
+      let _ = print (cat ["  FAIL docs/COMPILER_TOUR.md: section `", head titles, "` where the compiler's banner says `", norm_title b, "` (compile.rail:", show at, ")"])
+      1 + check_order (tail titles) (tail banners)
+
+-- ---------------------------------------------------------------------------
+
+main =
+  let compiler = "tools/compile.rail"
+  let tour = "docs/COMPILER_TOUR.md"
+  let (syms0, banners, imports, want) = walk_rail compiler false
+  let syms1 = walk_imports imports [compiler] syms0
+  let asm = split "\n" (trim_all (shell "ls runtime/arm64/*.s tools/linux_libc.s 2>/dev/null"))
+  let syms = add_asm_files syms1 asm
+  let _ = print (cat ["tour_check: ", show (length banners), " banners in ", compiler, "; the suite compares with ", want, "; ", show (length asm), " assembly files read"])
+  let n1 = check_tour tour syms banners
+  let docs = [tour, "tests/README.md", "CONTRIBUTING.md", "docs/COMPILER_BOOTSTRAP.md"]
+  let n2 = check_docs docs syms want true
+  let n3 = check_doc "CLAUDE.md" syms want false
+  let n = n1 + n2 + n3
+  let _ = if want == "" then print "  FAIL tools/compile.rail: no `/N tests passed` literal found" else 0
+  let total = if want == "" then n + 1 else n
+  if total == 0 then
+    let _ = print (cat ["PASS tour_check: ", show (length banners), " sections in file order; every cited symbol and path exists; every test count is ", want])
+    0
+  else
+    let _ = print (cat ["FAIL tour_check: ", show total, " finding(s)"])
+    1
+
+check_docs docs syms want paths = if docs == [] then 0 else check_doc (head docs) syms want paths + check_docs (tail docs) syms want paths
+
+-- the shell result without its trailing newline
+trim_all s = rstrip_nl (chars s)
+rstrip_nl cs = join "" (reverse (drop_nl (reverse cs)))
+drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs

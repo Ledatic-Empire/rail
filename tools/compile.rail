@@ -17,6 +17,9 @@ import "tools/decimal64.rail"
 import "tools/decimal64_src.rail"
 foreign getenv name -> str
 
+-- ===========================================================================
+-- LEXER: characters to tokens
+-- ===========================================================================
 digits = ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 alpha_lower = ["a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z"]
 alpha_upper = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"]
@@ -237,6 +240,9 @@ tokenize_with_pos src =
   let (toks, pos) = tc (chars src) [] [] 1 1
   strip_nl_pp toks pos
 
+-- ===========================================================================
+-- PARSER: tokens to the typed syntax tree
+-- ===========================================================================
 tt t =
   let (tg, _) = t
   tg
@@ -850,7 +856,9 @@ field_key f = match f
   | FArr g -> cat ["(arr ", field_key g, ")"]
   | FTup gs -> cat ["(", fields_key gs, ")"]
 
--- ARM64 CODEGEN
+-- ===========================================================================
+-- CODEGEN SUPPORT: names, literals, float classification
+-- ===========================================================================
 
 cat parts = join "" parts
 
@@ -1268,6 +1276,9 @@ get_opc_inline op lc =
   else if op == "||" then "    orr x0, x1, x0\n"
   else "    ; unknown op\n"
 
+-- ===========================================================================
+-- EXPRESSION CODEGEN: builtins, nodes, match arms
+-- ===========================================================================
 cg_bi fname args env ar lc sl tp fs =
   if fname == "print" then
     let (aa, lc1, sl1) = cg (head args) env ar lc sl false fs
@@ -2053,6 +2064,9 @@ extract_adt_fields binds scrut_sl idx next_sl env =
     let (rest, env3, sl2) = extract_adt_fields (tail binds) scrut_sl (idx + 1) (next_sl + 8) env2
     (cat [load, rest], env3, sl2)
 
+-- ===========================================================================
+-- CALLS, CLOSURES AND THE FLOAT BOUNDARY
+-- ===========================================================================
 untag_args n i =
   if i >= n then ""
   else cat ["    asr x8, x", show i, ", #1\n    tst x", show i, ", #1\n    csel x", show i, ", x8, x", show i, ", ne\n", untag_args n (i + 1)]
@@ -2223,6 +2237,9 @@ mk_env_reg params off idx =
   if length params == 0 then []
   else cons (head params, 0 - (19 + idx)) (mk_env_reg (tail params) (off + 8) (idx + 1))
 
+-- ===========================================================================
+-- SELF-LOOP TCO: a self-recursive function as a register loop
+-- ===========================================================================
 -- Smart self-loop emitter: minimize instructions with dependency-aware scheduling
 self_loop_emit args env ar lc sl fs nargs =
   let a0 = if nargs >= 1 then head args else NInt "0"
@@ -2507,6 +2524,9 @@ self_temps_to_regs n =
   else if n == 3 then "    mov x19, x8\n    mov x20, x9\n    mov x21, x10\n"
   else ""
 
+-- ===========================================================================
+-- FUNCTION ANALYSIS: parameter kinds, frame size, arities, constructor tables
+-- ===========================================================================
 is_float_fn fname =
   fname == "to_float" || fname == "int_to_float" || fname == "parse_float" || fname == "float_arr_get" || fname == "fneg" || fname == "fsqrt" || fname == "fabs" || fname == "sqrt" || fname == "sin" || fname == "cos" || fname == "tanh" || fname == "exp" || fname == "log" || fname == "pow" || fname == "floor" || fname == "ceil" || fname == "atan2"
 
@@ -2937,6 +2957,9 @@ ctor_name_strs cs i =
     let (n, a) = head cs
     cat [".Lctor_name_", show i, ":\n    .asciz \"", n, "\"\n", ctor_name_strs (tail cs) (i + 1)]
 
+-- ===========================================================================
+-- AUTH TYPES: projection, prover and verifier synthesis
+-- ===========================================================================
 -- P2 Stage B / B1: auth-type projection synthesis.
 -- For every ADT whose definition uses the `auth` field modifier, synthesize a
 -- pair of functions reproducing the Stage A oracle (tools/auth/authkit.rail until
@@ -3195,6 +3218,9 @@ inject_auth_fns decls =
     append d2 (synth_clones decls types)
   else decls
 
+-- ===========================================================================
+-- AUTOGRAD: source-to-source differentiation
+-- ===========================================================================
 -- Pillar 3 (attested numerics): forward-mode source-to-source AD.
 -- grad_deriv emits the derivative of an expr w.r.t. param p AS a Rail AST,
 -- so the synthesized f__grad is itself a re-attestable Rail program.
@@ -4269,6 +4295,9 @@ inject_grad_fns decls =
   if marks == [] then decls
   else append (strip_grad_marks decls) (synth_grad_decls marks decls)
 
+-- ===========================================================================
+-- FUNCTION CODEGEN: prologue, early return, GC slot bits, compile_func
+-- ===========================================================================
 -- okps: the params whose kind allows an int reading (slots_int_params).
 -- The early return compares the raw tagged words, which orders ints and
 -- nothing else: with two string params `if a < b` compared two pointers
@@ -4577,6 +4606,9 @@ compile_funcs_loop decls ar lc asm_acc desc_acc =
     let (fasm, fdesc, lc1) = compile_func (head decls) ar lc
     compile_funcs_loop (tail decls) ar lc1 (cons fasm asm_acc) (cons fdesc desc_acc)
 
+-- ===========================================================================
+-- RUNTIME IMPORT AND THE OPTIMIZER
+-- ===========================================================================
 -- The ARM64 runtime every native program links is hand-written assembly in runtime/arm64/*.s,
 -- one file per rt_* constant. tools/gen_runtime.rail carries it into the generated
 -- tools/runtime_arm64.rail; the import sits where the constants were written until 2026-10-21,
@@ -4727,6 +4759,9 @@ opt_decl d = match d
   | DFn n ps b -> DFn n ps (opt b)
   | _ -> d
 
+-- ===========================================================================
+-- CHECKS: exhaustiveness, patterns, constructor values, type warnings, parse errors
+-- ===========================================================================
 build_ctor_siblings decls =
   if length decls == 0 then []
   else append (ctor_siblings_of (head decls)) (build_ctor_siblings (tail decls))
@@ -5189,6 +5224,9 @@ report_errors errs positions ntoks fname =
     let _ = print (cat [fname, ":", show ln, ":", show col, ": error: ", msg])
     1 + report_errors (tail errs) positions ntoks fname
 
+-- ===========================================================================
+-- PROGRAM DRIVERS: compile_checked and build
+-- ===========================================================================
 -- The runtime's data section (runtime/arm64/data.s): format strings, the heap pointers, the
 -- young generation. Its own generated module, imported here rather than with the code above,
 -- because declaration order fixes the seed and this is where its constant was written.
@@ -5410,6 +5448,9 @@ strip_trailing_ws_loop s n =
 
 strip_trailing_ws s = strip_trailing_ws_loop s (length s)
 
+-- ===========================================================================
+-- TEST HARNESS: the suite
+-- ===========================================================================
 -- t185. The `run` driver must hand back the program's exit code. It returned
 -- a hardcoded 0 until 2026-08-28, so every caller that branched on a Rail
 -- program's status silently saw success. That is how the daily attestation
@@ -5701,7 +5742,7 @@ infer_dump_kinds ks n_acc k_acc =
 
 -- Smoke-test subset for fast DX iteration. Targets the most-likely-to-break
 -- pathways: parse, codegen, GC, float arith, TCO, closures, ADTs.
--- Runs in ~30s vs run_tests' 10+min. Use `./rail_native quick` for daily check.
+-- About 5 s (measured 2026-10-22) against the suite's 70 s.
 run_tests_quick _ =
   let _ = print "=== Rail Quick Smoke ==="
   let _ = print ""
@@ -6301,7 +6342,9 @@ run_tests _ =
   if total == 250 then 0 else 1
 
 -- ===========================================================================
--- SELF-COMPILE. The compiler compiles tools/compile.rail and links it in
+-- SELF-COMPILE
+-- ===========================================================================
+-- The compiler compiles tools/compile.rail and links it in
 -- process through lk_link_file, the same path `build` takes for every file
 -- (Tier 3, step 6; until 2026-10-21 an arena under 5000 MB or the sentinel
 -- /tmp/.rail_force_as_ld selected an as/ld/codesign fallback instead). The
@@ -6310,7 +6353,7 @@ run_tests _ =
 -- from 2000 to 8000. What the arena changes is time and peak memory (first
 -- collection at the arena size): 48 s and 6.5 GB resident at 2000, 5.6 s
 -- and 5.4 GB at 3000, 5.3 s and 6.4 GB at 6000, 7.1 GB at 5000 and 7000.
--- ===========================================================================
+--
 -- Below this the compiler's own source no longer fits the arena's bump window:
 -- allocation falls to the free-list scan and a self-compile that takes 18 s at
 -- 2000 MB was still running at 240 s on the 1 GB default (measured 2026-09-10;
@@ -6353,6 +6396,9 @@ self_compile _ =
     let _ = print "  Binary: /tmp/rail_self"
     0
 
+-- ===========================================================================
+-- COMMAND DISPATCH: run, parse-check, linux, generate, packages
+-- ===========================================================================
 join_args lst n =
   if n > 0 then
     if length lst == 0 then ""
@@ -6755,11 +6801,11 @@ dispatch_packages _ =
     let _ = print out
     0
 
--- ═══════════════════════════════════════════════════════════════════════════════
--- x86_64 BACKEND (Linux, System V AMD64 ABI, glibc-linked)
+-- ===========================================================================
+-- X86_64 BACKEND: Linux, System V AMD64 ABI, glibc-linked
+-- ===========================================================================
 -- Frame: push rbp; sub rsp,N; mov rbp,rsp → locals at [rbp+16], same offsets as ARM64
 -- Tail call: add rsp,N; pop rbp; jmp func
--- ═══════════════════════════════════════════════════════════════════════════════
 
 -- Direct operand for cmp (raw mode): register vars are raw, literals are raw values
 direct_cmp_operand_raw node env =
@@ -7560,6 +7606,9 @@ compile_x86 path =
       let _ = print "  No local x86_64 assembler. Install x86_64-elf-as / x86_64-elf-ld, or copy /tmp/rail_x86.s to a Linux x86_64 host and assemble there."
       0
 
+-- ===========================================================================
+-- MAIN: the command line
+-- ===========================================================================
 -- Parse optional --out-prefix <val> flag in the first slot.
 -- Returns (prefix, args-with-flag-stripped). Default prefix is /tmp/rail_out
 -- so all existing callers (including self-compile) are unaffected.

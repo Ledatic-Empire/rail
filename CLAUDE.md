@@ -35,7 +35,7 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (7,655 lines on 2026-10-22; `wc -l`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
+- **Compiler source**: `tools/compile.rail` (7,704 lines on 2026-10-22; `wc -l`; walked in file order by `docs/COMPILER_TOUR.md`, gated by `tools/verify/tour_check.rail`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
 - **Seed binary**: `rail_native` (1,024,840 bytes ARM64, 2026-10-22): checked into repo, self-compile produces byte-identical output (fixed point)
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
@@ -86,12 +86,12 @@ python3 tools/fuzz/gc_stress.py      # every suite test and tree program under R
 - **`read_line` zero-arg**: Use `read_line 0` (pass dummy arg): zero-arg dispatch has a codegen quirk in the V-handler.
 - **Float representation comes from the types** (`tools/types.rail`, `docs/TYPES.md`): a parameter or result whose type is float travels as raw bits; one that untyped data (`dyn`) can reach stays generic. `show(user_func(1.0))` still won't pick the float printer; use `show_float` explicitly.
 - **Float self-loop TCO**: Deferred: `body_has_float` guard prevents int-TCO corruption but float-specific d8-d15 TCO not yet implemented.
-- **Deeply-nested `match` chains**: A `match | ADT -> match | ADT -> ...` chain 5+ levels deep inside a function body with side-effecting `let`s after it triggers "expected decl" parse errors. **Workaround**: flatten multiple `match`es into a single chained form on one indent level: all ADT destructures at the top of the function body followed by a linear `let` stream. See `tools/train/three_class_mlp.rail:train_step` for the pattern that works.
+- **Deeply-nested `match` chains**: A `match | ADT -> match | ADT -> ...` chain 5+ levels deep inside a function body with side-effecting `let`s after it triggers "expected decl" parse errors. **Workaround**: flatten multiple `match`es into a single chained form on one indent level: all ADT destructures at the top of the function body followed by a linear `let` stream (the pattern that works lived in `tools/train`, now in the private rail-lab).
 - **Mixed float+int arithmetic (v2.1.2)**: `0.0 + int_expr` now promotes correctly even when the int operand's type can't be statically inferred. The O-handler emits a runtime `tst x, #1` path that picks scvtf or fmov based on the tag bit. Regression test: `t106 mixed_float_int_op`.
 
 ### Modifying the Compiler
 
-Read `docs/COMPILER_BOOTSTRAP.md` before editing `tools/compile.rail`: bootstrap cycles, the diagnostic pattern, the data-section and ASCII-only traps. Always: `RAIL_ARENA_MB=6000 ./rail_native self`, then `./rail_native test` (every test must pass), then self again and `cmp` for the fixed point.
+Read `docs/COMPILER_TOUR.md` to find your way (eighteen banners, one section each, in file order; a renamed symbol or a moved section fails `tools/verify/tour_check.rail` until the tour catches up) and `docs/COMPILER_BOOTSTRAP.md` before editing `tools/compile.rail`: bootstrap cycles, the diagnostic pattern, the data-section and ASCII-only traps. Always: `RAIL_ARENA_MB=6000 ./rail_native self`, then `./rail_native test` (every test must pass), then self again and `cmp` for the fixed point.
 
 ## Substrate beyond compile.rail (shipped 2026-05-11)
 
@@ -107,9 +107,9 @@ Public docs: **https://ledatic.org/rail/docs/**: md→html build + deploy recipe
 
 ### Recent emit-class gotchas surfaced by foundations work
 
-- **Phantom builtins** in `compile.rail:~2233` `str_returning_builtin` list: `trim`, `str_to_int`. Declared but no codegen → `ld` undefined symbol at link. Inline a helper or extend emit.
+- **Phantom builtins**: a name the type checker knows (`tc_builtin_ret` in the CHECKS section) but `cg_bi` to `cg_bi3` do not emit links to nothing and fails at link as an undefined identifier (loud since Tier 3 step 6). `trim` is the classic: define it locally (`trim s = head (split "\n" s)`) or extend the emit.
 - **`to_int "42"` silently returns 0**: `to_int` is float→int only. There is no string-to-int builtin. Write a digit-walking helper inline.
-- **3-movk codegen** (FIXED 2026-05-12, `feat/c-3-movk-literals`): `emit_load_int` at `compile.rail:829` now emits movz + up to 3 movk chunks (bits 0-15, 16-31, 32-47, 48-63), with zero chunks at >=#32 skipped. Both positive (`movz`+`movk`) and negative (`movn`+`movk` with inverted bits) paths handle the full 64-bit range. Regression tests: t132 (3-movk), t133 (4-movk), t134 (4-movk negative). Note: `k16/k32/k48` constants computed via `shl 1 N` so `opt` constant-folding doesn't bake them as 64-bit literals the seed can't emit.
+- **3-movk codegen** (FIXED 2026-05-12, `feat/c-3-movk-literals`): `emit_load_int_reg` (CODEGEN SUPPORT section) emits movz + up to 3 movk chunks (bits 0-15, 16-31, 32-47, 48-63), with zero chunks at >=#32 skipped. Both positive (`movz`+`movk`) and negative (`movn`+`movk` with inverted bits) paths handle the full 64-bit range. Regression tests: t132 (3-movk), t133 (4-movk), t134 (4-movk negative). Note: `k16/k32/k48` constants computed via `shl 1 N` so `opt` constant-folding doesn't bake them as 64-bit literals the seed can't emit.
 
 ## Related repos
 
