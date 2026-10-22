@@ -26,6 +26,27 @@ All notable changes to Rail are documented here.
   the hex `show_float_hex` prints with CPython's bits for the same text. 1,520 literals agree
   with the new seed; on a compiler built with a planted tie rule (round half up, no sticky bit)
   64 of 620 differ, so the gate can fail.
+- **`parse_float` is `tools/decimal64.rail` compiled into the program that calls it** (Tier 3,
+  step 8, the run-time half, 2026-10-22). The builtin used to be `bl _atof`, the last libSystem
+  conversion on the replay path (`stdlib/json.rail`'s numbers go through it). Now
+  `tools/gen_runtime.rail` carries the file's text into the generated `tools/decimal64_src.rail`
+  (one string constant, checked by `gen_runtime.rail check` like the runtime modules); the
+  compiler adds its declarations ahead of any program that names `parse_float` and lacks
+  `d64_parse_float` (`inject_parse_float`, the way an import's are added) and calls
+  `d64_parse_float`, which reads what atof reads (leading blanks, one sign, digits with an
+  optional fraction and exponent, `inf`, `infinity`, `nan` in any case; text after the number
+  ignored, no number 0.0; hex floats are not read) and builds the double from its fields by exact
+  arithmetic alone (`d64_to_float`: an integer significand below 2^53 scaled by powers of two,
+  no step rounding), the reverse of `float_hex`. t260 pins nineteen texts against CPython's bits
+  (the t259 literals as strings, a sign, a leading blank, an integer with no dot, text after the
+  number, `+.5`, `inf`, `-Infinity`, `NaN`, `-0`, no number); the suite is 244.
+  `tools/fuzz/float_literals.py` now sends every generated literal through both doors (as a
+  literal and as a `parse_float` string): 1,520 agree with CPython; a compiler with a planted
+  run-time-only defect (the subnormal scale off by one) fails 14 of 620 through the second door
+  while the first stays green. `grep -c _atof` on the self-compiled assembly is 0 (the plan's
+  proof for step 8; it was 1, the builtin's own code string). On the Pi Zero 2 W a cross-compiled
+  probe of 26 texts (the t260 set, a 57-digit literal, four JSON numbers including a subnormal)
+  printed the Mini's bits line for line.
 
 - **`stdlib/math_exact.rail`: sin, cos, exp, tanh, sqrt and gelu as fixed integer algorithms**
   (Tier 3, step 4). Fixed point at F = 24 (`fx_quant`, `fx_back`; `fx_sin_any`, `fx_cos_any`,
@@ -50,6 +71,9 @@ All notable changes to Rail are documented here.
   value two ulps away and the Linux libc shim printed the digest as `0`.
 
 ### Changed
+- **The `parse_float` builtin calls `_d64_parse_float`, not `_atof`**; a program compiled with
+  this seed imports no `atof` (the Linux build never had a correct one). A program that defines
+  its own `d64_` names shadows the injected ones the way it would an import's.
 - **Float literals are no longer parsed by `atof` at run time** (Tier 3, step 8). The ARM64
   code generator used to emit every literal as `.asciz` text and call the platform's `atof` when
   the program reached it (`cg`'s `FL` case; 133 calls in the beacon's assembly, 139 in the
@@ -110,6 +134,8 @@ All notable changes to Rail are documented here.
   `runtime/arm64/README.md`.
 
 ### Removed
+- **`_atof` from `tools/linux_libc.s`** (122 lines, the accumulate-and-scale conversion that put
+  the beacon kernel's literals one or two ulps off on the Pi): nothing the compiler emits calls it.
 - **`stdlib/concurrent.rail` and `stdlib/quartz.rail`, with `tools/runtime/` (`concurrent.c`, its
   build script and smoke) and `tools/desk/` (`quartz_bridge.m`, its build script, smoke and
   README)** (Tier 3, step 6). Both modules reached a per-machine dylib the old `ld` branch of
@@ -207,6 +233,9 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **`./rail_native test` exited 1 with every test passing**: the exit line compared the total with
+  242 while the suite had 243; it now compares with the suite's size (244). CI parses the `n/n`
+  line and never saw it.
 - **Linux ARM64 never wrote a float32 file** (Tier 3, step 8 found it). `float_arr_to_f32_file`
   and `float_arr_from_f32_file` in `runtime/arm64/float.s` issue raw Darwin syscalls (`svc #0x80`
   with `x16` = `0x2000005` open, `0x2000004` write, `0x2000003` read, `0x2000006` close), which a
