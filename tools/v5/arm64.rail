@@ -52,6 +52,12 @@ enc_fneg_d dst src =
 enc_fsqrt_d dst src =
   bit_or 509722624 (bit_or (shl src 5) dst)
 
+-- fabs dD, dN (the `fabs` builtin; no encoding until 2026-10-22, so from 06dd157, Tier 3 step 6,
+-- the one link path, a program that called it was refused at link; t267)
+-- Base: 0x1E60C000 | (N << 5) | D
+enc_fabs_d dst src =
+  bit_or 509657088 (bit_or (shl src 5) dst)
+
 -- cmp xA, xB        (subs xzr, xA, xB)
 -- Base: 0xEB00001F | (B << 16) | (A << 5)
 enc_cmp a b =

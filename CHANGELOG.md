@@ -278,6 +278,16 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **The assembler had no encoding for `fabs`** (2026-10-22). Since 06dd157 (Tier 3, step 6: one
+  link path) every program that called the `fabs` builtin was refused at link with "asm: no
+  encoding for fabs d0, d0"; the plasma lab's selftest (72 such lines in one compile) could not be
+  built by any seed after it. `enc_fabs_d` in `tools/v5/arm64.rail` (0x1E60C000 | N << 5 | D; the
+  system assembler agrees on d0,d0 1e60c000, d3,d7 1e60c0e3 and d31,d15 1e60c1ff) and the `fabs`
+  case in `tools/v5/asm.rail`. t267 prints the bits of fabs on -2.5, 2.5, -0 and -inf and two
+  `to_int` lines that tell it from `fneg` and from identity; `tools/fuzz/known/fabs_builtin.rail`
+  is the fixture. A sweep of every indented mnemonic the emitter writes (compile.rail sections 1
+  to 13, tools/v5, the runtime) against the dispatch found no other gap: fabs was the last. The
+  Linux ELF assembler (`tools/v5/elf_asm.rail`) still has neither `fsqrt` nor `fabs`.
 - **An integer literal at or past 2^61 was emitted with its tag overflowed** (Tier 3, step 9,
   2026-10-22). The compiler formed `2v + 1` in its own 63-bit int, so `2305843009213693952`
   (2^61) read as -2^61 and `4611686018427387903` (2^62 - 1) as -1, while the same values

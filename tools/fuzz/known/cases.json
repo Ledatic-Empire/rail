@@ -218,5 +218,10 @@
   "fixed",
   "different\ndifferent",
   "== on two heap values that were not floats strcmp'd them, which compared header bytes: any two lists, tuples or constructed values of one kind were equal (Some 1 == Some 2); structural since 2026-09-23 (t242)"
+ ],
+ "fabs_builtin": [
+  "fixed",
+  "10\n10",
+  "the in-house assembler had no encoding for fabs: since 06dd157 (Tier 3 step 6, 2026-10-21) it is the one link path, so every program that called the builtin was refused at link with 'asm: no encoding for fabs d0, d0' (the plasma lab's selftest among them); enc_fabs_d in tools/v5/arm64.rail and the fabs case in tools/v5/asm.rail, 2026-10-22 (t267)"
  ]
 }

@@ -1,0 +1,9 @@
+-- `fabs` had no encoding in the in-house assembler, so from 06dd157 (Tier 3 step 6, 2026-10-21,
+-- one link path) every program that called it was refused at link: "asm: no encoding for
+-- fabs d0, d0". A negative and a positive operand: identity would print -10 first, fneg -10 second.
+main =
+  let m = 0.0 -. 2.5
+  let p = 2.5
+  let _ = print (show (to_int (fabs m *. 4.0)))
+  let _ = print (show (to_int (fabs p *. 4.0)))
+  0
