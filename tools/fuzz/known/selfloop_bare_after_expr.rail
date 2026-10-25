@@ -1,0 +1,6 @@
+-- a bare parameter read after an expression argument overwrote its register: f (a + b) a
+f a b n = if n == 0 then a * 1000 + b else f (a + b) a (n - 1)
+main =
+  let _ = print (show (f 1 2 1))
+  let _ = print (show (f 1 2 2))
+  0

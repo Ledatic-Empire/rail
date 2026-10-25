@@ -15,6 +15,18 @@ All notable changes to Rail are documented here.
   record 1.37 s to 0.68 s); records identical to the old witness on every shared pulse id.
 
 ### Fixed
+- **A tail self-call read a parameter after the same call had overwritten it** (found 2026-10-24
+  by the rail-lab differential fuzz, finding A1; fixed on a branch 10-25, landed on master
+  2026-11-15). The self-loop emitters wrote the new
+  arguments into the loop registers in a fixed order, moving a bare parameter directly, so
+  `g a b = if b == 0 then a else g b (a % b)` set `a` to the new `b` (gcd 1071 462 printed 0),
+  `p b a (c - 1)` made both arguments `b` (201 printed 202), `f (a + b) a (n - 1)` read the
+  updated `a` (3001 printed 3003), and the two-parameter `h b (a + b)` doubled (89 printed 192).
+  A bare loop register bound for another loop register now goes through the argument's temp
+  (`self_bare_via_temp`, in the general, in-place-decrement and bottom-test emitters); a
+  register moved onto itself stays a no-op, so the common loops keep their instruction count.
+  Suite t282 and known cases `selfloop_gcd_mod`, `selfloop_swap`, `selfloop_bare_after_expr`;
+  the seed reproduces itself byte for byte; 265/265.
 - **`rail_native test` exited 1 with every test passing** (2026-11-05). The runner compared the
   total to a literal 262 while printing a literal 264 (t279 and t280 raised the count without the
   check), so any script that trusted the exit code saw a failure on green; CI reads the n/n line and
