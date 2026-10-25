@@ -15,6 +15,14 @@ All notable changes to Rail are documented here.
   record 1.37 s to 0.68 s); records identical to the old witness on every shared pulse id.
 
 ### Fixed
+- **A function named like a libm float builtin was compiled as the builtin** (found 2026-10-24,
+  rail-lab fuzz, finding A3; fixed on a branch 10-25, landed on master 2026-11-15). `pow a b = a * b` then `pow 3 5` printed 3 with no warning, a
+  user `log`, `sqrt`, `floor` or `atan2` returned its first argument, and a three-parameter
+  `pow` or `exp` died of SIGBUS: the float builtin tables name `sqrt sin cos tanh exp log pow
+  fabs floor ceil atan2 fneg fsqrt` without asking whether the program defines them. Defining
+  one of those names is now a compile error (`float_builtin_redefined`, in every compile path;
+  `foreign pow x y -> float` stays allowed); `driver_checks_subtrees` carries the case. A
+  definition that shadows the builtin is the better fix and is open.
 - **A tail self-call read a parameter after the same call had overwritten it** (found 2026-10-24
   by the rail-lab differential fuzz, finding A1; fixed on a branch 10-25, landed on master
   2026-11-15). The self-loop emitters wrote the new

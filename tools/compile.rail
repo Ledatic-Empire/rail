@@ -5377,7 +5377,7 @@ compile_program_with_file src fname =
   let decls = inject_grad_fns (pprog_ast toks)
   let _ = warn_shadowed src fname decls
   let errs = ce_decls decls
-  let nerrs = report_errors errs positions ntoks fname
+  let nerrs = report_errors errs positions ntoks fname + float_builtin_redefined decls fname
   if nerrs > 0 then
     let _ = print (cat [show nerrs, " error(s) found"])
     ""
@@ -5678,7 +5678,9 @@ driver_checks_subtrees _ =
   let b = driver_expect_error "arity_in_expr_head" "asm" "f a b c = a\nmain = (if 1 > 0 then f 1 2 else f) 1 2\n" "'f' takes 3 argument(s), called with 2"
   let c = driver_expect_error "parse_error_in_guard" "asm" "f x = match x\n  | _ if (x + ) -> 1\n  | _ -> 2\nmain = f 3\n" "unexpected 'rp'"
   let d = driver_expect_error "x86_refuses_guards" "x86" "f x = match x\n  | _ if x > 6 -> 1\n  | _ -> x\nmain = f 3\n" "match guards"
-  a && b && c && d
+  -- a function named like a libm float builtin would be compiled as the builtin (fuzz A3)
+  let e = driver_expect_error "float_builtin_name_refused" "asm" "pow a b = a * b\nmain =\n  let _ = print (pow 3 5)\n  0\n" "names a float builtin"
+  a && b && c && d && e
 
 -- a pattern that names no declared constructor, or binds more fields than its constructor has,
 -- is refused (it was a tag test that never matched, or a read past the value)
@@ -6763,7 +6765,7 @@ dispatch_parse_check path =
   let ntoks = length toks
   let decls = pprog_ast toks
   let errs = ce_decls decls
-  let nerrs = report_errors errs positions ntoks path
+  let nerrs = report_errors errs positions ntoks path + float_builtin_redefined decls path
   if nerrs > 0 then 1 else 0
 
 build_linux asm_text =
@@ -6947,6 +6949,26 @@ guards_unsupported decls path backend =
     let _ = print (cat [path, ": error: match guards (`| p if cond ->`) are compiled only by the ARM64 backend; the ", backend, " backend does not yet"])
     1
   else 0
+
+-- A program may declare `foreign pow x y -> float` but may not define `pow` itself: the
+-- float builtin tables (is_float_app, is_float_fn, takes_only_floats_fn,
+-- builtin_foreign_arities) name these without asking whether the program defines them,
+-- so `pow a b = a * b` compiled as the libm call and `pow 3 5` printed 3, and a
+-- three-parameter `pow` died of SIGBUS (rail-lab fuzz A3, 2026-10-25). Refuse the
+-- definition loudly until a definition shadows the builtin.
+float_builtin_names = ["sqrt", "sin", "cos", "tanh", "exp", "log", "pow", "fabs", "floor", "ceil", "atan2", "fneg", "fsqrt"]
+
+float_builtin_redefined decls path =
+  if length decls == 0 then 0
+  else
+    let rest = float_builtin_redefined (tail decls) path
+    match head decls
+      | DFn n ps b ->
+        if str_in n float_builtin_names then
+          let _ = print (cat [path, ": error: '", n, "' names a float builtin (sqrt sin cos tanh exp log pow fabs floor ceil atan2 fneg fsqrt); a call would reach the builtin, not this function; rename it"])
+          1 + rest
+        else rest
+      | _ -> rest
 
 is_safe_pkg_name name =
   let check = trim (shell (cat ["printf '%s' '", name, "' | grep -qE '^[a-zA-Z0-9_./-]+$' && echo yes || echo no"]))
@@ -7928,7 +7950,7 @@ compile_x86 path =
   let decls = pprog_ast toks
   let _ = warn_shadowed src path decls
   let errs = ce_decls decls
-  let nerrs = report_errors errs positions ntoks path + guards_unsupported decls path "x86" + check_patterns decls
+  let nerrs = report_errors errs positions ntoks path + guards_unsupported decls path "x86" + check_patterns decls + float_builtin_redefined decls path
   if nerrs > 0 then
     let _ = print (cat [show nerrs, " error(s) found"])
     1
