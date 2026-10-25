@@ -278,6 +278,14 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **A function named like a libm float builtin was compiled as the builtin** (2026-10-25,
+  rail-lab fuzz, finding A3). `pow a b = a * b` then `pow 3 5` printed 3 with no warning, a
+  user `log`, `sqrt`, `floor` or `atan2` returned its first argument, and a three-parameter
+  `pow` or `exp` died of SIGBUS: the float builtin tables name `sqrt sin cos tanh exp log pow
+  fabs floor ceil atan2 fneg fsqrt` without asking whether the program defines them. Defining
+  one of those names is now a compile error (`float_builtin_redefined`, in every compile path;
+  `foreign pow x y -> float` stays allowed); `driver_checks_subtrees` carries the case. A
+  definition that shadows the builtin is the better fix and is open.
 - **A tail self-call read a parameter after the same call had overwritten it** (2026-10-25,
   found by the rail-lab differential fuzz, finding A1). The self-loop emitters wrote the new
   arguments into the loop registers in a fixed order, moving a bare parameter directly, so
