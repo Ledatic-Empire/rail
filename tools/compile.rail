@@ -2256,9 +2256,11 @@ self_loop_emit args env ar lc sl fs nargs =
     let need_fb = (length s1 == 0 && length t1 == 0) || (nargs >= 3 && length s2 == 0 && length t2 == 0)
     if need_fb then self_loop_emit_fallback args env ar lc sl fs nargs
     else
-      let compute = cat [t1, t2]
-      let w1_src = if length s1 > 0 then s1 else "x9"
-      let w2_src = if nargs < 3 then "" else if length s2 > 0 then s2 else "x10"
+      let (p1, b1) = self_bare_via_temp s1 1
+      let (p2, b2) = self_bare_via_temp s2 2
+      let compute = cat [t1, t2, p1, p2]
+      let w1_src = if length s1 > 0 then b1 else "x9"
+      let w2_src = if nargs < 3 then "" else if length s2 > 0 then b2 else "x10"
       -- Schedule writes for arg1/arg2 only (arg0 done in-place at end)
       let writes = if nargs == 2 then cat ["    mov x20, ", w1_src, "\n"]
         else
@@ -2341,10 +2343,13 @@ self_loop_emit_full args env ar lc sl fs nargs =
   let need_fb = (length s0 == 0 && length t0 == 0) || (length s1 == 0 && length t1 == 0) || (nargs >= 3 && length s2 == 0 && length t2 == 0)
   if need_fb then self_loop_emit_fallback args env ar lc sl fs nargs
   else
-    let compute = cat [t0, t1, t2]
-    let w0 = if length s0 > 0 then s0 else "x8"
-    let w1 = if length s1 > 0 then s1 else "x9"
-    let w2 = if nargs < 3 then "" else if length s2 > 0 then s2 else "x10"
+    let (p0, b0) = self_bare_via_temp s0 0
+    let (p1, b1) = self_bare_via_temp s1 1
+    let (p2, b2) = self_bare_via_temp s2 2
+    let compute = cat [t0, t1, t2, p0, p1, p2]
+    let w0 = if length s0 > 0 then b0 else "x8"
+    let w1 = if length s1 > 0 then b1 else "x9"
+    let w2 = if nargs < 3 then "" else if length s2 > 0 then b2 else "x10"
     let writes = if nargs == 1 then cat ["    mov x19, ", w0, "\n"]
       else if nargs == 2 then cat ["    mov x20, ", w1, "\n    mov x19, ", w0, "\n"]
       else
@@ -2523,6 +2528,21 @@ self_temps_to_regs n =
   else if n == 2 then "    mov x19, x8\n    mov x20, x9\n"
   else if n == 3 then "    mov x19, x8\n    mov x20, x9\n    mov x21, x10\n"
   else ""
+
+-- A bare loop register moved to ANOTHER loop register must be read before any
+-- loop register is written. Until 2026-10-25 the write sequence moved it
+-- directly, in a fixed order, so `g b (a % b)` set a to the NEW b (gcd 1071 462
+-- printed 0) and `p b a (c - 1)` made both arguments b (rail-lab fuzz, finding
+-- A1; known/selfloop_swap, selfloop_gcd_mod, selfloop_bare_after_expr). Such a
+-- source now goes through the argument's own temp (x8/x9/x10, which nothing
+-- else writes for that slot) in the compute phase; a register moved onto itself
+-- stays a direct no-op and the common loops keep their instruction count.
+self_loop_reg idx = if idx == 0 then "x19" else if idx == 1 then "x20" else "x21"
+
+self_bare_via_temp s idx =
+  if length s == 0 then ("", "")
+  else if s == self_loop_reg idx then ("", s)
+  else (cat ["    mov ", self_fb_treg idx, ", ", s, "\n"], self_fb_treg idx)
 
 -- ===========================================================================
 -- FUNCTION ANALYSIS: parameter kinds, frame size, arities, constructor tables
@@ -4512,8 +4532,9 @@ compile_func d ar lc =
         let a1 = head (tail self_args)
         let s1 = self_direct_reg a1 env
         let t1 = if length s1 > 0 then "" else cg_self_arg_direct a1 env "x9"
-        let w1 = if length s1 > 0 then s1 else "x9"
-        cat [t1, "    mov x20, ", w1, "\n"]
+        let (p1, b1) = self_bare_via_temp s1 1
+        let w1 = if length s1 > 0 then b1 else "x9"
+        cat [t1, p1, "    mov x20, ", w1, "\n"]
       else
         let a1 = head (tail self_args)
         let a2 = head (tail (tail self_args))
@@ -4521,9 +4542,11 @@ compile_func d ar lc =
         let s2 = self_direct_reg a2 env
         let t1 = if length s1 > 0 then "" else cg_self_arg_direct a1 env "x9"
         let t2 = if length s2 > 0 then "" else cg_self_arg_direct a2 env "x10"
-        let compute = cat [t1, t2]
-        let w1 = if length s1 > 0 then s1 else "x9"
-        let w2 = if length s2 > 0 then s2 else "x10"
+        let (p1, b1) = self_bare_via_temp s1 1
+        let (p2, b2) = self_bare_via_temp s2 2
+        let compute = cat [t1, t2, p1, p2]
+        let w1 = if length s1 > 0 then b1 else "x9"
+        let w2 = if length s2 > 0 then b2 else "x10"
         if w1 == "x21" then cat [compute, "    mov x20, ", w1, "\n    mov x21, ", w2, "\n"]
         else cat [compute, "    mov x21, ", w2, "\n    mov x20, ", w1, "\n"]
     let compute = ""
@@ -6198,6 +6221,11 @@ run_tests _ =
   -- t206: tail self-call arguments the direct lowering could not express, and
   -- a plain literal argument (F-1003-22/901/902/903; known/selfloop_*).
   let t206 = run_test "selfloop_arg_shapes" "sl n acc = if n == 0 then acc else sl (n - 1) ((acc + 2) / 3)\ndn n = if n == 0 then 7 else dn ((n - 1) * 1)\nlv n acc = if n == 0 then acc else let v = acc * 2 in lv (n - 1) v\nlit n acc = if n == 0 then acc * 3 else lit (n - 1) 5\nmain =\n  let _ = print (show (sl 1 100))\n  let _ = print (show (dn 3))\n  let _ = print (show (lv 1 100))\n  let _ = print (show (lit 3 0))\n  0" "34\n7\n200\n15"
+  -- t267: a bare parameter moved to another loop register in a tail self-call
+  -- is read before any loop register is written (rail-lab fuzz A1, 2026-10-24;
+  -- known/selfloop_gcd_mod, selfloop_swap, selfloop_bare_after_expr). Before:
+  -- g printed 0, p 202, f 3003, h 192.
+  let t267 = run_test "selfloop_bare_arg_order" "g a b = if b == 0 then a else g b (a % b)\np a b c = if c == 0 then a * 100 + b else p b a (c - 1)\nf a b n = if n == 0 then a * 1000 + b else f (a + b) a (n - 1)\nh a b = if b > 100 then a else h b (a + b)\nmain =\n  let _ = print (show (g 1071 462))\n  let _ = print (show (p 1 2 1))\n  let _ = print (show (f 1 2 1))\n  let _ = print (show (h 1 2))\n  0" "21\n201\n3001\n89"
   -- t207: byte-wise string ordering through the runtime (F-5000-3), both let
   -- orders, cat-built operands, the empty string, a prefix, and the mixed
   -- int/float arms that share the routines.
@@ -6336,10 +6364,10 @@ run_tests _ =
   -- list in its closure. Until 2026-10-19 the walk capped every frame at _rail_stack_top, which
   -- lies below the arena, so a fiber frame scanned nothing and the list was swept: rc=139.
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
-  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
+  let s_drv = (if t267 then 1 else 0) + (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/250 tests passed"])
-  if total == 250 then 0 else 1
+  let _ = print (cat [show total, "/251 tests passed"])
+  if total == 251 then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE

@@ -218,5 +218,20 @@
   "fixed",
   "different\ndifferent",
   "== on two heap values that were not floats strcmp'd them, which compared header bytes: any two lists, tuples or constructed values of one kind were equal (Some 1 == Some 2); structural since 2026-09-23 (t242)"
+ ],
+ "selfloop_gcd_mod": [
+  "fixed",
+  "21\n6\n21",
+  "two-parameter tail self-call whose second argument reads the first (g b (a % b)): the write of the first argument came before the read; was 0 0 0 (rail-lab fuzz A1, 2026-10-24)"
+ ],
+ "selfloop_swap": [
+  "fixed",
+  "2001\n1002",
+  "two bare parameters swapped in a tail self-call (f b a (n - 1)): the first move clobbered the second's source; was 2002 2002 (rail-lab fuzz A1)"
+ ],
+ "selfloop_bare_after_expr": [
+  "fixed",
+  "3001\n4003",
+  "a bare parameter argument read after an expression argument overwrote its register (f (a + b) a (n - 1)); was 3003 6006 (rail-lab fuzz A1)"
  ]
 }

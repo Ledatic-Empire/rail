@@ -278,6 +278,17 @@ All notable changes to Rail are documented here.
   `archive/tier1-precut-2026-10-19`. `stdlib/mmap.rail` stays: `jit/heap.rail` imports it.
 
 ### Fixed
+- **A tail self-call read a parameter after the same call had overwritten it** (2026-10-25,
+  found by the rail-lab differential fuzz, finding A1). The self-loop emitters wrote the new
+  arguments into the loop registers in a fixed order, moving a bare parameter directly, so
+  `g a b = if b == 0 then a else g b (a % b)` set `a` to the new `b` (gcd 1071 462 printed 0),
+  `p b a (c - 1)` made both arguments `b` (201 printed 202), `f (a + b) a (n - 1)` read the
+  updated `a` (3001 printed 3003), and the two-parameter `h b (a + b)` doubled (89 printed 192).
+  A bare loop register bound for another loop register now goes through the argument's temp
+  (`self_bare_via_temp`, in the general, in-place-decrement and bottom-test emitters); a
+  register moved onto itself stays a no-op, so the common loops keep their instruction count.
+  Suite t267 and known cases `selfloop_gcd_mod`, `selfloop_swap`, `selfloop_bare_after_expr`;
+  the seed reproduces itself byte for byte; 251/251.
 - **An integer literal at or past 2^61 was emitted with its tag overflowed** (Tier 3, step 9,
   2026-10-22). The compiler formed `2v + 1` in its own 63-bit int, so `2305843009213693952`
   (2^61) read as -2^61 and `4611686018427387903` (2^62 - 1) as -1, while the same values

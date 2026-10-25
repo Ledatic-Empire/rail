@@ -1,0 +1,6 @@
+-- two bare parameters swapped in a tail self-call: f b a
+f a b n = if n == 0 then a * 1000 + b else f b a (n - 1)
+main =
+  let _ = print (show (f 1 2 1))
+  let _ = print (show (f 1 2 2))
+  0
