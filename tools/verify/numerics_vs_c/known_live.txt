@@ -1,12 +1,7 @@
 # known_live.txt: tests a record is KNOWN to fail because of a recorded, still-open compiler
 # defect. gate.sh prints such a failure as KNOWN and does not fail on it; if a listed test
 # starts passing, the gate FAILS until this list is updated (the defect is then fixed).
-# record-label  test  known case (tools/fuzz/known/<name>.rail, live in tools/fuzz/x86_cases.json)
-rail_x86_gh T4 x86_foreign_float_call
-rail_x86_gh T5 x86_foreign_float_call
-rail_x86_gh T6 x86_float_compare
-rail_x86_gh T7 x86_foreign_float_call
-rail_x86_ci T4 x86_foreign_float_call
-rail_x86_ci T5 x86_foreign_float_call
-rail_x86_ci T6 x86_float_compare
-rail_x86_ci T7 x86_foreign_float_call
+# record-label  test  known case (tools/fuzz/known/<name>.rail)
+# Empty since 2026-10-29: the x86 backend's foreign float call, float compare and 14-plus
+# parameter defects were fixed that day (tools/fuzz/known/x86_cases.json says how), and the
+# record of the old compiler (rail_x86_gh, 3 PASS 4 KNOWN) was replaced by rail_x86_modal.

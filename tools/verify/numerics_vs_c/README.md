@@ -30,9 +30,9 @@ by `show_float_hex` (sentence 11, the judge). `gate.sh` compares records line by
   probe as x86-64 assembly (`./rail_native x86 probe64.rail`) for the next job.
 - **`numerics-x86`** (Linux x86-64 runner): `run_ci.sh x86` builds the C probe with gcc, assembles
   and links the seed's x86-64 output with gcc, writes `records/{c,rail}_x86_ci.txt` and runs the
-  gate. The `x86_64` backend has two open float defects (`tools/fuzz/known/x86_foreign_float_call.rail`,
-  `x86_float_compare.rail`); `known_live.txt` names the tests they break, the gate prints those
-  as `KNOWN`, and it fails if one of them starts passing before the list is updated.
+  gate. An open defect is a line in `known_live.txt` naming the tests it breaks; the gate prints
+  those as `KNOWN` and fails if one of them starts passing before the list is updated. The list
+  has been empty since 2026-10-29 (below).
 
 The committed records (2026-10-29, the night the lane was built in the lab):
 
@@ -43,13 +43,17 @@ The committed records (2026-10-29, the night the lane was built in the lab):
 | `c_x86_gh` | GitHub runner, AMD EPYC 7763, glibc 2.39 | gcc 13, `-ffp-contract=off` | 7 PASS |
 | `rail_arm64_mini` | Mac Mini M4 Pro | `rail_native` at `b8e26fa` | 7 PASS |
 | `rail_arm64_air` | MacBook Air M1 | the same binary | 7 PASS |
-| `rail_x86_gh` | GitHub runner, AMD EPYC 7763 | the seed's x86-64 assembly, gcc-linked | 3 PASS, 4 KNOWN |
+| `rail_x86_modal` | a Modal x86-64 box, glibc 2.35 | the fixed compiler's x86-64 assembly, gcc-linked | 7 PASS |
 
-So on arm64 Rail's own arithmetic, its float comparison, its `to_float` and its FFI `floor` and
-`fma` give C's bits on two Macs and on GitHub's runner; libm `fma` through FFI equals C's `fma`
-(IEEE 754-2008 requires `fma` correctly rounded, which is why this one libm name agrees and
-sentence 17 still pins none of the others). On x86-64, `+. *. /.`, `fsqrt` and `to_float` agree
-with C; a foreign float call and a float comparison inside a clamp do not, and are recorded.
+So Rail's own arithmetic, its float comparison, its `to_float` and its FFI `floor` and `fma`
+give C's bits on two Macs, on GitHub's arm64 and x86-64 runners and on a Modal x86-64 box; libm
+`fma` through FFI equals C's `fma` (IEEE 754-2008 requires `fma` correctly rounded, which is why
+this one libm name agrees and sentence 17 still pins none of the others).
+
+The first x86 record (the morning of 2026-10-29, a GitHub runner) read 3 PASS, 4 KNOWN: a foreign
+float call returned garbage and a float comparison inside a clamp took the wrong branch. Both
+were fixed that afternoon (`tools/fuzz/known/x86_cases.json` says how) and the record of the old
+compiler was replaced by `rail_x86_modal`, so `known_live.txt` is empty.
 
 ## What it found
 

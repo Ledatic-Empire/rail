@@ -159,6 +159,8 @@ _rail_gc:
 //@ piece
     adrp x0, _rail_free_list@PAGE
     str xzr, [x0, _rail_free_list@PAGEOFF]
+    adrp x0, _rail_free_rover@PAGE
+    str xzr, [x0, _rail_free_rover@PAGEOFF]
     adrp x0, _rail_free_16@PAGE
     str xzr, [x0, _rail_free_16@PAGEOFF]
     adrp x0, _rail_free_24@PAGE

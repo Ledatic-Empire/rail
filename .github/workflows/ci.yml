@@ -145,9 +145,9 @@ jobs:
               tools/verify/numerics_vs_c/records/rail_arm64_ci.txt
     numerics-x86:
       # The same probe on an x86-64 Linux runner: C through gcc, Rail through the assembly the
-      # seed emitted in the job above. The x86 backend's two open float defects are listed in
-      # known_live.txt and printed as KNOWN; the gate fails if one of them starts passing (the
-      # list must then be updated) or if anything else differs from the reference.
+      # seed emitted in the job above. An open defect would be a line in known_live.txt, printed
+      # as KNOWN; the list has been empty since the x86 fixes of 2026-10-29, so every test must
+      # give the reference's bits.
       needs: numerics
       runs-on: ubuntu-latest
       timeout-minutes: 15

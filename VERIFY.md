@@ -63,7 +63,7 @@ bash tools/verify/numerics_vs_c/run_ci.sh arm64      # C through clang, Rail thr
 IEEE doubles, written once in C and once in Rail from the same integer-made inputs, every
 result printed as its 64 bits and compared with the committed reference. [`docs/NUMERICS.md`](docs/NUMERICS.md)
 is the contract behind it, a suite test per sentence. CI runs the probe on its macOS and its
-x86-64 Linux runner; the x86 backend's two open float defects are `KNOWN` lines there.
+x86-64 Linux runner, seven tests each, all passing since 2026-10-29.
 
 ## 4. Read the grammar
 
