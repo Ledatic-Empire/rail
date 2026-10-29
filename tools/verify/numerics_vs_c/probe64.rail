@@ -1,0 +1,120 @@
+-- probe64.rail: R1, the Rail half. The same primitives as probe64.c in IEEE doubles, the same
+-- integer-made inputs, every result printed as its 64 bits by show_float_hex (NUMERICS.md
+-- sentence 11, the judge). Floats here are Rail's own fadd, fmul, fdiv, fsqrt (sentence 7);
+-- floor, fma and exp go through the platform's libm (sentence 17: not pinned; T7 and T8 measure
+-- whether fma is the exception and exp the rule).
+--   ./rail_native run probe64.rail        (arm64)
+--   ./rail_native x86 probe64.rail        (emits /tmp/rail_x86.s for the GitHub x86 runner)
+import "stdlib/float_hex.rail"
+foreign fma a b c -> float
+
+val i m a = to_float (((i * m + a) % 1000) - 500) /. 500.0
+line t name i x = print (cat [t, " ", name, " ", show i, " ", show_float_hex x])
+pow2_up k p = if k == 0 then p else pow2_up (k - 1) (p *. 2.0)
+pow2_dn k p = if k == 0 then p else pow2_dn (k - 1) (p *. 0.5)
+pow2 k = if k >= 0 then pow2_up k 1.0 else pow2_dn (0 - k) 1.0
+clamp_i k lo hi = if k < lo then lo else if k > hi then hi else k
+clamp_f x lo hi = if x <. lo then lo else if x >. hi then hi else x
+
+-- T1: eight chains of 1024 products, multiply then add as two operations
+t1_chain c k acc =
+  if k >= 1024 then acc
+  else t1_step c k acc
+t1_step c k acc =
+  let a = val (k + 1024 * c) 131 7
+  let b = val (k + 1024 * c) 97 13
+  let p = a *. b
+  t1_chain c (k + 1) (acc +. p)
+t1 c = if c >= 8 then 0 else t1_do c
+t1_do c =
+  let _ = line "T1" "dot_plain" c (t1_chain c 0 0.0)
+  t1 (c + 1)
+
+-- T2: division
+t2 i = if i >= 8 then 0 else t2_do i
+t2_do i =
+  let a = val i 131 7
+  let b = val i 97 13 +. 1.25
+  let _ = line "T2" "div" i (a /. b)
+  t2 (i + 1)
+
+-- T3: 1/sqrt, the fsqrt instruction
+t3 i = if i >= 8 then 0 else t3_do i
+t3_do i =
+  let x = val i 131 7 +. 1.5
+  let _ = line "T3" "one_over_sqrt" i (1.0 /. fsqrt x)
+  t3 (i + 1)
+
+-- T4: floor of a scaled value (libm floor)
+t4 i = if i >= 8 then 0 else t4_do i
+t4_do i =
+  let x = val i 131 7 *. 7.0
+  let t = x *. 1.4426950408889634
+  let _ = line "T4" "floor" i (floor (t +. 0.5))
+  t4 (i + 1)
+
+-- T5: exp as 2^(x log2 e), Horner with separate multiply and add, 2^k by exact doubling
+t5 i = if i >= 8 then 0 else t5_do i
+t5_do i =
+  let x = val i 131 7 *. 4.0
+  let t = x *. 1.4426950408889634
+  let k = floor (t +. 0.5)
+  let f = t -. k
+  let p0 = 0.0013333558
+  let p1 = p0 *. f
+  let p2 = p1 +. 0.0096181291
+  let p3 = p2 *. f
+  let p4 = p3 +. 0.0555041087
+  let p5 = p4 *. f
+  let p6 = p5 +. 0.2402265069
+  let p7 = p6 *. f
+  let p8 = p7 +. 0.6931471805
+  let p9 = p8 *. f
+  let p = p9 +. 1.0
+  let ki = clamp_i (to_int k) (0 - 126) 127
+  let _ = line "T5" "exp_poly" i (p *. pow2 ki)
+  t5 (i + 1)
+
+-- T6: tanh as the Pade (27 + x^2) x / (27 + 9 x^2), clamped to [-5, 5]
+t6 i = if i >= 8 then 0 else t6_do i
+t6_do i =
+  let x0 = val i 131 7 *. 6.0
+  let x = clamp_f x0 (0.0 -. 5.0) 5.0
+  let x2 = x *. x
+  let n1 = x2 +. 27.0
+  let num = x *. n1
+  let d1 = x2 *. 9.0
+  let den = d1 +. 27.0
+  let _ = line "T6" "tanh_poly" i (num /. den)
+  t6 (i + 1)
+
+-- T7: the same eight chains through libm fma
+t7_chain c k acc =
+  if k >= 1024 then acc
+  else t7_step c k acc
+t7_step c k acc =
+  let a = val (k + 1024 * c) 131 7
+  let b = val (k + 1024 * c) 97 13
+  t7_chain c (k + 1) (fma a b acc)
+t7 c = if c >= 8 then 0 else t7_do c
+t7_do c =
+  let _ = line "T7" "dot_fma_libm" c (t7_chain c 0 0.0)
+  t7 (c + 1)
+
+-- T8: libm exp, printed and not claimed
+t8 i = if i >= 8 then 0 else t8_do i
+t8_do i =
+  let x = val i 131 7 *. 4.0
+  let _ = line "T8" "exp_libm_noclaim" i (exp x)
+  t8 (i + 1)
+
+main =
+  let _ = t1 0
+  let _ = t2 0
+  let _ = t3 0
+  let _ = t4 0
+  let _ = t5 0
+  let _ = t6 0
+  let _ = t7 0
+  let _ = t8 0
+  print "done"

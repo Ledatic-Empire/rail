@@ -230,7 +230,7 @@ split " " "hello world"    -- returns ["hello", "world"]
 split "\n" "line1\nline2"  -- returns ["line1", "line2"]
 ```
 
-**Important**: `split` takes a *single-character* delimiter. If you pass a multi-character string, only the **first** character is used — it is not a set of delimiters, and not a substring:
+**Important**: `split` takes a *single-character* delimiter. If you pass a multi-character string, only the **first** character is used; it is not a set of delimiters, and not a substring:
 
 ```rail
 split "ab" "xaybz"    -- uses only "a" -> ["x", "ybz"]   ("b" is NOT a delimiter)

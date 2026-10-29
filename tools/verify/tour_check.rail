@@ -16,8 +16,10 @@
 --   4. a path named in backticks or as a Markdown link target, in the tour or in
 --      tests/README.md, CONTRIBUTING.md, CLAUDE.md or docs/COMPILER_BOOTSTRAP.md, does not
 --      exist in the tree;
---   5. an `N/N` on a line about tests in any of those documents is not the count the suite
---      compares with at the end of run_tests (the `/N tests passed` literal).
+--   5. an `N/N` on a line about tests in any of those documents, in CLAUDE.md, STRUCTURE.md,
+--      VERIFY.md, docs/getting-started.md, docs/INDEPENDENCE.md, docs/STATUS.md, or in README.md
+--      above its `## Releases` header (a badge's `%2F` counts as a slash), is not the count the
+--      suite compares with at the end of run_tests (the `/N tests passed` literal).
 --
 -- Every finding is printed; the last line is PASS or FAIL. Exit 0 iff PASS.
 -- Run from the repo root:  ./rail_native run tools/verify/tour_check.rail
@@ -277,11 +279,20 @@ fracs_scan cs run acc =
   else
     let c = head cs
     if is_digit_c c then fracs_scan (tail cs) (cons c run) acc
-    else if c == "/" && run != [] then
+    else if (c == "/" || pct_slash cs) && run != [] then
       let a = join "" (reverse run)
-      let (b, rest) = lead is_digit_c (tail cs) []
+      let after = if c == "/" then tail cs else tail (tail (tail cs))
+      let (b, rest) = lead is_digit_c after []
       if b == a then fracs_scan rest [] (cons a acc) else fracs_scan rest [] acc
     else fracs_scan (tail cs) [] acc
+
+-- "%2F": a slash as a badge URL spells it (README.md's tests badge)
+pct_slash cs =
+  if head cs != "%" then false
+  else if tail cs == [] then false
+  else if head (tail cs) != "2" then false
+  else if tail (tail cs) == [] then false
+  else head (tail (tail cs)) == "F"
 
 -- ---------------------------------------------------------------------------
 -- the checks; each returns the number of findings it printed
@@ -289,17 +300,23 @@ fracs_scan cs run acc =
 
 -- 4 and 5, for one document. paths = false checks only the counts (CLAUDE.md names branches,
 -- tags and repositories in backticks, which are not files of the tree).
-check_doc path syms want paths =
-  let lines = split "\n" (read_file path)
-  check_doc_lines path (dir_of path) lines 1 want paths 0
+check_doc path syms want paths = check_doc_to path syms want paths ""
 
-check_doc_lines path dir lines ln want paths n =
+-- stop: a line prefix at which the scan ends ("" scans the whole file). README.md is read down
+-- to its `## Releases` header: the release notes below it quote the counts of their day.
+check_doc_to path syms want paths stop =
+  let lines = split "\n" (read_file path)
+  check_doc_lines path (dir_of path) lines 1 want paths stop 0
+
+check_doc_lines path dir lines ln want paths stop n =
   if lines == [] then n
   else
     let line = head lines
-    let n1 = if paths then n + check_paths path dir ln (append (map path_token (ticked line)) (link_targets line)) else n
-    let n2 = n1 + check_counts path ln line want
-    check_doc_lines path dir (tail lines) (ln + 1) want paths n2
+    if stop != "" && starts_with stop line then n
+    else
+      let n1 = if paths then n + check_paths path dir ln (append (map path_token (ticked line)) (link_targets line)) else n
+      let n2 = n1 + check_counts path ln line want
+      check_doc_lines path dir (tail lines) (ln + 1) want paths stop n2
 
 check_paths path dir ln toks =
   if toks == [] then 0
@@ -430,7 +447,9 @@ main =
   let docs = [tour, "tests/README.md", "CONTRIBUTING.md", "docs/COMPILER_BOOTSTRAP.md"]
   let n2 = check_docs docs syms want true
   let n3 = check_doc "CLAUDE.md" syms want false
-  let n = n1 + n2 + n3
+  let n4 = check_docs ["docs/getting-started.md", "VERIFY.md", "STRUCTURE.md", "docs/INDEPENDENCE.md", "docs/STATUS.md"] syms want false
+  let n5 = check_doc_to "README.md" syms want false "## Releases"
+  let n = n1 + n2 + n3 + n4 + n5
   let _ = if want == "" then print "  FAIL tools/compile.rail: no `/N tests passed` literal found" else 0
   let total = if want == "" then n + 1 else n
   if total == 0 then

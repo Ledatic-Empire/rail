@@ -4,7 +4,7 @@ Rail ships a pure-Rail TLS 1.3 + X.509 stack (since v3.0.0; current release v5.3
 
 ## Security posture (read this before deploying)
 
-**Rail is not a drop-in OpenSSL replacement.** It's a minimal-surface TLS client built for one story: let a self-hosted language talk to real HTTPS APIs without a C dependency. The cryptographic code is straightforward, testable, and vector-validated — but it is **not**:
+**Rail is not a drop-in OpenSSL replacement.** It's a minimal-surface TLS client built for one story: let a self-hosted language talk to real HTTPS APIs without a C dependency. The cryptographic code is straightforward, testable, and vector-validated, but it is **not**:
 
 - **Constant-time.** The bignum, ECDSA, and RSA implementations are written for clarity, not for resistance to timing side-channels. An attacker who can measure precise execution timing of a Rail process can probably extract secret material.
 - **Side-channel hardened.** No effort has been made to equalise memory access patterns, guard against cache-timing attacks, or resist power analysis.
@@ -18,7 +18,7 @@ Rail ships a pure-Rail TLS 1.3 + X.509 stack (since v3.0.0; current release v5.3
 - Fine for fleet-to-fleet traffic you control.
 - **Not** fine for handling third-party user traffic, client-certificate authentication, or anything where a sophisticated adversary can observe your process.
 
-If you're evaluating this for any kind of production deployment, use OpenSSL / rustls / boringssl instead. Rail's HTTPS is for *Rail* — for the language itself to talk to the world. It is not a general-purpose TLS library.
+If you're evaluating this for any kind of production deployment, use OpenSSL / rustls / boringssl instead. Rail's HTTPS is for *Rail*: for the language itself to talk to the world. It is not a general-purpose TLS library.
 
 ## Cryptographic primitives shipped
 
@@ -45,7 +45,7 @@ Every one is validated against NIST or RFC test vectors in the suite (`./rail_na
 If you find a real security issue:
 
 1. **Do not open a public GitHub issue.**
-2. Email the maintainer at `hello@ledatic.org`. A plaintext email is fine — Rail's threat model doesn't yet include encrypted reports as a hard requirement.
+2. Email the maintainer at `hello@ledatic.org`. A plaintext email is fine; Rail's threat model doesn't yet include encrypted reports as a hard requirement.
 3. Include a minimal reproducer. A Rail program that exhibits the bug is ideal; a test vector + expected-vs-actual output is next best.
 4. Expect an acknowledgement within a few days. Fixes land on `master` and get tagged as a point release.
 
@@ -57,6 +57,6 @@ Rail v3.0.0's TLS is in scope for security reports. So is the cert chain walker,
 
 Out of scope:
 
-- Side-channel / timing issues in the bignum or elliptic-curve code — acknowledged limitation, see "Security posture" above.
+- Side-channel / timing issues in the bignum or elliptic-curve code: acknowledged limitation, see "Security posture" above.
 - Compiler bugs that corrupt emitted code are bugs, not security issues, unless they produce a specific cryptographic failure.
-- DoS via a malicious cert payload parsed by `stdlib/asn1.rail` — we handle malformed inputs with a bounded fail-path (returns 0), but have not fuzzed exhaustively.
+- DoS via a malicious cert payload parsed by `stdlib/asn1.rail`: we handle malformed inputs with a bounded fail-path (returns 0), but have not fuzzed exhaustively.

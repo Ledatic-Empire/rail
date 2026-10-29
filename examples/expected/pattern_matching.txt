@@ -1,0 +1,11 @@
+red
+green
+blue
+circle
+75
+rectangle
+12
+point
+0
+42
+99

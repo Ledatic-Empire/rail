@@ -5,6 +5,64 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Added
+- **The public face verifies itself** (2026-10-29). `README.md` rewritten to the measured tree
+  (7,745 compiler lines and a 1,041,272-byte seed from `docs/STATUS.md`, 252/252, three
+  backends, the Tier 3 work, the numerics contract, the binary32 builtins and the cross-vendor
+  result of the same day; the Metal JIT, WebAssembly and the hard-bench no longer advertised as
+  present; no em-dashes), with a **Check the claims** table that maps every claim to a command
+  and a CI job. `tools/verify/tour_check.rail` now holds `README.md` (above its Releases header,
+  a badge's `%2F` read as a slash), `docs/getting-started.md`, `VERIFY.md`, `STRUCTURE.md`,
+  `docs/INDEPENDENCE.md` and `docs/STATUS.md` to the suite's count too: on the tree as it stood
+  it failed three times (the badge said 250, its alt text 254, getting-started 190). CI's `test`
+  job regenerates `docs/STATUS.md` and compares every fact with the committed copy (the
+  generated-by line and the Release row aside), which two PRs had let drift (compiler lines,
+  seed bytes and hash).
+- **`tools/verify/numerics_vs_c/`: Rail's doubles against C's, bit for bit, on every CI run.**
+  `probe64.c` and `probe64.rail` (from the lab's raillane R1) are seven computations in IEEE
+  doubles from integer-made inputs, every result as its 64 bits; `gate.sh` judges records
+  against the committed reference (the maintainer's M4 Pro, clang 17); `known_live.txt` names
+  the `x86_64` backend's two open float defects, printed as KNOWN and a failure if they start
+  passing. Two new CI jobs: `numerics` (macOS arm64: C through clang, Rail through the seed,
+  the gate, then the seed emits the probe's x86-64 assembly) and `numerics-x86` (Linux: C
+  through gcc, Rail through that assembly, the gate). Six committed records, 45 PASS and 4 KNOWN
+  locally with the two fresh ones; a planted bit and a planted known-live line each failed it.
+- **`tools/verify/examples_check.rail` and `examples/expected/`: every example is a claim.**
+  Each of the 18 programs in `examples/` compiles, runs (with `examples/expected/<name>.args`
+  when present) and must print its committed output byte for byte and exit 0; an expected file
+  that starts with `error: ` says the compiler must refuse the program with that text
+  (`error_test.rail`). CI job `examples`. Found on the way: `native_closures.rail` had not
+  compiled since arity became an error (`make_adder 10` partial application; now a lambda),
+  and `life_beacon.rail` did not compile at all at the default arena (below). Two planted
+  defects (a changed expected line, a refusal expectation that compiles) each failed the gate.
+  The gate judges `life_beacon.rail` in replay mode against the head its header documents.
+
+### Measured
+- **A program that imports the TLS stack does not compile at the default arena** (2026-10-29).
+  `import "stdlib/https_client.rail"` is 26 files and 269,046 bytes of source with its imports;
+  at the default 1 GB arena the compiler's collector thrashes (a two-line program did not finish
+  in 150 s; `examples/life_beacon.rail` ran 11 minutes of CPU at 1.3 GB resident without
+  finishing), at `RAIL_ARENA_MB=1500` and above it compiles in 1.5 s (peak 2.86 GB resident at
+  6000). Parsing and type inference take under half a second; the cost is the collector under
+  code generation, the same cliff the self-compile refuses below 2000. Nothing in the suite
+  imports `https_client`, so nothing had noticed. The README, the getting-started page and the
+  examples gate now say `RAIL_ARENA_MB=3000`; the compiler itself should notice a large program
+  at the default arena and refuse or say so, as `self` does. Not done.
+- **A quoted import is read relative to the current directory only, and a missing one is a
+  warning** (2026-10-29, `pprog_ast`, the `str` branch: `read_file path` and nothing else; the
+  bare form searches the compiler's `stdlib/` too). The names it would have defined are reported
+  as `WARNING: 'x' is not defined`, linked as imports from libSystem, and the program dies at
+  load with `dyld: Symbol not found`. `tools/verify/numerics_vs_c/run_ci.sh` was bitten when run
+  from its own directory; it now runs from the repo root. The fix (a `DErr` for a missing import
+  file, and the compiler's own directory as a second search path) is the next change.
+
+### Changed
+- `VERIFY.md` (timings measured, the one link path, a section for the numerics gate),
+  `STRUCTURE.md`, `SECURITY.md`, `docs/INDEPENDENCE.md`, `docs/builtins.md` and
+  `docs/getting-started.md` (which said 9,200 lines, 870K, 178 and 190 tests and 101 modules)
+  brought to the tree and freed of em-dashes; `CLAUDE.md` carries the two new known limitations;
+  `tests/README.md` names the documents the count gate reads and the suite's measured 82.7 s.
+
+### Added
 - **binary32 on the double substrate: `round32`, `fma32`, `f32_bits`** (2026-10-29, crossvendor
   raillane R2). `round32 x` rounds a double to the nearest binary32 and back (`fcvt`), so `+. -.
   *. /.` and `fsqrt` of binary32 values followed by it are the binary32 operations; `fma32 a b c`

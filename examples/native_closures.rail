@@ -1,20 +1,17 @@
--- native_closures.rail — tests closures and higher-order functions in native codegen
+-- native_closures.rail: closures and higher-order functions in native codegen.
+-- A named function is applied with all its arguments (the compiler checks arity, so
+-- `make_adder 10` on its own is an error); a lambda closes over the value instead.
 
-double : i32 -> i32
 double x = x * 2
-
-triple : i32 -> i32
 triple x = x * 3
-
-apply : (i32 -> i32) -> i32 -> i32
 apply f x = f x
-
-make_adder : i32 -> i32 -> i32
 make_adder n x = n + x
 
 main =
   let _ = print (apply double 5)
   let _ = print (apply triple 5)
-  let _ = print (apply (make_adder 10) 5)
-  let _ = print (apply (make_adder 100) 7)
+  let add10 = \x -> make_adder 10 x
+  let add100 = \x -> make_adder 100 x
+  let _ = print (apply add10 5)
+  let _ = print (apply add100 7)
   0
