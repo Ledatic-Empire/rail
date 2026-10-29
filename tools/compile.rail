@@ -1713,10 +1713,14 @@ cg_bi3 fname args env ar lc sl tp fs =
       let _ = if ar_raw == (0 - 1) && voff == (0 - 1) && (is_self_check == false) then
         let suggestion = find_closest_name fname ar
         if length (chars suggestion) > 0 then
-          print (cat ["  WARNING: '", fname, "' is not defined; did you mean '", suggestion, "'?"])
+          print (cat ["  error: '", fname, "' is not defined; did you mean '", suggestion, "'?"])
         else
-          print (cat ["  WARNING: '", fname, "' is not defined"])
+          print (cat ["  error: '", fname, "' is not defined"])
       else 0
+      -- The call goes to the marker lk_link_file refuses by name (as a bare undefined
+      -- identifier's does, cg "V"); until 2026-10-29 it went to `_<fname>`, which the
+      -- linker bound to libSystem, and the program died at load.
+      let target = if ar_raw == (0 - 1) && (is_self_check == false) then cat ["_RAIL_UNDEFINED_IDENT_", fname] else cat ["_", fname]
       -- Self tail call → loop optimization
       let is_self = tp && efind (cat ["__self_", fname]) env != (0 - 1)
       let self_lbl = efind "__self_lbl" env
@@ -1727,12 +1731,12 @@ cg_bi3 fname args env ar lc sl tp fs =
       else if length args == 1 then
         let (aa, lc1, sl1) = cg_call_arg fname 0 (head args) env ar lc sl fs
         let rr = reg_restore env
-        let call = if tp then cat [rr, "    ldp x29, x30, [sp]\n", sp_adjust_s "add" fs, "    b _", fname, "\n"] else cat ["    bl _", fname, "\n"]
+        let call = if tp then cat [rr, "    ldp x29, x30, [sp]\n", sp_adjust_s "add" fs, "    b ", target, "\n"] else cat ["    bl ", target, "\n"]
         (cat [aa, call], lc1, sl1)
       else
         let (pa, lc1, sl1) = cg_push_call_args fname 0 args env ar lc sl fs
         let rr = reg_restore env
-        let call = if tp then cat [rr, "    ldp x29, x30, [sp]\n", sp_adjust_s "add" fs, "    b _", fname, "\n"] else cat ["    bl _", fname, "\n"]
+        let call = if tp then cat [rr, "    ldp x29, x30, [sp]\n", sp_adjust_s "add" fs, "    b ", target, "\n"] else cat ["    bl ", target, "\n"]
         (cat [pa, cg_pop_regs (length args) 0, call], lc1, sl1)
 
 cg node env ar lc sl tp fs =
@@ -5691,6 +5695,23 @@ driver_big_frame _ =
   let _ = print (if a && b then "  PASS: 600 lets ran to rc=0; sub sp, sp, #4816 refused by the assembler" else cat ["  FAIL: ", out, "\n---\n", lnk])
   a && b
 
+-- t272: a call to a name nothing defines is refused by name at link, as a bare undefined
+-- identifier has been since Tier 3 step 6. Until 2026-10-29 the call printed a WARNING and
+-- `bl _foo` was left in the text, which the in-process linker bound to libSystem, so the
+-- program died at load (`dyld: Symbol not found: _foo`; issue #116 item 5). Now the call
+-- targets `_RAIL_UNDEFINED_IDENT_foo`, lk_link_file names it and writes nothing.
+driver_undefined_call _ =
+  let _ = print "  --- undefined_call ---"
+  let path = cat [trim (shell "mktemp -u /tmp/rail_undef_XXXXXX"), ".rail"]
+  let _ = write_file path "main =\n  let _ = print (foo 1)\n  0\n"
+  let out = shell (cat ["./rail_native --out-prefix ", path, ".bin ", path, " 2>&1; echo rc=$?; test -e ", path, ".bin && echo BIN=yes || echo BIN=no"])
+  let _ = shell (cat ["rm -f ", path, " ", path, ".bin"])
+  let a = str_contains "error: 'foo' is not defined; did you mean 'cos'?" out
+  let b = str_contains "link: refused, undefined identifier(s): foo" out && str_contains "rc=1" out
+  let c = str_contains "BIN=no" out
+  let _ = print (if a && b && c then "  PASS: foo named, the link refused, rc=1, no binary" else cat ["  FAIL: ", out])
+  a && b && c
+
 driver_pattern_errors _ =
   let a = driver_expect_error "pattern_unknown_ctor" "asm" "type C = | Red | Green\nf c = match c\n  | Rde -> 1\n  | Green -> 2\nmain = f Red\n" "'Rde' in a pattern is not a declared constructor"
   let b = driver_expect_error "pattern_extra_binds" "asm" "type O = | Some int | None\nf o = match o\n  | Some a b -> a\n  | None -> 0\nmain = f None\n" "pattern 'Some' binds 2 field(s); Some has 1"
@@ -6441,6 +6462,7 @@ run_tests _ =
   let t269 = driver_import_resolution 0
   let t270 = driver_shadow_warning 0
   let t271 = driver_big_frame 0
+  let t272 = driver_undefined_call 0
   -- t235: the streaming SHA-256 state (a ShaSt since 2026-09-23; code signing hashes every page
   -- through it) gives the known digests and, fed in chunks that cross block boundaries, the
   -- digest `shasum -a 256` gives and the one-shot digest of the same message
@@ -6509,10 +6531,10 @@ run_tests _ =
   -- list in its closure. Until 2026-10-19 the walk capped every frame at _rail_stack_top, which
   -- lies below the arena, so a fiber frame scanned nothing and the list was swept: rc=139.
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
-  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0) + (if t269 then 1 else 0) + (if t270 then 1 else 0) + (if t271 then 1 else 0)
+  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0) + (if t269 then 1 else 0) + (if t270 then 1 else 0) + (if t271 then 1 else 0) + (if t272 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/255 tests passed"])
-  if total == 255 then 0 else 1
+  let _ = print (cat [show total, "/256 tests passed"])
+  if total == 256 then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE

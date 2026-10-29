@@ -12,6 +12,10 @@ foreign fread buf size count fp
 foreign fwrite buf size count fp
 foreign fseek fp offset whence
 foreign ftell fp -> int
+-- Declared here since 2026-10-29: read_file_bytes_open calls them, and an undeclared name
+-- is refused at link now (it used to bind to libSystem by accident).
+foreign malloc size -> ptr
+foreign free p -> int
 
 -- Open file for reading, returns file pointer (0 on failure)
 open_read path = fopen path "r"
