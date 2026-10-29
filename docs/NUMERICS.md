@@ -112,8 +112,19 @@ is its output on macOS, and the Linux run differed only on the two lines sentenc
     `stdlib/math.rail`) returns whatever the platform's libm returns: not correctly rounded, not
     the same across libcs, not pinned here. A program on the replay path uses sentence 6 instead.
     No test pins libm's bits, by design; t258's last line is the only reference to it.
-18. The `x86_64` backend's float lowering is not claimed to match ARM64 and has not been measured.
-    No test.
+    Measured 2026-10-29 (crossvendor raillane R1, `probe64.rail` against `probe64.c`): libm `fma`
+    through `foreign fma a b c -> float` agrees with C's `fma` bit for bit on the Mini and the Air
+    (IEEE 754-2008 requires fma correctly rounded, so this is the one libm name that may be
+    relied on; still not pinned by a test), and libm `exp` agreed between Apple's libm and glibc
+    2.39 on the eight values probed, which proves nothing. A user-declared foreign float fn's
+    raw result reached `_rail_fval` until 2026-10-29 (t267).
+18. The `x86_64` backend's float lowering is not claimed to match ARM64. First measurement,
+    2026-10-29 (crossvendor raillane R1: `probe64.rail` cross-compiled on the Mini, assembled and
+    run on a GitHub x86-64 runner, bits against `probe64.c` built with gcc `-ffp-contract=off`):
+    `+. *. /.`, `fsqrt`, `to_float` and integer-made inputs agree bit for bit (eight 1024-term plain
+    dot products, eight divisions, eight 1/sqrt); a foreign float call (`floor`, `fma`) returns
+    garbage, and a float comparison inside a clamp takes the wrong branch (`tools/fuzz/known/
+    x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live). No test.
 
 ## What "bit-exact" is scoped to
 

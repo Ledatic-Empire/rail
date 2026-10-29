@@ -4,6 +4,27 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Fixed
+- **A user-declared `foreign f ... -> float` now carries the `__float_ret_` marker** (2026-10-29,
+  `get_arities`, `foreign_float_ret_markers`). Its result always left as raw float bits, but
+  codegen did not know it: a float fn whose body was such a call, a float argument made of one,
+  and a chain through one were treated as generic values and sent through `_rail_fval`, which
+  reads raw bits with an odd mantissa as a tagged int, so about half of all results came back
+  as garbage (`fma 1.5 2.5 0.3` printed `43c0040ccccccccd`; `g 0.125` happened to survive).
+  Found by crossvendor raillane R1 (`probe64.rail` against `probe64.c`, `foreign fma`, the same
+  wrong bits on the Mini and the Air). Test t267 pins four results against C's `fma` bits. The
+  closure-entry choice (`_f__gen` for a float-returning user fn) now also requires a user fn, so
+  the new marker on a foreign name cannot reference a wrapper that does not exist. Suite 251.
+
+### Measured
+- **`docs/NUMERICS.md` sentences 17 and 18**: libm `fma` through FFI agrees with C's `fma` bit for
+  bit on the Mini and the Air (correctly rounded by IEEE 754-2008, still not pinned by a test);
+  the `x86_64` backend's floats, measured for the first time on a GitHub x86-64 runner: `+. *. /.`,
+  `fsqrt` and `to_float` agree bit for bit with C, a foreign float call (`floor`, `fma`) returns
+  garbage and a float comparison inside a clamp takes the wrong branch
+  (`tools/fuzz/known/x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live).
+
+
 ### Added
 - **`docs/COMPILER_TOUR.md`: the compiler, in file order, with a gate** (Tier 3, step 10,
   2026-10-22). Eighteen section banners in `tools/compile.rail` (a `-- ====` line, a title, a

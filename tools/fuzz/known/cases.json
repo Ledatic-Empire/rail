@@ -218,5 +218,20 @@
   "fixed",
   "different\ndifferent",
   "== on two heap values that were not floats strcmp'd them, which compared header bytes: any two lists, tuples or constructed values of one kind were equal (Some 1 == Some 2); structural since 2026-09-23 (t242)"
+ ],
+ "foreign_float_result_raw": [
+  "fixed",
+  "4010333333333333\n4010333333333333\n3fe8000000000000",
+  "a user-declared foreign float fn's raw result went through _rail_fval (odd mantissa read as a tagged int); __float_ret_ marker for DForeign float decls (2026-10-29, crossvendor raillane R1)"
+ ],
+ "x86_foreign_float_call": [
+  "live",
+  "4000000000000000\n400f000000000000",
+  "x86 backend: a foreign float call (libm floor, fma) returns garbage; measured 2026-10-29 on a GitHub x86-64 runner (raillane R1 T4, T7); arm64 is right"
+ ],
+ "x86_float_compare": [
+  "live",
+  "3fe0000000000000\n4014000000000000\n1",
+  "x86 backend: a float comparison in a clamp takes the wrong branch (raillane R1 T6: every value clamped to the low bound); arm64 is right"
  ]
 }

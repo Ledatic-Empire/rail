@@ -1,0 +1,7 @@
+import "stdlib/float_hex.rail"
+clamp_f x lo hi = if x <. lo then lo else if x >. hi then hi else x
+main =
+  let _ = print (show_float_hex (clamp_f 0.5 (0.0 -. 5.0) 5.0))
+  let _ = print (show_float_hex (clamp_f 7.0 (0.0 -. 5.0) 5.0))
+  let _ = print (show (if 0.5 <. 1.0 then 1 else 0))
+  0
