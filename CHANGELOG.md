@@ -4,6 +4,22 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Fixed
+- **A frame past 4,095 bytes crashed on return from the function** (2026-10-29, carried since
+  the 10-22 handoff as "a `main` with about 900 `let`s segfaults"). `sub sp, sp, #imm` holds
+  12 bits and the pure-Rail assembler kept the low 12 of whatever it was given: a main with
+  600 `let`s needs 4,816 bytes and was entered with `sub sp, sp, #720`, so its locals overwrote
+  dyld's frame and the program died with SIGSEGV after printing every line (500 `let`s ran, a
+  4,016-byte frame; 550 crashed, 4,416 bytes emitted as `#320`). Two changes: the compiler
+  emits the adjust in 4,080-byte steps when the frame is larger (`sp_adjust`, every prologue,
+  epilogue and tail-call site; the tree's own functions are unchanged, no frame in it is that
+  large), and the assembler answers `sub`, `subs` and `add` with an immediate outside 0..4095
+  with no encoding (`asm_enc_sub`), which pass 2 names and `lk_link_file` refuses, instead of
+  truncating. Test t271 (`driver_big_frame`): 600 `let`s run to exit 0 and print 599, and the
+  assembly of `main = 0` with its frame adjust changed to `#4816` is refused
+  (`asm: no encoding for \`sub sp, sp, #4816\` at text offset 36`). On the old seed the
+  program exits 139 and the planted file links as `#0x2d0`. Suite 255.
+
 ## v5.6.0 (2026-10-29): The numerics contract, the runtime as source, and every claim gated
 
 ### Fixed

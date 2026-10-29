@@ -345,7 +345,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "movk" then asm_enc_movk ops
   else if mnemonic == "movn" then asm_enc_movn ops
   else if mnemonic == "add"  then asm_enc_add ops
-  else if mnemonic == "sub"  then asm_enc_ri ops enc_sub enc_sub_imm
+  else if mnemonic == "sub"  then asm_enc_sub ops
   else if mnemonic == "mul"  then asm_enc_3reg ops enc_mul
   else if mnemonic == "smulh" then asm_enc_3reg ops enc_smulh   -- mul_shr's high 64 bits (t185)
   else if mnemonic == "cmp"  then asm_enc_cmp ops
@@ -428,17 +428,32 @@ asm_enc_add ops =
         (if (asm_imm (asm_after_lsl (head rest))) == 12 then enc_add_imm_sh dst n imm 1
          else enc_add_imm dst n imm)
       else if (imm > 4095) && ((bit_and imm 4095) == 0) then enc_add_imm_sh dst n (shr imm 12) 1
+      else if imm > 4095 || imm < 0 then 0 - 1
       else enc_add_imm dst n imm
     else if c0 == "x" || c0 == "w" then
       (if rest != [] then enc_add_sh dst n (asm_reg_num op2) (asm_imm (asm_after_lsl (head rest)))
        else enc_add dst n (asm_reg_num op2))
     else enc_add_imm dst n 0
-  if (asm_is_w (head ops)) == 1 then w32 word else word
+  if word < 0 then word else if (asm_is_w (head ops)) == 1 then w32 word else word
+
+-- sub xD, xN, #imm12 | sub xD, xN, xM. An immediate outside 0..4095 has no
+-- encoding: until 2026-10-29 enc_sub_imm kept its low 12 bits, so a 4,416-byte
+-- frame was entered with `sub sp, sp, #320` (tools/compile.rail, sp_adjust).
+-- A negative word names the line in pass 2 and lk_link_file refuses the file.
+asm_enc_sub ops =
+  let op2 = head (tail (tail ops))
+  if (head (chars op2)) == "#" then
+    (let imm = asm_imm op2
+     if imm < 0 || imm > 4095 then 0 - 1 else asm_enc_ri ops enc_sub enc_sub_imm)
+  else asm_enc_ri ops enc_sub enc_sub_imm
 
 -- subs xD, xN, #imm   (flag-setting decrement — compile.rail's loop bottom-test)
 asm_enc_subs ops =
-  let word = enc_subs_imm (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) (asm_imm (head (tail (tail ops))))
-  if (asm_is_w (head ops)) == 1 then w32 word else word
+  let imm = asm_imm (head (tail (tail ops)))
+  if imm < 0 || imm > 4095 then 0 - 1
+  else
+    let word = enc_subs_imm (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) imm
+    if (asm_is_w (head ops)) == 1 then w32 word else word
 
 -- tbnz/tbz xR, #bit, LABEL
 asm_enc_tb ops cur_off labels enc_fn =

@@ -46,14 +46,14 @@ Self-hosting programming language. Compiler written in Rail, compiles itself to 
 - **Effect handlers**: `try body handler`: setjmp/longjmp non-local error recovery. Deep unwinding, nested handlers.
 - **Type checker**: Forward inference pass emits warnings (not errors) for: head/tail on non-list, arithmetic on non-numeric, wrong arity, calling non-functions.
 - **Package manager**: `import math` (bare imports), `rail get github.com/...`, `rail pkg` reads `rail.toml`.
-- **Tests**: `./rail_native test`: 254/254 on master (2026-10-29, t270: a program that redefines an imported name is warned; t269: a missing quoted import is refused and a quoted import resolves beside the compiler; t267: a user-declared foreign float fn's raw result, t268: the binary32 builtins; before them 250 after Tier 3 step 9, a test per sentence of docs/NUMERICS.md). Count fluctuates only when concurrent sessions collide on `/tmp/rail_out`; rerun with `--out-prefix` to confirm.
+- **Tests**: `./rail_native test`: 255/255 on master (2026-10-29, t271: a frame past 4,095 bytes is entered in legal steps and the assembler refuses an immediate it cannot hold; t270: a program that redefines an imported name is warned; t269: a missing quoted import is refused and a quoted import resolves beside the compiler; t267: a user-declared foreign float fn's raw result, t268: the binary32 builtins; before them 250 after Tier 3 step 9, a test per sentence of docs/NUMERICS.md). Count fluctuates only when concurrent sessions collide on `/tmp/rail_out`; rerun with `--out-prefix` to confirm.
 - **Performance**: Tail-recursive loops match C -O2 (5 instructions/iteration). Self-loop optimization, untagged register params, bottom-test with `subs`.
 - **Targets**: macOS ARM64 (native), Linux ARM64 (Pi Zero), Linux x86_64 (cross-compile)
 
 ### Key Commands
 
 ```bash
-./rail_native test                    # run the suite (254/254)
+./rail_native test                    # run the suite (255/255)
 RAIL_ARENA_MB=6000 ./rail_native self # self-compile: the compiler compiles tools/compile.rail and
                                       #   links it in process (tools/v5/link_lib.rail: assembler,
                                       #   Mach-O linker, ad-hoc signer). One link path since Tier 3
