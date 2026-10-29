@@ -26,6 +26,17 @@ All notable changes to Rail are documented here.
   the new marker on a foreign name cannot reference a wrapper that does not exist. Suite 251.
 
 ### Measured
+- **The `x86_64` backend miscompiles a user fn with 14 or more parameters** (2026-10-29, raillane
+  R3 on a Modal x86-64 box): `f13` of 1..13 is 91, right; `f14` gives 104 for 105, `f16` 132 for
+  136, `f20` 194 for 210; a 23-parameter fn crashed. `tools/fuzz/known/x86_many_params.rail`,
+  live in `x86_cases.json`. The arm64 backend is right on all of them (t? none; the x86 corpus
+  has no runner yet).
+- **A user definition silently shadows a stdlib function of the same name, and the stdlib keeps
+  calling the user's.** A program that defined its own `hex_digit` (int to character) broke
+  `stdlib/bytes.rail`'s `hex_to_bytes` and, through the hex constant tables, `sha256` and
+  `sha512`: wrong digests, a signature with 32 zero bytes, no warning (raillane R3, 2026-10-29).
+  Top-level names are one flat space and the later definition wins. Recorded in CLAUDE.md's
+  known limitations; a compile-time warning on shadowing an imported name is the fix, not done.
 - **`docs/NUMERICS.md` sentences 17 and 18**: libm `fma` through FFI agrees with C's `fma` bit for
   bit on the Mini and the Air (correctly rounded by IEEE 754-2008, still not pinned by a test);
   the `x86_64` backend's floats, measured for the first time on a GitHub x86-64 runner: `+. *. /.`,
