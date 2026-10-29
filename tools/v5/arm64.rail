@@ -458,6 +458,12 @@ enc_fcvt_s_d dst src = bit_or 509755392 (bit_or (shl src 5) dst)
 -- fcvt dD, sS    single -> double   Base: 0x1E22C000 | (S<<5) | D
 enc_fcvt_d_s dst src = bit_or 505593856 (bit_or (shl src 5) dst)
 
+-- fmadd sD, sN, sM, sA   single fused multiply-add, D = A + N*M   Base: 0x1F000000 | M<<16 | A<<10 | N<<5 | D
+-- (the `fma32` builtin, 2026-10-29; checked against clang: fmadd s0,s0,s1,s2 = 1f010800, s3,s4,s5,s6 = 1f051883)
+enc_fmadd_s dst n m a = bit_or 520093696 (bit_or (shl m 16) (bit_or (shl a 10) (bit_or (shl n 5) dst)))
+-- fmadd dD, dN, dM, dA   double form   Base: 0x1F400000 (clang: fmadd d0,d0,d1,d2 = 1f410800)
+enc_fmadd_d dst n m a = bit_or 524288000 (bit_or (shl m 16) (bit_or (shl a 10) (bit_or (shl n 5) dst)))
+
 -- ── tbnz xN, #bit, byte_off ──────────────────────────────────────────────
 -- Encoding: (b5<<31) | 0x37000000 | (b40<<19) | ((off14)<<5) | Rt
 -- off14 = byte_off / 4 (signed 14-bit instruction offset)

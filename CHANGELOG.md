@@ -4,6 +4,15 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Added
+- **binary32 on the double substrate: `round32`, `fma32`, `f32_bits`** (2026-10-29, crossvendor
+  raillane R2). `round32 x` rounds a double to the nearest binary32 and back (`fcvt`), so `+. -.
+  *. /.` and `fsqrt` of binary32 values followed by it are the binary32 operations; `fma32 a b c`
+  is the binary32 fused multiply-add on single registers, which a double computation cannot
+  imitate (t268 carries the counterexample a = 1.5, b = 1 + 2^-23, c = -2^-60); `f32_bits x` is
+  the 32-bit pattern as an int. The pure-Rail assembler learned `fmadd` (single and double,
+  encodings checked against clang). `docs/NUMERICS.md` sentences 19 to 21. Suite 252.
+
 ### Fixed
 - **A user-declared `foreign f ... -> float` now carries the `__float_ret_` marker** (2026-10-29,
   `get_arities`, `foreign_float_ret_markers`). Its result always left as raw float bits, but

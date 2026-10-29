@@ -406,6 +406,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "clz"  then enc_clz (asm_reg_num (head ops)) (asm_reg_num (head (tail ops)))
   else if mnemonic == "csel" then asm_enc_csel ops
   else if mnemonic == "fcvt" then asm_enc_fcvt ops
+  else if mnemonic == "fmadd" then asm_enc_fmadd ops
   else if mnemonic == "fneg" then enc_fneg_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else if mnemonic == "fsqrt" then enc_fsqrt_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
@@ -637,6 +638,14 @@ asm_enc_csel ops =
   enc_csel (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) (asm_reg_num (head (tail (tail ops)))) (asm_cond_code (head (tail (tail (tail ops)))))
 
 -- fcvt dD, sN (single->double) or fcvt sD, dN (double->single)
+-- fmadd sD, sN, sM, sA (single) or fmadd dD, dN, dM, dA (double): D = A + N*M
+asm_enc_fmadd ops =
+  let d = head ops
+  let n = head (tail ops)
+  let m = head (tail (tail ops))
+  let a = head (tail (tail (tail ops)))
+  if (head (chars d)) == "d" then enc_fmadd_d (asm_dreg_num d) (asm_dreg_num n) (asm_dreg_num m) (asm_dreg_num a)
+  else enc_fmadd_s (asm_sreg_num d) (asm_sreg_num n) (asm_sreg_num m) (asm_sreg_num a)
 asm_enc_fcvt ops =
   let dst = head ops
   let src = head (tail ops)

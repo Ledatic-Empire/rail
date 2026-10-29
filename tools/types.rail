@@ -439,6 +439,9 @@ hm_bi st n =
   else if n == "show_float_exact" then TFn [f] s
   else if n == "fneg" then TFn [f] f
   else if n == "fsqrt" then TFn [f] f
+  else if n == "round32" then TFn [f] f
+  else if n == "f32_bits" then TFn [f] i
+  else if n == "fma32" then TFn [f, f, f] f
   else if n == "fabs" then TFn [f] f
   else hm_bi2 st n a b i f s bo d
 hm_bi2 st n a b i f s bo d =
