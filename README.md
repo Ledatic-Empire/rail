@@ -1,8 +1,8 @@
 <h1 align="center">Rail</h1>
 
 <p align="center">
-  <em>A self-hosting language built to be an oracle — a checker you can re-run yourself.</em><br>
-  <sub>No C in the runtime. GC in ARM64 assembly. HTTPS in pure Rail. Every answer re-derivable.</sub>
+  <em>A self-hosting language built to be a checker you can re-run yourself.</em><br>
+  <sub>No C in the runtime. The collector in ARM64 assembly. HTTPS in pure Rail. Every number under a contract with a test.</sub>
 </p>
 
 <p align="center">
@@ -10,17 +10,18 @@
 </p>
 
 <p align="center">
-  <a href="#quick-start"><img src="https://img.shields.io/badge/tests-250%2F250-brightgreen" alt="tests 254/254"></a>
-  <a href="#why-rail"><img src="https://img.shields.io/badge/self--hosting-fixed%20point-blue" alt="self-hosting"></a>
-  <a href="#what-rail-does"><img src="https://img.shields.io/badge/HTTPS-pure%20Rail-ff5500" alt="pure-Rail HTTPS"></a>
+  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-252%2F252-brightgreen" alt="tests 252/252"></a>
+  <a href="#check-the-claims"><img src="https://img.shields.io/badge/self--hosting-fixed%20point-blue" alt="self-hosting"></a>
+  <a href="#2-speaks-https-natively"><img src="https://img.shields.io/badge/HTTPS-pure%20Rail-ff5500" alt="pure-Rail HTTPS"></a>
   <a href="#how-it-works"><img src="https://img.shields.io/badge/GC-ARM64%20assembly-purple" alt="GC in ARM64 asm"></a>
   <a href="#why-rail"><img src="https://img.shields.io/badge/C%20in%20seed-0-brightgreen" alt="zero C in the seed binary"></a>
-  <a href="#releases"><img src="https://img.shields.io/badge/backends-6-orange" alt="6 backends"></a>
+  <a href="#why-rail"><img src="https://img.shields.io/badge/backends-3-orange" alt="3 backends"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-BSL%201.1-green" alt="BSL 1.1"></a>
 </p>
 
 <p align="center">
   <b><a href="#quick-start">Quick start</a></b> ·
+  <b><a href="#check-the-claims">Check the claims</a></b> ·
   <b><a href="#what-rail-does">What Rail does</a></b> ·
   <b><a href="#why-rail">Why Rail</a></b> ·
   <b><a href="CHANGELOG.md">Changelog</a></b> ·
@@ -29,31 +30,34 @@
 
 ---
 
-Rail compiles itself. The compiler, 7,546 lines of Rail, produces a 992 KB ARM64 binary that compiles the compiler again and reaches a byte-identical fixed point in 2 cycles. There is no C in the runtime, no libc in the binary. The garbage collector is ARM64 assembly. The TLS 1.3 client is also Rail: `import "stdlib/anthropic_client.rail"` and your program talks HTTPS to `api.anthropic.com` with zero OpenSSL, zero curl, zero socat. As of **v5.2.0**, the toolchain stands entirely alone: Rail assembles, links, and code-signs its own Mach-O binaries in-process — no `as`, no `ld`, no `codesign` — so the self-compile is bit-reproducible (the committed seed reproduces itself byte-for-byte). It also emits its own aarch64 Linux ELF binaries and its own GPU kernels, generating Metal Shading Language from an op-DAG and JIT-compiling it at runtime (35× fused rmsnorm+QKV, 18× fused silu+hadamard). A frontier model + 1 KB Rail spec still compiles 30/30 on a held-out hard-bench — publicly reproducible.
+Rail compiles itself. The compiler, 7,745 lines of Rail on 2026-10-29 (the measured line lives in
+[`docs/STATUS.md`](docs/STATUS.md), which CI regenerates and compares), produces a 1,041,272-byte
+ARM64 binary that compiles the compiler again and reaches a byte-identical fixed point. There is no
+C in the runtime and no libc in the binary beyond the kernel interface: `otool -L rail_native`
+shows `libSystem` and nothing else. The garbage collector is ARM64 assembly. The TLS 1.3 client is
+Rail. The toolchain stands alone: Rail assembles, links and ad-hoc signs its own Mach-O binaries in
+process, with no `as`, `ld` or `codesign`, and since 2026-10-21 that is the only link path there
+is, so every CI run rebuilds the committed seed from source on a machine this project does not own
+and compares the bytes.
 
 ```
-RAIL_ARENA_MB=6000 ./rail_native self && cp /tmp/rail_self ./rail_native  # cycle 1
-RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # cycle 2 — byte-identical
-./rail_native test                                     # 252/252
+RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # silent: the seed is what its source builds
+./rail_native test                                                        # 252/252 tests passed
 ```
 
-### What the self-hosting is *for*
+### What the self-hosting is for
 
-Self-compilation is not the point; it is the prerequisite. The point is that
-one small binary can act as an **oracle** — a deterministic, reproducible
-checker that a third party can re-run without trusting whoever ran it first.
+Self-compilation is not the point; it is the prerequisite. The point is that one small binary can
+act as a checker a third party re-runs without trusting whoever ran it first. A claim that a
+program is correct, or that a computation happened as described, is unfalsifiable on its own;
+`rail_native` compiling that program, or recomputing that result to the same bits, is a fact
+anyone can reproduce from the same seed. So the compiler is used as a fitness function, as a
+replayer of signed records, and (2026-10-29) as the producer of a training step a GPU can be held
+to bit for bit.
 
-That matters most where trust is currently the only option: machine-generated
-code. A model's claim that a program is correct is unfalsifiable. `rail_native`
-compiling that program is a fact anyone can reproduce from the same seed. So we
-use the compiler as the fitness function — training on programs it accepts,
-binding each corpus and each training step into a hash chain, and signing that
-chain against a public physics beacon with a key on a separate machine.
-
-The chain proves *the computation happened as claimed*. It says nothing about
-whether the result is any good — those are different questions, and conflating
-them is the most expensive mistake in this repo's history (see
-[Honest limits](#honest-limits)).
+A reproduced computation proves it happened as claimed. It says nothing about whether the result
+is any good; those are different questions, and conflating them is the most expensive mistake in
+this repo's history (see [Honest limits](#honest-limits)).
 
 ## Quick start
 
@@ -63,91 +67,162 @@ cd rail
 ./rail_native run examples/hello.rail
 ```
 
-Apple Silicon (ARM64 macOS) is the primary target; Linux ARM64, Linux x86_64 and WebAssembly (experimental) backends are supported.
+Apple Silicon (ARM64 macOS) is the primary target; Linux ARM64 and Linux x86_64 are cross-compile
+targets. Nothing to install: the seed binary is in the repo and needs no toolchain.
 
 ```bash
-./rail_native <file.rail>        # compile to /tmp/rail_out
-./rail_native run <file.rail>    # compile + execute
-./rail_native test               # run the suite (242 tests)
-RAIL_ARENA_MB=6000 ./rail_native self               # self-compile, fixed point at gen2
-./rail_native x86 <file.rail>    # cross-compile to Linux x86_64
-./rail_native linux <file.rail>  # cross-compile to Linux ARM64
+./rail_native <file.rail>          # compile to /tmp/rail_out (in-process assembler, linker and signer)
+./rail_native run <file.rail>      # compile and execute
+./rail_native test                 # the suite; the last line is 252/252 tests passed and the exit code says so
+./rail_native quick                # the 15-case smoke subset, a few seconds
+RAIL_ARENA_MB=6000 ./rail_native self   # self-compile to /tmp/rail_self; cmp it with rail_native
+./rail_native x86 <file.rail>      # cross-compile to Linux x86_64 assembly (/tmp/rail_x86.s)
+./rail_native linux <file.rail>    # cross-compile to a Linux ARM64 ELF (/tmp/rail_linux)
+./rail_native types <file.rail>    # the type checker's report
+./rail_native run tools/repl.rail  # a REPL
+RAIL_ARENA_MB=3000 ./rail_native run <big.rail>   # a program that imports the TLS stack (see below)
 ```
+
+[`docs/getting-started.md`](docs/getting-started.md) walks the first program;
+[`docs/language-reference.md`](docs/language-reference.md), [`docs/builtins.md`](docs/builtins.md)
+and [`docs/stdlib.md`](docs/stdlib.md) are the surface; [`grammar/rail.ebnf`](grammar/rail.ebnf)
+is the grammar in one file.
+
+## Check the claims
+
+Every claim this README makes is a command, and nearly every one is a job of
+[the CI workflow](.github/workflows/ci.yml) on GitHub's own macOS and Linux runners. Run them
+here or read them there.
+
+| Claim | Command | CI |
+|---|---|---|
+| The committed seed is what its source builds, and the build is a fixed point | `RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self` | `test`: seed reproduced, then gen1 == gen2 |
+| The suite passes and the runner reports its own count | `./rail_native test` (252/252 tests passed, exit 0 only then) | `test` |
+| The documents cite what exists and quote the suite's count (this badge included) | `./rail_native run tools/verify/tour_check.rail` | `test` |
+| The status matrix's numbers are the tree's | `./rail_native run tools/verify/gen_status.rail && git diff docs/STATUS.md` | `test` |
+| Rail's doubles are C's doubles, bit for bit, on arm64; on x86-64 the two open defects are named | `bash tools/verify/numerics_vs_c/run_ci.sh arm64` | `numerics`, `numerics-x86` |
+| Every sentence of the numerics contract has a test | [`docs/NUMERICS.md`](docs/NUMERICS.md) names it; `./rail_native test` runs it | `test` |
+| The collector survives stress | `python3 tools/fuzz/gc_stress.py` (collect every Nth allocation, poison what is freed) | `gc-stress` |
+| An interpreter written outside Rail agrees with the native binary | `python3 tools/fuzz/semantic.py --seed 42 --cases 20` | `semantic` |
+| Known miscompiles stay fixed, open ones stay open | `python3 tools/fuzz/known_cases.py` ([`tools/fuzz/known/`](tools/fuzz/known/)) | `semantic` |
+| The runtime's source and the compiler's copy of it agree | `./rail_native run tools/gen_runtime.rail check` | `test` |
+| The seed's container is derivable from its document | `bash tools/independence/seed_format_gate.sh` (a Python writer written from [`docs/SEED_FORMAT.md`](docs/SEED_FORMAT.md) builds the same bytes) | `test` |
+| Every example compiles, runs and prints what it says | `./rail_native run tools/verify/examples_check.rail` | `examples` |
+| A release is signed against a public entropy beacon | [`VERIFY.md`](VERIFY.md) section 6 | by hand |
+
+[`VERIFY.md`](VERIFY.md) is the same list for a stranger with one afternoon, and says what each
+check proves and what it does not.
 
 ## What Rail does
 
 ### 1. Compiles itself, byte-identical
 
 ```
-RAIL_ARENA_MB=6000 ./rail_native self                    -- ~10,000 lines of Rail →
-                                      --   a ~0.9 MB ARM64 binary
-cp /tmp/rail_self ./rail_native       -- cycle 1: install gen1
-RAIL_ARENA_MB=6000 ./rail_native self                    -- cycle 2: that binary compiles
-                                      --   the compiler again (gen2)
-cmp rail_native /tmp/rail_self        -- and the output is identical
-                                      --   (byte-identical fixed point)
+RAIL_ARENA_MB=6000 ./rail_native self    -- the compiler and the seven modules it imports become
+cmp rail_native /tmp/rail_self           --   a 1,041,272-byte ARM64 Mach-O, and it is the committed one
+cp /tmp/rail_self ./rail_gen1            -- gen1 compiles the compiler again
+RAIL_ARENA_MB=6000 ./rail_gen1 self
+cmp rail_gen1 /tmp/rail_self             -- and the output is identical: the fixed point
 ```
 
-The GC, allocator, and runtime support are ARM64 assembly embedded in the compiler itself. No `gcc`, no `libc`, no linker scripts — and since v5.2.0 no `as` or `ld` either: Rail assembles, links, and code-signs itself, and since 2026-10-21 every program it compiles (one link path, in process).
+The collector, the allocator and the runtime are ARM64 assembly embedded in the compiler
+(`runtime/arm64/*.s`, carried in as a generated module and checked against its source in CI). No
+`gcc`, no `libc`, no linker scripts, and no `as`, `ld` or `codesign`: Rail assembles, links and
+signs every program it compiles, in process, through one path.
+[`docs/COMPILER_TOUR.md`](docs/COMPILER_TOUR.md) walks the compiler section by section in file
+order; a gate keeps every symbol it names and the order it claims honest.
 
-### 2. Speaks HTTPS, natively ✨ *since v3.0.0*
+### 2. Speaks HTTPS, natively
 
 ```rail
 import "stdlib/anthropic_client.rail"
 
 main =
-  let (status, reply) = anthropic_chat
-                          "claude-haiku-4-5-20251001"
-                          "Reply with exactly: hello from pure rail"
-                          40
-                          "/Users/me/.fleet/anthropic_key"
+  let (status, reply) = anthropic_chat "claude-haiku-5-5" "Reply with exactly: hello from pure rail" 40 "/path/to/api_key"
   let _ = print reply
   0
-
--- → "hello from pure rail"
--- → 6.9 s wall. Full TLS 1.3: x25519 ECDHE, ECDSA-P256 cert verify,
---   SAN hostname match, validity period, ChaCha20-Poly1305 record
---   layer. Zero OpenSSL, zero curl, zero socat.
 ```
 
-The full X.509 chain for `api.anthropic.com` (leaf → WE1 intermediate → GTS Root R4) validates end-to-end to the macOS `/etc/ssl/cert.pem` trust store — ECDSA-P256-SHA256 at the leaf, ECDSA-P384-SHA384 at the root edge, all verified in Rail.
+Full TLS 1.3 in Rail: x25519 key exchange, ECDSA and RSA certificate verification against the
+macOS trust store, hostname and validity checks, ChaCha20-Poly1305 records. Zero OpenSSL, zero
+curl. The stdlib is 61 modules in all, and the crypto in it (SHA-256/384/512, HMAC, HKDF,
+ChaCha20-Poly1305, X25519, Ed25519, ECDSA P-256/P-384/P-521, RSA-PSS and PKCS1) is validated
+against RFC and NIST vectors in the suite. Not constant-time; see [Honest limits](#honest-limits).
 
-### 3. Is the oracle for an attested training loop
+Compile a program that imports the TLS stack with `RAIL_ARENA_MB=3000 ./rail_native run ...`:
+with its imports it is 26 files and 269 KB of source, which compiles in 1.5 s from
+`RAIL_ARENA_MB=1500` up and thrashes the collector at the default 1 GB arena (measured
+2026-10-29; the compiler does not yet say so itself). [`examples/life_beacon.rail`](examples/life_beacon.rail)
+is the stack in one page (HTTPS, JSON, a SHA-256 chain, deterministic replay) and runs in CI.
+
+### 3. Puts its numbers under a contract
+
+[`docs/NUMERICS.md`](docs/NUMERICS.md) says, sentence by sentence, what a Rail program's numbers
+are, and each sentence names the suite test that pins it and the platforms it was measured on:
+63-bit integers that wrap, division that truncates, IEEE binary64 floats whose `+. -. *. /.` and
+`fsqrt` are the ARM64 instructions, reductions evaluated in source order, float literals converted
+at compile time by integer arithmetic (`tools/decimal64.rail`, pinned against CPython's bits) and
+`parse_float` by the same code at run time, and `show_float_hex`, which derives a double's 64
+bits by exact arithmetic so the same bits print the same sixteen hex digits on every platform.
+Two sentences are marked not claimed (host libm through FFI; the `x86_64` backend's floats), and
+[`tools/verify/numerics_vs_c`](tools/verify/numerics_vs_c/) measures all of it against a C
+compiler on every CI run.
+
+Since 2026-10-29 the contract includes binary32 on the double substrate: `round32`, `fma32` and
+`f32_bits`, so a Rail program can compute exactly what a float32 program on a GPU computes.
+Test t268 carries the counterexample that separates a real single-precision fma from a rounded
+double one.
+
+```rail
+import "stdlib/float_hex.rail"
+main =
+  let _ = print (show_float_hex (0.1 +. 0.2))               -- 3fd3333333333334, every platform
+  let _ = print (show_float_hex (round32 0.1))              -- 3fb99999a0000000, the nearest binary32
+  let _ = print (show (f32_bits 1.0))                       -- 1065353216
+  0
+```
+
+What that bought, the same day: a 138-million-parameter GPT whose twenty Adam steps land on
+identical bytes on six chips (Apple M1 and M4 Pro GPUs, NVIDIA T4 and A10, an Apple CPU, an AMD
+x86 CPU) from one arithmetic header; the same model's first step computed in Rail, with these
+builtins, to the GPUs' bytes; and a Rail program that owns the training sequence and signs a
+SHA-256 ledger of it, driving an Apple GPU and an NVIDIA GPU to the same ledger head and the same
+Ed25519 signature. The lab's records and gate are in review for publication at
+ledatic.org/crossvendor.
+
+### 4. Is the oracle for attested work
 
 ```
-generator (seeded) → corpus → rail_native verifies every program → signed ledger
-      → training → checkpoints → same oracle scores them → chain extends
+generator (seeded) -> corpus -> rail_native verifies every program -> signed ledger
+      -> training -> checkpoints -> the same oracle scores them -> the chain extends
 ```
 
-The compiler is the fitness function: programs it accepts become training data,
-programs it rejects are the gradient. Nothing in that path requires trusting us.
-
-The furthest this has been carried is a **from-scratch 138M model that writes
-Rail**, trained only on oracle-verified `comment → program` pairs. On its
-frozen benchmark it reaches **16/16 compile@1 and 11/16 function-correctness**.
-The ledger we publish records `pass_at_1: 11`: everything it compiles is not
-everything it gets right.
-The corpus (52,243 pairs, sha `1a6941af`) is **bit-reproducible** — regenerating
-it from seed 1234 twice gives identical bytes — and is bound into a hash-chained
-ledger signed by a Pi-hosted Ed25519 witness against entropy pulse `2641877`.
-
-The loop also closes back into the language: a pure-Rail integer-exact forward
-pass reproduces the MLX implementation's greedy argmax **12/12 exactly**, then
-its output is handed to `rail_native`, compiled, and run. Rail writes the
-corpus, runs the model, and checks the model's work.
-
-**What that benchmark does not say:** the same model generalizes **0/10** to
-novel function names. At this size it memorizes header-shape → body rather than
-composing from the comment. The number is real and the limit is real, and we
-publish both — a benchmark quoted without its failure mode is marketing.
+The compiler as the fitness function: programs it accepts become training data, programs it
+rejects are the gradient, and nothing in that path requires trusting the maintainer. The furthest
+this was carried (July 2026, [CHANGELOG](CHANGELOG.md) v5.3.0) was a from-scratch 138M model that
+writes Rail, trained only on oracle-verified pairs: 16/16 compile@1 on its frozen benchmark,
+11/16 function-correct, and 0/10 on novel function names. The number is real and the limit is
+real, and both are published, because a benchmark quoted without its failure mode is marketing.
+The training stack now lives in the private lab repo; the oracle is this one.
 
 ## Why Rail
 
-- **No C in the core.** The seed binary links only `libSystem` (macOS's kernel interface; `otool -L rail_native` shows nothing else). Since v5.2.0 it assembles, links, and signs itself, and since 2026-10-21 every program it compiles (no `as`, `ld` or `codesign` anywhere on macOS). No glibc, no OpenSSL, no runtime C; the GC is ~300 lines of ARM64 assembly inside the compiler. The assembly and C that remain at the edges are tracked honestly in [`SHIMS.md`](SHIMS.md).
-- **Byte-identical self-compile.** `./rail_native self` produces output identical to the binary that produced it. The compiler's own source is the regression suite.
-- **One binary checks everything.** Training loops, tests, site generation, HTTPS clients — all compiled by the same binary you cloned. That makes the compiler a single, reproducible *checker* you can re-run yourself — not a proof of correctness: a program can compile and still be wrong. Compilation proves a program is *accepted by the binary you run*, nothing more.
-- **Production surface is narrow and honest.** Rail ships the crypto it uses (ChaCha20-Poly1305, x25519, SHA-256/384/512, ECDSA-P256/P384/P521, RSA-PSS/PKCS1) and nothing more. Every primitive is NIST- or RFC-vector-validated.
-- **Four backends travel with the language.** macOS ARM64, Linux ARM64 (Pi Zero 2 W), Linux x86_64 and WebAssembly (experimental) — the same compiler cross-compiles to all of them.
+- **No C in the core.** The seed links only `libSystem`. It assembles, links and signs itself and
+  every program it compiles. No glibc, no OpenSSL, no runtime C; the collector is 973 lines of
+  ARM64 assembly in five files. The assembly that remains at the edges is listed, file by file,
+  in [`SHIMS.md`](SHIMS.md): 31 files.
+- **Byte-identical self-compile, checked by strangers.** CI rebuilds the committed seed from
+  source on GitHub's runner and compares the bytes, then compiles once more for the fixed point.
+- **One binary checks everything.** Tests, the docs' numbers, the numerics contract, the examples,
+  the release signatures: all judged by the binary you cloned. That makes it a reproducible
+  checker, not a proof of correctness. Compilation proves a program is accepted by the binary
+  you run, nothing more.
+- **A narrow, honest production surface.** Rail ships the crypto it uses and nothing more, every
+  primitive vector-validated, none of it constant-time.
+- **Three backends travel with the language.** macOS ARM64 (native), Linux ARM64 (a Pi Zero 2 W
+  runs the numerics probe and the entropy beacon's replay) and Linux x86_64 (measured in CI, two
+  float defects open and named). WebAssembly and the microcontroller backends were cut in October
+  2026; their trees are tagged.
 
 ## The language
 
@@ -161,11 +236,11 @@ eval e = match e
   | Mul a b -> eval a * eval b
 
 main = let _ = print (show (eval (Add (Num 3) (Mul (Num 4) (Num 5))))) in 0
--- → 23
+-- 23
 ```
 
 ```rail
--- Higher-order, pipes, real I/O
+-- Higher-order functions, pipes, real I/O
 gt3 x = x > 3
 inc x = x + 1
 
@@ -177,197 +252,130 @@ main =
   0
 ```
 
-```rail
--- Native floats (unboxed IEEE 754 in ARM64 d-registers; boxed only when stored
--- into a tuple, list or ADT field, see docs/NUMERICS.md)
--- Effect handlers (setjmp/longjmp non-local error recovery)
-```
+Floats are unboxed IEEE 754 doubles in ARM64 d-registers wherever the types prove them float, and
+boxed only when stored into a tuple, list or ADT field ([`docs/TYPES.md`](docs/TYPES.md),
+[`docs/NUMERICS.md`](docs/NUMERICS.md)). `try` gives effect handlers over setjmp/longjmp.
+[`examples/`](examples/) has eighteen programs, each with its expected output committed beside it
+and checked in CI.
 
 ## How it works
 
 | Component | Implementation | Detail |
 |---|---|---|
-| **Lexer + parser** | Rail | Tokenizer + recursive-descent AST builder, ~900 lines |
-| **Type checker** | Rail | Forward inference, exhaustiveness warnings |
-| **Codegen** | Rail | Walks AST, emits ARM64 / x86_64 directly |
-| **Allocator** | ARM64 assembly | Bump arena inside a 64 GB reservation that grows in place (`RAIL_ARENA_MB` sets the first collection) + free list |
-| **GC** | ARM64 assembly | Conservative mark-sweep. Scans stack frames, traces tagged objects, sweeps into free list. |
-| **Tagged pointers** | Inline | Integers: `(v << 1) \| 1`. Heap: raw pointer. Tag bit 0 distinguishes. |
-| **Runtime float** | d-registers | Unboxed IEEE 754. `fadd`/`fmul` direct, no heap boxing. ~10× vs boxed. |
+| **Lexer and parser** | Rail | Tokenizer and recursive-descent builder of a typed syntax tree |
+| **Type checker** | Rail | Hindley-Milner inference (`tools/types.rail`); types decide representation |
+| **Codegen** | Rail | Walks the tree, emits ARM64 or x86_64 directly |
+| **Assembler, linker, signer** | Rail | `tools/v5/`: AArch64 encoder, Mach-O and ELF writers, ad-hoc code signature; the container is documented in `docs/SEED_FORMAT.md` |
+| **Allocator** | ARM64 assembly | Bump arena inside a 64 GB reservation that grows in place (`RAIL_ARENA_MB` sets the first collection) plus a free list |
+| **GC** | ARM64 assembly | Conservative mark-sweep: scans stack frames, traces tagged objects, sweeps into the free list; `RAIL_GC_STRESS=N` collects every Nth allocation |
+| **Tagged values** | Inline | Integers `(v << 1) \| 1`; heap objects by pointer; floats raw in d-registers, boxed (tag 6) at the generic boundary |
 
-Tail-recursive loops match C `-O2` (5 instructions per iteration). The compiler itself is walked section by section, in file order, in [`docs/COMPILER_TOUR.md`](docs/COMPILER_TOUR.md); a gate in CI keeps every symbol it names and the order it claims honest. The history is in [`CHANGELOG.md`](CHANGELOG.md): v2.0.0 for the compiler and runtime, v3.0.0 for the TLS stack.
+Tail-recursive loops match C `-O2` (5 instructions per iteration). The compiler is walked in
+file order in [`docs/COMPILER_TOUR.md`](docs/COMPILER_TOUR.md); the history is in
+[`CHANGELOG.md`](CHANGELOG.md).
 
 ## What moved out
 
-On 2026-09-22 the tool shed left this repo for a private one (`rail-lab`): the LM experiments and ports (`tools/train`, `tools/railml`), the watch-firmware fuzzing (`tools/garmin`), the autodiff oracles (`tools/ad`), orchestration, agents, MCP, and a dozen small probes. What stays is the language: the compiler, the stdlib, the suite, the fuzz corpus, attestation and verification, the beacon, the playground, and the backends. The x86 and WASM backends are experimental: each has a handful of tests; ARM64 (macOS and Linux) is the supported target. On 2026-10-20 the hard-bench (`tools/bench`) and the inference engine (`tools/infer`) followed the shed to `rail-lab`, and the entropy beacon (`tools/plasma`, the MHD kernels, suite tests t186 to t189) became the public [`rail-plasma`](https://github.com/Ledatic-Empire/rail-plasma); the tree they left is tag `archive/tier2-precut-2026-10-20`.
+Rail is the language: the compiler, the stdlib, the suite, the fuzz corpus, attestation and
+verification, the backends. The LM experiments, the hard-bench, the inference engine and the
+tool shed moved to the private `rail-lab` (2026-09-22, 2026-10-20); the entropy beacon is the
+public [`rail-plasma`](https://github.com/Ledatic-Empire/rail-plasma) (2026-10-20); the Metal
+JIT, the stdlib ML stack, the WebAssembly backend and the microcontroller backends were cut on
+2026-10-19 and 2026-10-21 (tags `archive/tier1-precut-2026-10-19`,
+`archive/tier3-step5-precut-2026-10-21`). The CHANGELOG records each move.
 
 ## Releases
 
-### v5.5.0 (2026-10-19): *The compiler type-checks, and the collector under stress*
+**v5.5.0 (2026-10-19): the compiler type-checks, and the collector under stress.** Hindley-Milner
+inference over a typed syntax tree that every pass reads; the call-site guessing passes deleted
+and the self-compile cut from about 20 s to 5 s; constructors as functions, typed fields, `show`
+and `==` over structure; `RAIL_GC_STRESS` and a stress driver in CI that found six collector
+bugs, each fixed with a test that fails without the fix.
 
-- **The compiler type-checks.** Hindley-Milner inference (`rail types`) over a typed syntax tree that every pass now reads; the old list form is gone. `rail types tools/compile.rail` reports zero errors (1,739 before). Types decide representation: the call-site guessing passes (over a thousand lines) are deleted and the self-compile drops from about 20 s to 5 s.
-- **The language.** Constructors are functions (`map (Pair 10) xs`); variable and boolean patterns; typed constructor fields, arrays and tuples included; `show` prints tuples, constructed values and bools; `==` compares structure; `rail asm` writes the assembly.
-- **The collector under stress.** `RAIL_GC_STRESS=N` collects on every Nth allocation and poisons what it frees; `tools/fuzz/gc_stress.py` runs every suite test and tree program under it, in CI. It found six collector bugs, each fixed with a test that fails without the fix: a frame read with the caller's slot map, a guarded arm writing past its frame, strings freed mid-walk, spills outside the arena (the arena now grows in place inside a 64 GB reservation), threads racing the allocator, and runtime functions losing what they held.
-- **Hardening.** A failed `fopen` tests the carry flag; `verify.rail` refuses malformed input instead of crashing; the f32 file primitives give their staging buffer back; the entropy beacon seeds every run; `rail wasm` is linear in program size; a library imported along two paths is defined once.
-- The collector's mark stack is kept and grows: an overflow dropped children silently, and every collection leaked its 4 MB stack through the no-op `_free`.
-- 254/254 tests; the seed reproduces itself byte-identically in one cycle.
-
-### v5.4.0 (2026-09-22): *Hardening, and the beacon replays from one integer*
-
-- Seven miscompiles found by the hardening loop, each fixed with the minimal program that exposed it, and the known-miscompile corpus is a runnable suite (`tools/fuzz/known/`).
-- The bit-exact float oracle closes a 2 ulp drift; float results compose across calls; wrong arity is a compile error.
-- `bytes_to_str` is linear (the HTTPS response cap is gone); the lexer knows `\r`; a bare self-compile refuses instead of thrashing.
-- The entropy beacon replays any epoch from one logged integer and ships the verifier; GLM divergence cleaning; the MHD kernel has suite coverage (t186 to t189).
-- Fleet agents: identifier allowlists on `/logs` and `/jobs`, the v2 agent's injection and fail-open auth fixed; Linux `_start` passes envp.
-- 209/209 tests.
-
-### v5.3.0 — 2026-07-08 — *Independence + 3× faster self-compile*
-
-19 PRs of consolidation: the trusting-trust answer plus a big perf cut.
-
-- **Independence checker.** A reference checker written *outside* Rail re-derives the integer core — the committed seed no longer asks you to trust Rail to check Rail. Alongside it: a one-command check-me kit (`VERIFY.md` + `tools/verify/check.sh`) and a self-generated truth matrix (`docs/STATUS.md`).
-- **Self-compile 61 s → 19.2 s (3.2×).** Parser cursor O(N²)→O(N) and exact-size GC free-list buckets; autograd + JIT tapes go O(n²)→O(n) as well.
-- **Multi-argument lambdas** (`\a b -> e`), integer div/mod differential fuzzing, grounding contracts (numerics / attested subset / threat model), and truth-reconciled docs. 178/178 tests; the seed stays bit-reproducible (nightly witness green throughout).
-
-
-### v5.2.0 — 2026-06-19 — *Rail stands alone (no as/ld/codesign)*
-
-The compiler assembles, links, and code-signs **itself** — in pure Rail, in-process — with no Apple `as`, `ld`, or `codesign` in the build. v5.0.0 removed `as`/`ld` from the Linux ELF path; v5.2.0 closes the loop on the macOS host, including the ad-hoc signature arm64 requires, and extends it to FFI binaries.
-
-- **The full Rail toolchain.** A two-pass AArch64 assembler (gate-validated **1248/1248** instruction forms byte-identical to `as`), a Mach-O linker that bakes `@PAGE`/`@PAGEOFF` relocs + `LC_DYLD_INFO` rebase/bind + stubs/`__got`, and an N-page ad-hoc signer — all in Rail.
-- **Bit-reproducible.** Rail owns every byte, including the `LC_UUID` and padding `ld` randomizes, so the self-compile is deterministic: the committed seed reproduces itself byte-for-byte in one cycle (sha256 `b02dd228…` at the v5.2.0 tag; the current seed's hash lives in [docs/STATUS.md](docs/STATUS.md)), verified identical across two independent Macs. Attestation goes from tamper-evident to source-reproducible. **Check it yourself:** clone this repo and run `RAIL_ARENA_MB=6000 ./verify_reproducible.sh` — it rebuilds the committed binary from source and confirms the hash.
-- **In-process by default**, with the `as`/`ld` path preserved byte-for-byte as a fallback (`RAIL_ARENA_MB < 5000`). FFI programs stand alone too: multi-dylib linking binds `libsqlite3` with no `ld`. 178/178 tests.
-
-### v5.1.0 — 2026-05-15 — *Rail emits its own GPU kernels*
-
-Rail's JIT generates Metal Shading Language from its own op-DAG, compiles it at runtime via `newLibraryWithSource:`, and dispatches the kernel — so every GPU kernel the training stack runs is emitted by an attested Rail binary.
-
-- **Self-emitted GPU kernels.** A DAG matcher walks the op tape, an MSL emitter writes the kernel source, and the JIT compiles + caches it. Two hand-fused kernels land alongside: rmsnorm+QKV (**35×** over the per-op chain) and silu+hadamard (**18×**).
-- **bf16 numerics regime.** bf16 has f32's exponent range, sidestepping fp16's step-2759 NaN cliff — unlocking stable 10k-step training at ~40% under the f64 baseline.
-- **Compiler core untouched.** The release adds stdlib + foreign decls + Metal sources; the 2-pass byte-identical self-bootstrap is unchanged.
-
-The v5 line opens with **v5.0.0** (2026-05-14) — the self-hosted toolchain: Rail emits aarch64 Linux ELF via a pure-Rail encoder + assembler + static linker + ELF writer, with no `as` or `ld` in the path for the supported subset. **v5.0.1** and **v5.0.2** (both 2026-05-15) follow as patches — codegen tightening + attestation backfill, then the first release attested end-to-end through the Rail substrate (no `curl`, `shasum`, or Python).
-
-### v4.0.0 — 2026-05-13 — *Substrate maturity*
-
-A major-version bump positioning Rail as a substrate, not a model. 216 commits since v3.11.0 across concurrency, JIT, dual-backend parity, attested provenance, and 30/30 hard-bench reproducibility.
-
-- **30/30 hard-bench, publicly reproducible.** A frontier model + a 1 KB Rail spec compiles 30/30 of a held-out hard-bench. Anyone with an API key can re-run (the bench is `tools/bench` at tag `archive/tier2-precut-2026-10-20`; it moved to `rail-lab` on 2026-10-20).
-- **Self-hosted on two backends with full parity.** ARM64 140/140 and x86_64 136/136. The same compiler runs both; same-bug-class sweep closed for all 9 binary ops across both operand orderings.
-- **Concurrency v1.** Typed channels + select over a pthread-backed runtime. `import "stdlib/concurrent.rail"`.
-- **JIT in pure Rail.** `import "jit/grade.rail"` — a Rail program can compile + execute new Rail at runtime in the same process. Found a 17-day silent-corruption auto-memo bug by dual-implementing the compile path.
-- **Multi-witness Ed25519 attestation.** Browser-verifiable provenance with pulse_id binding. Standalone single-file verifier ships at deterministic SHA.
-
-v4.0.1 (2026-05-13) is a public-surface sanitization patch over v4.0.0 — see [CHANGELOG.md](CHANGELOG.md). The compiled binary is identical.
-
-### v3.0.0 — 2026-04-18 — *Rail speaks TLS*
-
-A complete pure-Rail TLS 1.3 stack + X.509 chain validation + HTTPS client. The `~/.fleet/tls_proxies.sh` socat daemons are no longer on any critical path.
-
-**Live on release day, in production:**
-
-```
-anthropic_chat "claude-haiku-4-5-20251001" "Reply with exactly: hello from pure rail"
-  → HTTP 200, "hello from pure rail"       (6.9 s, pure Rail → Anthropic)
-
-slack_post_text "<DM_CHANNEL_ID>" "v3.0.0 smoke: pure-Rail TLS"
-  → ok=true, HTTP 200                      (1.0 s, pure Rail → Slack)
-
-https_get_url "https://www.amazon.com/"
-  → HTTP 200 with set-cookie, x-amz-rid    (4.0 s, RSA chain validated
-                                            to DigiCert Global Root G2)
-```
-
-~3,800 lines of new pure-Rail crypto + TLS across 16 new stdlib modules. Every primitive NIST- or RFC-vector validated. 22 pure-Rail TLS tests, all green. Self-compile 2-pass byte-identical preserved.
-
-| Layer | Modules |
-|---|---|
-| Hash / MAC | `sha256`, `sha512` (SHA-384/512), `hmac`, `hkdf` |
-| Symmetric | `chacha20`, `poly1305`, `aead` (ChaCha20-Poly1305) |
-| Public key | `x25519`, `ecdsa_p256`, `ecdsa_p384`, `rsa_pss` (PSS + PKCS1) |
-| Bignum | `bignum_n` — parameterised n-limb arithmetic |
-| X.509 / PKI | `asn1`, `b64`, `pem` (128 roots from `/etc/ssl/cert.pem`) |
-| TLS 1.3 | `tls13`, `tls13_hs`, `tls13_record`, `tls13_cert_verify`, `tls13_client`, `cert_chain`, `cert_p384` |
-| Application | `https_client`, `dns`, `anthropic_client`, `slack_client` |
-
-Full release notes: [**CHANGELOG.md**](CHANGELOG.md).
-
-### v2.0.0 — 2026-04-06 — *Rail becomes a self-improving system*
-
-Native floats in ARM64 d-registers, effect handlers via setjmp/longjmp, GC in assembly, four backends (macOS ARM64 / Linux ARM64 / Linux x86_64 / WASM), and three independent training lineages — all driven by the same compiler as the binary fitness function. 121 commits. 92/92 tests. [**Full details in CHANGELOG.md →**](CHANGELOG.md).
-
-### History
+**Since v5.5.0, unreleased ([CHANGELOG](CHANGELOG.md), Unreleased):** one link path for every
+compile; the runtime as source files; float literals and `parse_float` by integer arithmetic;
+`show_float_hex`; `math_exact`; the numerics contract with a test per sentence; the seed format
+documented and rebuilt by a second writer; the compiler tour with its gate; the binary32
+builtins; a foreign float result fixed; the x86 backend's defects measured and recorded; and
+the cut of the Metal, WebAssembly and microcontroller surfaces.
 
 | Version | Date | Headline |
 |---|---|---|
-| **v5.2.0** | 2026-06-19 | Rail stands alone — assembles, links, and code-signs its own Mach-O with no as/ld/codesign; bit-reproducible self-compile; FFI binaries link with no ld |
-| **v5.1.0** | 2026-05-15 | Rail emits its own GPU kernels — MSL from op-DAG, JIT-compiled fused Metal (35× rmsnorm+QKV, 18× silu+hadamard) + bf16 regime |
-| **v5.0.2** | 2026-05-15 | First release attested end-to-end through Rail — shell escape hatches retired |
-| **v5.0.1** | 2026-05-15 | Attestation hygiene + ARM64 codegen tightening |
-| **v5.0.0** | 2026-05-14 | Self-hosted toolchain — Rail emits aarch64 Linux ELF binaries via pure-Rail encoder + assembler + static linker + ELF writer. `as` / `ld` no longer in the build path for the supported subset. |
-| **v4.1.0** | 2026-05-13 | Repo hygiene + leak-guard CI |
-| **v4.0.1** | 2026-05-13 | Public-surface sanitization (no behavior change) |
-| **v4.0.0** | 2026-05-13 | Substrate maturity — 30/30 hard-bench, JIT, dual-backend parity, multi-witness attest |
-| **v3.11.0** | 2026-05-02 | Pi self-hosts (98/137 on aarch64 Linux); attest fully Rail-native |
-| **v3.10.0** | 2026-05-02 | Pi signer in pure Rail; Linux backend gains atof + snprintf + print_float |
-| **v3.9.0** | 2026-05-02 | Linux cross-compile fixed (`./rail_native linux foo.rail` → working ELF) |
-| **v3.8.0** | 2026-05-01 | Releases physicified — every binary attested against a live entropy beacon |
-| **v3.7.0** | 2026-04-30 | Float-TCO root fix, mixed-precision inference, parallel rerank |
-| **v3.0.0** | 2026-04-18 | Rail speaks TLS — pure-Rail HTTPS, chain validation to macOS trust store |
-| **v2.23.0** | 2026-04-17 | Pure-Rail HTTP/1.1 client + `char_from_int` |
-| **v2.0.0** | 2026-04-06 | Self-improving flywheel, native floats, effect handlers, GC in asm |
-| **v1.5** | 2026-03-25 | C-matching performance, hyperagent, DNA training |
-| **v1.4** | 2026-03-22 | GC in assembly, nested lambdas, exhaustiveness |
-| **v1.3** | 2026-03-21 | MCP server, 32-layer LoRA, open source |
-| **v1.1** | 2026-03-20 | Metal GPU, WASM, x86_64, fibers, flywheel |
-| **v1.0** | 2026-03-17 | Self-hosting. Rust deleted. 67 tests. |
+| **v5.5.0** | 2026-10-19 | The compiler type-checks; the collector under stress |
+| **v5.4.0** | 2026-09-22 | Hardening: seven miscompiles fixed with minimal programs; the known-miscompile corpus runs as a suite; the beacon replays from one integer |
+| **v5.3.0** | 2026-07-08 | Independence checker; self-compile 61 s to 19 s; the check-me kit (`VERIFY.md`, `docs/STATUS.md`) |
+| **v5.2.0** | 2026-06-19 | Rail stands alone: assembles, links and code-signs its own Mach-O; bit-reproducible self-compile |
+| **v5.1.0** | 2026-05-15 | Rail emitted its own Metal kernels (surface cut 2026-10-21) |
+| **v5.0.0** | 2026-05-14 | Self-hosted toolchain: aarch64 Linux ELF with no `as` or `ld` |
+| **v4.0.0** | 2026-05-13 | Substrate: 30/30 hard-bench, JIT, dual-backend parity, multi-witness attestation |
+| **v3.0.0** | 2026-04-18 | Rail speaks TLS: pure-Rail HTTPS, chain validation to the macOS trust store |
+| **v2.0.0** | 2026-04-06 | Native floats, effect handlers, the collector in assembly |
+| **v1.0** | 2026-03-17 | Self-hosting. Rust deleted. |
+
+Full notes for every version: [CHANGELOG.md](CHANGELOG.md). Tagged releases are Ed25519-signed
+against a public entropy beacon ([`docs/RELEASES.md`](docs/RELEASES.md), [`VERIFY.md`](VERIFY.md)).
 
 ## Honest limits
 
-Things Rail v5.5.0 **doesn't** do, so you don't hit them as surprises:
+Things Rail does not do, so you do not hit them as surprises:
 
-- TLS ships one cipher suite (`TLS_CHACHA20_POLY1305_SHA256`), one ECDHE group (`x25519`), and three CertificateVerify sig-algs (`rsa_pss_rsae_sha256 | ecdsa_secp256r1_sha256 | ecdsa_secp521r1_sha512`). Modern CDN fronts work; legacy servers may not.
-- No TLS session resumption, no 0-RTT, no client certificates.
-- No constant-time or side-channel resistance guarantees. This is not OpenSSL; don't ship it to a Defense customer.
-- Each HTTPS connection costs seconds of wall time (public-key verify dominates). Great for one-shot API calls, not for an HTTP proxy.
-- Rail is not ANSI-standardised. There is no formal type system or soundness proof. Use it because it's fast, small, and honest — not because it's Haskell.
-- The attested-training model generalizes **0/10** to unseen function names (see [above](#3-is-the-oracle-for-an-attested-training-loop)). Composition needs scale or a differently-shaped corpus; it is not a corpus-tuning problem.
+- TLS ships one cipher suite (`TLS_CHACHA20_POLY1305_SHA256`), one key-exchange group (`x25519`)
+  and three CertificateVerify algorithms. Modern CDN fronts work; legacy servers may not. No
+  session resumption, no 0-RTT, no client certificates.
+- No constant-time or side-channel guarantees anywhere in the crypto. This is not OpenSSL.
+- An HTTPS connection costs seconds of wall time (public-key verification dominates). Fine for
+  one-shot API calls, wrong for a proxy.
+- The `x86_64` backend is measured, not supported: a foreign float call returns garbage, a float
+  comparison inside a clamp takes the wrong branch, and a function with 14 or more parameters
+  miscompiles. Each is a live case in `tools/fuzz/known/` and a `KNOWN` line in the numerics gate.
+- A top-level name you define replaces a stdlib function of the same name everywhere, the
+  stdlib's own callers included, with no warning. Treat imported names as reserved.
+- A quoted import is read relative to the current directory, and one that is not found is a
+  warning, not an error: the program then dies at load. Run `rail_native` from the repo root.
+- The default arena (1 GB before the first collection) is too small to compile a program that
+  imports the TLS stack: the collector thrashes for minutes. `RAIL_ARENA_MB=1500` or more
+  compiles it in under 2 s. The compiler should detect this and does not yet.
+- Rail has Hindley-Milner inference and no soundness proof, and is standardised by nobody. Use it
+  because it is small, fast and checkable, not because it is Haskell.
+- The attested-training model generalizes 0/10 to unseen function names (above). Composition
+  needs scale or a differently shaped corpus; it is not a corpus-tuning problem.
 
 ### The most expensive thing we've learned
 
-In July 2026 we ran a self-improvement loop for about a week: a local model
-proposed changes, a deterministic executor applied them, every generation was
-scored on a held-out reward and signed into a tamper-evident chain. It reported
-a clean climb across ~11 signed generations — 58 → 69 on one lineage, 131 → 139
-on another. Every step of it was reproducible and cryptographically attested.
+In July 2026 a self-improvement loop ran for about a week: a local model proposed changes, a
+deterministic executor applied them, every generation was scored on a held-out reward and signed
+into a tamper-evident chain. It reported a clean climb across about eleven signed generations.
+Every step was reproducible and cryptographically attested.
 
-It was noise. Re-scoring the identical lineage on a held-out sample **5× wider**
-(1920 tokens instead of 384) flattened the entire curve: the "improved" frontier
-scored *exactly* what the base it started from scored — 672/1920 versus
-672/1920.
+It was noise. Re-scoring the identical lineage on a held-out sample five times wider flattened
+the entire curve: the "improved" frontier scored exactly what the base it started from scored,
+672/1920 against 672/1920.
 
-The apparatus was sound and the conclusion was worthless, because the held-out
-reward was itself a tiny sample. A deterministic optimizer maximizing a small
-reward will fit *that sample* — reward hacking one layer beneath the defense we
-had built against reward hacking.
+The apparatus was sound and the conclusion was worthless, because the held-out reward was itself
+a tiny sample. A deterministic optimizer maximizing a small reward will fit that sample: reward
+hacking one layer beneath the defense built against reward hacking.
 
-**The lesson, which now governs this repo: attestation of a computation is not
-validation of its metric.** A signed chain proves the numbers were produced the
-way we said. Whether the numbers *mean* anything is a separate question, and the
-signature is silent on it. Any reported gain here must be re-measured on a
-disjoint, much wider sample before it is believed — including, especially, gains
-that flatter us.
+**The lesson, which governs this repo: attestation of a computation is not validation of its
+metric.** A signed chain proves the numbers were produced the way we said. Whether the numbers
+mean anything is a separate question, and the signature is silent on it. Any reported gain here
+is re-measured on a disjoint, much wider sample before it is believed, especially a gain that
+flatters us.
 
-We keep this in the README rather than a postmortem folder because a project
-whose entire premise is "check me, don't trust me" has no business hiding the
-time it fooled itself.
+It stays in the README rather than a postmortem folder because a project whose premise is "check
+me, don't trust me" has no business hiding the time it fooled itself.
 
 ## License
 
-[Business Source License 1.1](LICENSE). You may use Rail in production, including commercially; the one carve-out is offering it to third parties on a hosted or embedded basis that competes with the Licensor's products. It converts to MIT on 2030-03-14.
+[Business Source License 1.1](LICENSE). You may use Rail in production, including commercially;
+the one carve-out is offering it to third parties on a hosted or embedded basis that competes
+with the Licensor's products. It converts to MIT on 2030-03-14.
 
-BSL rather than a permissive license from day one for a narrow reason: Rail is one person's research surface, and the only outcome worth guarding against is someone reselling it as a hosted service before it has established itself. Everything else, including commercial use inside your own product, is already granted. The MIT conversion date is fixed and unconditional, so the guard expires whether or not anyone is paying attention.
+BSL rather than a permissive license from day one for a narrow reason: Rail is one person's
+research surface, and the only outcome worth guarding against is someone reselling it as a hosted
+service before it has established itself. Everything else, including commercial use inside your
+own product, is already granted. The MIT conversion date is fixed and unconditional.
 
 ## Notes
 
-> GitHub's language bar shows this repo as Haskell because `github-linguist` doesn't know Rail exists yet. A [PR is in flight](https://github.com/github-linguist/linguist/pulls?q=rail) to fix that. This is a Rail codebase.
+> GitHub's language bar shows this repo as Haskell because `github-linguist` does not know Rail
+> yet. This is a Rail codebase.

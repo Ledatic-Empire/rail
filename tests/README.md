@@ -14,7 +14,9 @@ The last line is `N/N tests passed` and the exit status is 0 only when every cas
 function, so a case that is dropped by mistake fails the run instead of shrinking it. The
 count is measured, not quoted: read it off the last line, or from `~/.fleet/state` on the
 house machines. `tools/verify/tour_check.rail` fails CI when this file, `CONTRIBUTING.md`
-or the tour quotes a count other than that literal. A run on macOS ARM64 takes about 70 s.
+or the tour quotes a count other than that literal (since 2026-10-29 also `README.md` above its Releases
+header, `docs/getting-started.md`, `VERIFY.md`, `STRUCTURE.md`, `docs/INDEPENDENCE.md` and
+`docs/STATUS.md`). A run on macOS ARM64 takes about 80 s (82.7 s wall on an M4 Pro, 2026-10-29).
 Concurrent runs on one host do not collide (each case builds to a `mktemp` path); a flaky
 count usually means an orphan `rail_native` from an earlier run (`ps aux | grep rail_native`).
 

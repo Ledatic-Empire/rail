@@ -2,17 +2,19 @@
 
 Rail's claim is **"check me, don't trust me."** This page is the kit: every core
 claim below is something *you* can verify on your own machine, with one command.
-A pass is reproducible provenance — not a proof of correctness (see the last
+A pass is reproducible provenance, not a proof of correctness (see the last
 section for exactly what each check does and does not establish).
 
 **One command for all of it:**
 
 ```bash
-tools/verify/check.sh          # full self-audit (~25 min: rebuild + tests)
-tools/verify/check.sh --quick  # fast pass (~2 min: skips the rebuild, quick tests)
+tools/verify/check.sh          # full self-audit: the rebuild (about 6 s) and the full suite (about 80 s)
+tools/verify/check.sh --quick  # skips the rebuild, runs the 15-case quick suite
 ```
 
-…or run any single check below on its own.
+Or run any single check below on its own. CI runs the same checks on GitHub's own runners on
+every push ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the README's
+[Check the claims](README.md#check-the-claims) table maps each claim to its job.
 
 ---
 
@@ -23,17 +25,17 @@ tools/verify/check.sh --quick  # fast pass (~2 min: skips the rebuild, quick tes
 ```
 
 Rebuilds the committed seed (`rail_native`) from *this checkout's* source using
-Rail's own pure-Rail toolchain — its AArch64 assembler, Mach-O linker, and ad-hoc
-signer, with **no external `as`/`ld`/`codesign`** — then confirms the rebuilt
+Rail's own pure-Rail toolchain (its AArch64 assembler, Mach-O linker and ad-hoc
+signer, with **no external `as`, `ld` or `codesign`**), then confirms the rebuilt
 binary is byte-for-byte identical to the committed one. A match proves the binary
-you run is exactly what the source you read produces. (Apple Silicon macOS;
-`RAIL_ARENA_MB>=6000`.)
+you run is exactly what the source you read produces. Apple Silicon macOS; the seed
+is the same at any `RAIL_ARENA_MB` from 2000 up (6000 is the default, CI uses 3000).
 
 ## 2. The tests pass, and the runner reports its own count
 
 ```bash
 ./rail_native test; echo "exit $?"      # full suite, self-reports N/N and exits 0 iff N == N
-./rail_native quick                    # ~30s core subset
+./rail_native quick                    # the 15-case core subset, a few seconds
 ```
 
 The runner prints its own pass count and its exit status carries the verdict.
@@ -45,10 +47,23 @@ Mac: since 2026-10-21 nothing in the suite needs a GPU.
 ## 3. The self-compile reaches a byte-identical fixed point
 
 ```bash
-./rail_native self && cmp rail_native /tmp/rail_self   # silent = identical
+RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # silent = identical
 ```
 
-The compiler's own source is its regression suite.
+The compiler's own source is its regression suite. CI does this twice: the seed from source,
+then the result compiling the source again (the fixed point).
+
+## 3b. Rail's doubles are C's doubles, bit for bit
+
+```bash
+bash tools/verify/numerics_vs_c/run_ci.sh arm64      # C through clang, Rail through rail_native, one gate
+```
+
+[`tools/verify/numerics_vs_c/`](tools/verify/numerics_vs_c/): the same seven computations in
+IEEE doubles, written once in C and once in Rail from the same integer-made inputs, every
+result printed as its 64 bits and compared with the committed reference. [`docs/NUMERICS.md`](docs/NUMERICS.md)
+is the contract behind it, a suite test per sentence. CI runs the probe on its macOS and its
+x86-64 Linux runner; the x86 backend's two open float defects are `KNOWN` lines there.
 
 ## 4. Read the grammar
 
@@ -91,7 +106,7 @@ compared only the unsigned field, see `verify_selftest.sh`).
 
 ---
 
-## What these checks prove — and what they don't
+## What these checks prove, and what they don't
 
 - **They prove provenance:** the binary matches the source, the tests the runner
   ran, the numbers the tree actually contains, the signatures the witnesses made.
@@ -99,10 +114,10 @@ compared only the unsigned field, see `verify_selftest.sh`).
   reproduce, and be signed, and still be wrong. Compilation means *accepted by
   the binary you run*, not *correct*.
 - **Platform boundary:** "no C" means no C in the source-owned compiler and
-  runtime, and no external assembler, linker, or signer on the reproducible
-  path. The macOS seed still links `libSystem` (the kernel interface), and the
-  everyday `./rail_native file.rail` builds use the system `as` and `ld`.
+  runtime, and no external assembler, linker, or signer anywhere: since
+  2026-10-21 every `./rail_native file.rail` build takes the same in-process
+  path as the seed. The macOS seed still links `libSystem` (the kernel interface).
 - **One honest gap:** a Rail compiler verifying a Rail compiler is not an
-  *independent* check — it does not defeat a trusting-trust attack. Closing that
+  *independent* check: it does not defeat a trusting-trust attack. Closing that
   (diverse double-compilation or a non-Rail reference checker) is open work, not
   yet claimed. The defensible claim is **check me**, never *proof of truth*.

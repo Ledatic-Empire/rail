@@ -4,8 +4,8 @@
 # a third party can run any one on its own. See VERIFY.md for what each proves.
 #
 # Usage:
-#   tools/verify/check.sh           full self-audit (~25 min: source rebuild + full tests)
-#   tools/verify/check.sh --quick   fast pass (~1 min: skip rebuild, run the quick suite)
+#   tools/verify/check.sh           full self-audit: the source rebuild (about 6 s) and the full suite (about 80 s)
+#   tools/verify/check.sh --quick   skip the rebuild, run the 15-case quick suite
 # Exit 0 iff every run check passed.
 set -uo pipefail
 cd "$(dirname "$0")/../.." || exit 2          # repo root
@@ -48,7 +48,7 @@ else
 fi
 
 echo "== 5. Release attestation =="
-if [ -f tools/attest/attest.rail ]; then ok "tools/attest/ present — verify a tagged release with attest.rail"
+if [ -f tools/attest/attest.rail ]; then ok "tools/attest/ present: verify a tagged release with attest.rail"
 else no "tools/attest/ missing"; fi
 
 echo

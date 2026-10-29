@@ -1,0 +1,12 @@
+Wrote file.
+Contents:
+the quick brown fox jumps over the lazy dog
+Word count:
+9
+Reversed:
+dog lazy the over jumps fox brown quick the
+Uppercase:
+THE QUICK BROWN FOX JUMPS OVER THE LAZY DOG
+wc says:
+       9
+
