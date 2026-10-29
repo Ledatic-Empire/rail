@@ -10,6 +10,8 @@ Each case is a .rail program plus an entry in cases.json with a status:
              independent oracle must MODEL it rather than flag it.
 
 Exit 0 iff every fixed/semantics case passes and every live case still fails.
+x86_cases.json lists cases that fail only through the x86_64 backend (`rail_native x86`,
+run on an x86 box); this runner drives the native arm64 compiler and does not read it.
 Usage: python3 tools/fuzz/known_cases.py [--compiler PATH] [--only NAME]
 """
 import argparse, json, os, subprocess, sys, tempfile

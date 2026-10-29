@@ -218,5 +218,10 @@
   "fixed",
   "different\ndifferent",
   "== on two heap values that were not floats strcmp'd them, which compared header bytes: any two lists, tuples or constructed values of one kind were equal (Some 1 == Some 2); structural since 2026-09-23 (t242)"
+ ],
+ "foreign_float_result_raw": [
+  "fixed",
+  "4010333333333333\n4010333333333333\n3fe8000000000000",
+  "a user-declared foreign float fn's raw result went through _rail_fval (odd mantissa read as a tagged int); __float_ret_ marker for DForeign float decls (2026-10-29, crossvendor raillane R1)"
  ]
 }

@@ -1,0 +1,9 @@
+import "stdlib/float_hex.rail"
+foreign fma a b c -> float
+g acc = fma 1.5 2.5 acc
+chain k acc = if k >= 3 then acc else chain (k + 1) (fma 1.5 0.1 acc)
+main =
+  let _ = print (show_float_hex (g 0.3))
+  let _ = print (show_float_hex (fma 1.5 2.5 (0.1 *. 3.0)))
+  let _ = print (show_float_hex (chain 0 0.3))
+  0

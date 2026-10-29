@@ -1,0 +1,6 @@
+import "stdlib/float_hex.rail"
+foreign fma a b c -> float
+main =
+  let _ = print (show_float_hex (floor 2.5))
+  let _ = print (show_float_hex (fma 1.5 2.5 0.125))
+  0

@@ -34,7 +34,7 @@ Rail compiles itself. The compiler, 7,546 lines of Rail, produces a 992 KB ARM64
 ```
 RAIL_ARENA_MB=6000 ./rail_native self && cp /tmp/rail_self ./rail_native  # cycle 1
 RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # cycle 2 — byte-identical
-./rail_native test                                     # 250/250
+./rail_native test                                     # 251/251
 ```
 
 ### What the self-hosting is *for*
