@@ -4,6 +4,8 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+## v5.6.0 (2026-10-29): The numerics contract, the runtime as source, and every claim gated
+
 ### Fixed
 - **The x86_64 backend's three recorded defects** (2026-10-29, the afternoon's fixing pass; each
   was found that morning and is a case in `tools/fuzz/known/x86_cases.json`, now `fixed`):
@@ -86,7 +88,8 @@ All notable changes to Rail are documented here.
   code generation, the same cliff the self-compile refuses below 2000. Nothing in the suite
   imports `https_client`, so nothing had noticed. The README, the getting-started page and the
   examples gate now say `RAIL_ARENA_MB=3000`; the compiler itself should notice a large program
-  at the default arena and refuse or say so, as `self` does. Not done.
+  at the default arena and refuse or say so, as `self` does. Resolved the same afternoon by the
+  next-fit free list (Fixed, above): the same program compiles in 1.9 s at the default arena.
 - **A quoted import is read relative to the current directory only, and a missing one is a
   warning** (2026-10-29, `pprog_ast`, the `str` branch: `read_file path` and nothing else; the
   bare form searches the compiler's `stdlib/` too). The names it would have defined are reported
@@ -139,13 +142,14 @@ All notable changes to Rail are documented here.
   R3 on a Modal x86-64 box): `f13` of 1..13 is 91, right; `f14` gives 104 for 105, `f16` 132 for
   136, `f20` 194 for 210; a 23-parameter fn crashed. `tools/fuzz/known/x86_many_params.rail`,
   live in `x86_cases.json`. The arm64 backend is right on all of them (t? none; the x86 corpus
-  has no runner yet).
+  has no runner yet). Fixed the same afternoon (Fixed, above): `f14` 105, `f20` 210.
 - **A user definition silently shadows a stdlib function of the same name, and the stdlib keeps
   calling the user's.** A program that defined its own `hex_digit` (int to character) broke
   `stdlib/bytes.rail`'s `hex_to_bytes` and, through the hex constant tables, `sha256` and
   `sha512`: wrong digests, a signature with 32 zero bytes, no warning (raillane R3, 2026-10-29).
   Top-level names are one flat space and the later definition wins. Recorded in CLAUDE.md's
-  known limitations; a compile-time warning on shadowing an imported name is the fix, not done.
+  known limitations; a compile-time warning on shadowing an imported name is the fix:
+  `warn_shadowed`, the same afternoon (Added, above).
 - **`docs/NUMERICS.md` sentences 17 and 18**: libm `fma` through FFI agrees with C's `fma` bit for
   bit on the Mini and the Air (correctly rounded by IEEE 754-2008, still not pinned by a test);
   the `x86_64` backend's floats, measured for the first time on a GitHub x86-64 runner: `+. *. /.`,
@@ -153,6 +157,8 @@ All notable changes to Rail are documented here.
   garbage and a float comparison inside a clamp takes the wrong branch
   (`tools/fuzz/known/x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live in
   `x86_cases.json`: a registry the arm64 corpus runner does not read, since on arm64 they pass).
+  Both fixed the same afternoon (Fixed, above); sentence 18 now says the x86 backend passes all
+  seven tests of the probe.
 
 
 ### Added
