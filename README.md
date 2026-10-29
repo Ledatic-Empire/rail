@@ -6,7 +6,7 @@
 </p>
 
 <p align="center">
-  <a href="#releases"><img src="https://img.shields.io/badge/v5.5.0-The%20compiler%20type--checks%2C%20and%20the%20collector%20under%20stress-ff5500?style=for-the-badge" alt="v5.5.0"></a>
+  <a href="#releases"><img src="https://img.shields.io/badge/v5.6.0-The%20numerics%20contract%2C%20the%20runtime%20as%20source%2C%20and%20every%20claim%20gated-ff5500?style=for-the-badge" alt="v5.6.0"></a>
 </p>
 
 <p align="center">
@@ -285,21 +285,21 @@ JIT, the stdlib ML stack, the WebAssembly backend and the microcontroller backen
 
 ## Releases
 
-**v5.5.0 (2026-10-19): the compiler type-checks, and the collector under stress.** Hindley-Milner
-inference over a typed syntax tree that every pass reads; the call-site guessing passes deleted
-and the self-compile cut from about 20 s to 5 s; constructors as functions, typed fields, `show`
-and `==` over structure; `RAIL_GC_STRESS` and a stress driver in CI that found six collector
-bugs, each fixed with a test that fails without the fix.
-
-**Since v5.5.0, unreleased ([CHANGELOG](CHANGELOG.md), Unreleased):** one link path for every
-compile; the runtime as source files; float literals and `parse_float` by integer arithmetic;
-`show_float_hex`; `math_exact`; the numerics contract with a test per sentence; the seed format
-documented and rebuilt by a second writer; the compiler tour with its gate; the binary32
-builtins; a foreign float result fixed; the x86 backend's defects measured and recorded; and
-the cut of the Metal, WebAssembly and microcontroller surfaces.
+**v5.6.0 (2026-10-29): the numerics contract, the runtime as source, and every claim gated.**
+Every Rail double is under [`docs/NUMERICS.md`](docs/NUMERICS.md), a contract with a test per
+sentence: float literals and `parse_float` decided by integer arithmetic, `show_float_hex`,
+`math_exact`, the binary32 builtins, and Rail's doubles measured against C's bit for bit on
+arm64 and x86-64 in every CI run. The ARM64 runtime is source files and every compile takes
+one link path; the seed format and the compiler tour are written and gated. The x86-64
+backend's three recorded defects fixed; the free list scanned next-fit, so a program that
+imports the TLS stack compiles at the default arena; a redefined import warned; a missing
+quoted import refused. The README's counts, the status page's facts and all 18 examples are
+gated in CI. The Metal, WebAssembly and microcontroller surfaces cut; the beacon and the lab
+moved to their own repos.
 
 | Version | Date | Headline |
 |---|---|---|
+| **v5.6.0** | 2026-10-29 | The numerics contract; the runtime as source; every claim gated |
 | **v5.5.0** | 2026-10-19 | The compiler type-checks; the collector under stress |
 | **v5.4.0** | 2026-09-22 | Hardening: seven miscompiles fixed with minimal programs; the known-miscompile corpus runs as a suite; the beacon replays from one integer |
 | **v5.3.0** | 2026-07-08 | Independence checker; self-compile 61 s to 19 s; the check-me kit (`VERIFY.md`, `docs/STATUS.md`) |
