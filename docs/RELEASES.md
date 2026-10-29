@@ -1,7 +1,7 @@
-# Releases — operational runbook
+# Releases: the operational runbook
 
 Every Rail release is signed against a live entropy beacon by the
-fleet0 witness. This page is the recipe — read it before cutting a
+fleet0 witness. This page is the recipe: read it before cutting a
 release, and especially before cutting one from a fresh worktree.
 
 ## What a release looks like
@@ -24,7 +24,7 @@ via Cloudflare KV.
 
 Assumes you're on the tag commit (or the working tree matches it byte-for-byte
 for both `rail_native` and `tools/compile.rail`). Set `SIGNER_IP` to your
-fleet0 witness's address first — it's a private fleet host, not committed here:
+fleet0 witness's address first (a private fleet host, not committed here):
 
 ```bash
 export SIGNER_IP=<your-fleet0-witness-ip>
@@ -54,14 +54,14 @@ git push origin master
 
 ## Gotchas earned over multiple releases
 
-### #1 — `.gitignore` swallows `rail_native.attestation.json`
+### #1: `.gitignore` swallows `rail_native.attestation.json`
 
 `.gitignore` has `rail_native.*` (intended to ignore backup binaries like
 `rail_native.bak`). The glob also matches `rail_native.attestation.json`.
 
 **Symptom:** `git add releases/vX.Y.Z` silently drops the rail_native
 attestation. Existing tracked attestations are grandfathered, so prior
-releases look fine — but the new release ships without its rail_native
+releases look fine, but the new release ships without its rail_native
 attestation file in-tree.
 
 **Workaround:** explicit `git add -f releases/vX.Y.Z/rail_native.attestation.json`
@@ -71,18 +71,18 @@ on every release.
 (checked 2026-10-19: a plain `git add releases/vX.Y.Z` stages it). The `-f` above
 stays harmless.
 
-### #2 — `~/.ledatic/witness/signer_url` format
+### #2: `~/.ledatic/witness/signer_url` format
 
 The file contains a full URL (`http://$SIGNER_IP:9102/sign`).
-`attest.rail` expects a bare IP — `hc_connect_tcp` can't parse a URL as
-IPv4 dotted-quad — and silently fails when the file holds a URL.
+`attest.rail` expects a bare IP (`hc_connect_tcp` can't parse a URL as
+IPv4 dotted-quad) and silently fails when the file holds a URL.
 
 **Workaround:** `SIGNER_IP=<your-fleet0-witness-ip> bash tools/attest/attest_release.sh vX.Y.Z`.
 
-**Real fix (TODO):** either standardize the file to bare IP, or teach
-attest.rail to parse URLs.
+**Resolved (checked 2026-10-29, cutting v5.6.0):** the file holds a bare IP now;
+the `SIGNER_IP=` prefix above stays harmless.
 
-### #3 — `runtime/llm.o` is git-ignored
+### #3: `runtime/llm.o` is git-ignored
 
 `.gitignore` excludes `runtime/`. The compile.rail linker step needs
 `runtime/llm.o` (the LLM trampoline object); it must exist on disk for
@@ -98,15 +98,15 @@ errno=2 path=runtime/llm.o`.
 mkdir -p runtime && cp ~/projects/rail/runtime/llm.o runtime/
 ```
 
-### #4 — Plasma beacon owns `/tmp/rail_out`
+### #4: Plasma beacon owns `/tmp/rail_out`
 
 `com.ledatic.mhd` LaunchAgent runs the plasma beacon, which compiles to
 `/tmp/rail_out` and execs it. Long-running. Any subsequent compile that
 also writes to `/tmp/rail_out` works (macOS unlinks + creates), but you
-**cannot** `./rail_native run /tmp/rail_out` against the beacon binary —
+**cannot** `./rail_native run /tmp/rail_out` against the beacon binary:
 that re-execs the daemon. Use explicit output paths when smoke-testing.
 
-### #5 — `./rail_native run` captures stdout
+### #5: `./rail_native run` captures stdout
 
 The `run` subcommand captures child stdout in memory and only flushes at
 the end. For tests that should stream output, compile separately and
@@ -116,7 +116,7 @@ exec the binary directly:
 /tmp/rail_out                 # streams normally
 ```
 
-### #6 — Annotated tags vs commit hashes
+### #6: Annotated tags vs commit hashes
 
 `git rev-parse vX.Y.Z` returns the **tag object** hash (annotated tag),
 not the commit. Use `git rev-parse vX.Y.Z^{commit}` to dereference.
@@ -146,7 +146,7 @@ SHORT=$(git rev-parse --short "$TAG^{commit}")
   > releases/$TAG/index.json
 ```
 
-The pulse_id will be from "now" — the backfilled attestation proves
+The pulse_id will be from "now"; the backfilled attestation proves
 *the bytes existed before pulse N*, which for the original release is
 trivially true.
 
@@ -173,6 +173,11 @@ for f in rail_native compile.rail; do
 done
 curl -sO https://ledatic.org/releases/vX.Y.Z/rail_native   # then verify.sh against the attestation
 ```
+
+**v5.6.0 (2026-10-29) went through this workaround:** `publish.sh` reported 6 ok, 0 fail,
+the two bare-key writes answered 200, and every served file came back byte-identical to
+the local copy and verified against its attestation (`verify.sh` ok for `rail_native`,
+`compile.rail` and `index.json`).
 
 **Real fix (TODO, in `ledatic-site/worker/worker.js`):** make the binary GET
 read `attest/releases/<ident>/<file>` first and fall back to the bare key for
