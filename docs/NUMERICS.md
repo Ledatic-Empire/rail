@@ -106,6 +106,25 @@ is its output on macOS, and the Linux run differed only on the two lines sentenc
     Test t196 pins the macOS text. Measured `arm64-apple-darwin25.6`; `aarch64-linux` measured
     different on 2026-10-22 and claimed as such.
 
+## binary32 on the double substrate (2026-10-29)
+
+19. `round32 x` is `x` rounded to the nearest binary32, ties to even (`fcvt` to a single and
+    back), returned as the double with that value: `round32 0.1` is `3fb99999a0000000`. Because
+    53 is at least 2*24 + 2, `+. -. *. /.` and `fsqrt` of binary32-valued doubles followed by
+    `round32` ARE the binary32 operations, correctly rounded once.
+    Test t268. Measured `arm64-apple-darwin25.6`.
+20. `fma32 a b c` is the binary32 fused multiply-add of the binary32 values of a, b, c (`fmadd`
+    on single registers), which no double computation rounded afterwards can imitate: with
+    a = 1.5, b = 1 + 2^-23, c = -2^-60 the exact sum sits a hair below a binary32 midpoint; the
+    fused single gives `3ff8000020000000`, a double fma or product-and-sum rounded by `round32`
+    gives `3ff8000040000000` (the hair is lost and the tie goes to even).
+    Test t268 (both lines). Measured `arm64-apple-darwin25.6`.
+21. `f32_bits x` is the 32-bit pattern of the binary32 value of x as a non-negative int:
+    `f32_bits 1.0` is 1065353216, `f32_bits (0.0 -. 2.5)` is 3223322624.
+    Test t268. Measured `arm64-apple-darwin25.6`.
+    These three let a Rail program compute exactly what a float32 program on a GPU computes
+    (crossvendor raillane R2 is that program); the `x86_64` backend does not have them.
+
 ## Not claimed
 
 17. Host libm through FFI (`sqrt sin cos tanh exp log pow fabs floor ceil atan2`,

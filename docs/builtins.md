@@ -285,6 +285,18 @@ foreign sqrt x -> float
 let result = sqrt (to_float 144)    -- returns 12.0
 ```
 
+### `round32`, `fma32`, `f32_bits`
+
+binary32 arithmetic on Rail's doubles (2026-10-29; `docs/NUMERICS.md` 19 to 21). `round32 x` is
+x rounded to the nearest float32 and back; `fma32 a b c` is the float32 fused multiply-add of
+the float32 values of a, b and c; `f32_bits x` is the float32 bit pattern as an int.
+
+```rail
+round32 0.1                 -- 0.10000000149011612 (3fb99999a0000000)
+fma32 1.5 2.5 (round32 0.3) -- 4.050000190734863
+f32_bits 1.0                -- 1065353216
+```
+
 ### `to_int`
 
 Convert a float to an integer (truncates toward zero).
