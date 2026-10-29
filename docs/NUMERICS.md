@@ -124,7 +124,7 @@ is its output on macOS, and the Linux run differed only on the two lines sentenc
     `+. *. /.`, `fsqrt`, `to_float` and integer-made inputs agree bit for bit (eight 1024-term plain
     dot products, eight divisions, eight 1/sqrt); a foreign float call (`floor`, `fma`) returns
     garbage, and a float comparison inside a clamp takes the wrong branch (`tools/fuzz/known/
-    x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live). No test.
+    x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live in `x86_cases.json`). No test.
 
 ## What "bit-exact" is scoped to
 

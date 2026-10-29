@@ -22,7 +22,8 @@ All notable changes to Rail are documented here.
   the `x86_64` backend's floats, measured for the first time on a GitHub x86-64 runner: `+. *. /.`,
   `fsqrt` and `to_float` agree bit for bit with C, a foreign float call (`floor`, `fma`) returns
   garbage and a float comparison inside a clamp takes the wrong branch
-  (`tools/fuzz/known/x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live).
+  (`tools/fuzz/known/x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live in
+  `x86_cases.json`: a registry the arm64 corpus runner does not read, since on arm64 they pass).
 
 
 ### Added
