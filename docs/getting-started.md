@@ -63,9 +63,7 @@ When you run `./rail_native hello.rail`, the compiler:
 6. Writes the binary to `/tmp/rail_out` (or to the path given by `--out-prefix`)
 
 With `run`, it then executes the binary. Two compiles running at once should each use their own
-`--out-prefix`. A program that imports the TLS stack (`stdlib/https_client.rail` and what it
-pulls in: 269 KB of source) needs `RAIL_ARENA_MB=1500` or more to compile in seconds; at the
-default 1 GB arena the compiler's collector thrashes.
+`--out-prefix`.
 
 A quoted import such as `import "stdlib/float_hex.rail"` is read relative to the current
 directory, so run the compiler from the repo root or give an absolute path (a bare

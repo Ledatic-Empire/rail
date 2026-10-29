@@ -10,11 +10,10 @@
 -- Every finding is printed; the last line is PASS or FAIL. Exit 0 iff PASS.
 -- Run from the repo root:  ./rail_native run tools/verify/examples_check.rail
 -- To accept a new or changed output, write the file by hand after reading it; nothing here
--- regenerates expectations. Each example is compiled at RAIL_ARENA_MB=3000: a program that
--- imports the TLS stack (examples/life_beacon.rail, 26 files and 269 KB of source with its
--- imports) thrashes the collector at the default 1 GB arena and compiles in under 2 s from
--- 1500 up (measured 2026-10-29). `shell` passes no environment through, so the setting is
--- part of the command.
+-- regenerates expectations. Each example is compiled at RAIL_ARENA_MB=3000, which no longer
+-- matters (a program that imports the TLS stack, examples/life_beacon.rail, compiles in 2 s at
+-- the default arena since the allocator's next-fit of 2026-10-29; the same morning it took
+-- minutes) and costs nothing; `shell` passes no environment through, so it is in the command.
 
 cat parts = join "" parts
 

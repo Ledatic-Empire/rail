@@ -4,6 +4,46 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Fixed
+- **The x86_64 backend's three recorded defects** (2026-10-29, the afternoon's fixing pass; each
+  was found that morning and is a case in `tools/fuzz/known/x86_cases.json`, now `fixed`):
+  a foreign float fn (libm's `floor` and `exp`, a declared `foreign fma a b c -> float`) now gets
+  its arguments in `xmm0..` (a boxed float unboxed, a tagged int converted) and its `xmm0`
+  result boxed (`x86_float_args`, `x86_box_xmm0`; it got int registers and read `rax`: `floor 2.5`
+  printed `4150184800000000`); a dotted operator never takes the raw int fast path and no
+  parameter is marked int when the types proved one float (`clamp_f`'s `x <. lo` compared the
+  two boxes' addresses and returned the low bound for every x); the stack-argument block of a
+  call with 14 or more arguments is reversed in place and shifted instead of moved slot by slot
+  (`x86_rev_stack_args`, `x86_shift_stack_args`: arg 6's target was arg 7's unread slot, so `f14`
+  of 1..14 gave 104 for 105 and `f20` 194 for 210). Measured right on a Modal x86-64 box
+  (`91 105 210`; `4000000000000000 400f000000000000`; `3fe0000000000000 4014000000000000 1`),
+  and `tools/verify/numerics_vs_c` now passes all seven tests on x86-64 (T4 floor, T5 exp_poly,
+  T6 tanh_poly and T7 dot_fma_libm were KNOWN): `known_live.txt` is empty and the record of the
+  old compiler (`rail_x86_gh`) is replaced by `rail_x86_modal`. `docs/NUMERICS.md` sentence 18
+  says so.
+- **The flat free list is scanned next-fit** (2026-10-29, `runtime/arm64/gc_1.s`,
+  `_rail_free_rover`). It was first-fit from the head; the sweep prepends, so the head of the
+  list is the youngest garbage, mostly small blocks, and every request they could not serve
+  walked all of them: a program that imports the TLS stack never finished compiling at the
+  default 1 GB arena (the morning's finding; 11 minutes of CPU for `examples/life_beacon.rail`;
+  a sample showed half the time in that loop and no arena growth, since each collection freed
+  more than a quarter). The scan now starts at the link cell where the last block was taken and
+  wraps once; the rover is reset whenever the sweep rebuilds the list or it is cleared, and after
+  a fit it is the cell that pointed to the block taken, so it always names a cell still in the
+  list. The TLS stack compiles in 1.9 s at the default arena (peak 2.73 GB resident),
+  `life_beacon.rail` in 2.2 s; the self-compile is unchanged (6.3 s at 6000); 254/254; every
+  program under `RAIL_GC_STRESS` (tools/fuzz/gc_stress.py) as before. The arena-growth
+  threshold was tried first (half instead of a quarter) and measured to change nothing: reverted.
+
+### Added
+- **A program that redefines an imported name is told so** (2026-10-29, `warn_shadowed`): the
+  top-level names of the program's own source are read off its text, and one the merged
+  declarations hold more than once prints `WARNING: 'hex_digit' is defined in <file> and by an
+  import (or twice in <file>); the later definition replaces the other everywhere, the import's
+  own callers included`. The compile goes on. Test t270 (`driver_shadow_warning`: `hex_digit`
+  over `stdlib/bytes.rail` warned, `my_digit` silent). The compiler's own tree, the TLS stack and
+  the tools print nothing. Suite 254.
+
 ### Added
 - **The public face verifies itself** (2026-10-29). `README.md` rewritten to the measured tree
   (7,745 compiler lines and a 1,041,272-byte seed from `docs/STATUS.md`, 252/252, three

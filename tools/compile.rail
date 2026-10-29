@@ -851,6 +851,47 @@ decl_dup_in d n bucket =
   if bucket == [] then false
   else if decl_nm (head bucket) == n && decl_key (head bucket) == decl_key d then true
   else decl_dup_in d n (tail bucket)
+-- A top-level name the program defines that an import also defines replaces the import's
+-- definition everywhere, the import's own callers included; until 2026-10-29 nothing said so
+-- (a program's hex_digit broke sha256 and sha512 through hex_to_bytes). The program's names are
+-- read off its source text (a line that begins with an identifier and carries `=` is a
+-- definition); a name the merged declarations hold more than once is reported (import_merge
+-- has already dropped exact duplicates, so two holders are two different bodies).
+warn_shadowed src fname decls =
+  let idx = decl_index decls (arr_new asm_nbuckets [])
+  warn_shadowed_lines (split "\n" src) fname idx 0
+warn_shadowed_lines lines fname idx n =
+  if lines == [] then n
+  else
+    let nm = src_def_name (head lines)
+    let k = if nm == "" then 0 else count_named nm (arr_get idx (asm_hash_str nm))
+    let _ = if k > 1 then print (cat ["  WARNING: '", nm, "' is defined in ", fname, " and by an import (or twice in ", fname, "); the later definition replaces the other everywhere, the import's own callers included"]) else 0
+    warn_shadowed_lines (tail lines) fname idx (if k > 1 then n + 1 else n)
+count_named nm bucket =
+  if bucket == [] then 0
+  else (if decl_nm (head bucket) == nm then 1 else 0) + count_named nm (tail bucket)
+-- the identifier a top-level definition line begins with: a lowercase letter or underscore at
+-- column 0, identifier characters, a space, and a ` = ` or a trailing ` =` on the line; not
+-- import, type or foreign; "" for any other line
+src_def_name line =
+  let cs = chars line
+  if cs == [] then ""
+  else
+    let k = char_to_int (head cs)
+    if (k >= 97 && k <= 122) || k == 95 then
+      let (nm, rest) = lead_ident cs []
+      if nm == "import" || nm == "type" || nm == "foreign" then ""
+      else if rest == [] then ""
+      else if head rest == " " && (str_contains " = " line || (length line >= 2 && str_sub line (length line - 2) 2 == " =")) then nm
+      else ""
+    else ""
+lead_ident cs acc =
+  if cs == [] then (join "" (reverse acc), [])
+  else
+    let k = char_to_int (head cs)
+    if (k >= 97 && k <= 122) || (k >= 65 && k <= 90) || (k >= 48 && k <= 57) || k == 95 || k == 39 then lead_ident (tail cs) (cons (head cs) acc)
+    else (join "" (reverse acc), cs)
+
 -- the name a declaration defines ("" for a parse error, which is never merged away)
 decl_nm d = match d
   | DFn n ps b -> n
@@ -5288,6 +5329,7 @@ compile_program_with_file src fname =
   let (toks, positions) = tokenize_with_pos src
   let ntoks = length toks
   let decls = inject_grad_fns (pprog_ast toks)
+  let _ = warn_shadowed src fname decls
   let errs = ce_decls decls
   let nerrs = report_errors errs positions ntoks fname
   if nerrs > 0 then
@@ -5596,6 +5638,22 @@ driver_import_resolution _ =
   let _ = shell (cat ["rm -f ", path, " ", path, ".bin"])
   let b = str_contains "3ff0000000000000" out
   let _ = print (if b then "  PASS: resolved beside the compiler from /tmp" else cat ["  FAIL: ", out])
+  a && b
+
+-- t270: a program that defines a name an import defines is told so (the definition replaces
+-- the import's everywhere; a program's hex_digit broke sha256 on 2026-10-29); one that does not
+-- is told nothing
+driver_shadow_warning _ =
+  let _ = print "  --- shadow_warning ---"
+  let path = cat [trim (shell "mktemp -u /tmp/rail_shadow_XXXXXX"), ".rail"]
+  let _ = write_file path "import \"stdlib/bytes.rail\"\nhex_digit n = 7\nmain = hex_digit 1\n"
+  let out = shell (cat ["./rail_native --out-prefix ", path, ".bin ", path, " 2>&1"])
+  let _ = write_file path "import \"stdlib/bytes.rail\"\nmy_digit n = 7\nmain = my_digit 1\n"
+  let out2 = shell (cat ["./rail_native --out-prefix ", path, ".bin ", path, " 2>&1"])
+  let _ = shell (cat ["rm -f ", path, " ", path, ".bin"])
+  let a = str_contains "WARNING: 'hex_digit' is defined in" out
+  let b = str_contains "WARNING" out2 == false
+  let _ = print (if a && b then "  PASS: hex_digit warned, my_digit silent" else cat ["  FAIL: ", out, "\n---\n", out2])
   a && b
 
 driver_pattern_errors _ =
@@ -6346,6 +6404,7 @@ run_tests _ =
   let t232 = run_test "fold_elem_in_container" "main =\n  let r = fold (\\a b -> a + length [b]) 0 (range 5)\n  let s = fold (\\a b -> a + (match b | _ -> 1)) 0 (range 4)\n  let t = fold (\\a b -> a + (let (p, q) = (b, 1) in q)) 0 (range 3)\n  let _ = print (show r)\n  let _ = print (show s)\n  let _ = print (show t)\n  0" "5\n4\n3"
   let t233 = driver_checks_subtrees 0
   let t269 = driver_import_resolution 0
+  let t270 = driver_shadow_warning 0
   -- t235: the streaming SHA-256 state (a ShaSt since 2026-09-23; code signing hashes every page
   -- through it) gives the known digests and, fed in chunks that cross block boundaries, the
   -- digest `shasum -a 256` gives and the one-shot digest of the same message
@@ -6414,10 +6473,10 @@ run_tests _ =
   -- list in its closure. Until 2026-10-19 the walk capped every frame at _rail_stack_top, which
   -- lies below the arena, so a fiber frame scanned nothing and the list was swept: rc=139.
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
-  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0) + (if t269 then 1 else 0)
+  let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0) + (if t269 then 1 else 0) + (if t270 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/253 tests passed"])
-  if total == 253 then 0 else 1
+  let _ = print (cat [show total, "/254 tests passed"])
+  if total == 254 then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE
@@ -7052,12 +7111,30 @@ x86_load_arg_regs n i =
 
 -- For args 6..n-1 (the SysV stack args), move from push-slot to upper slots
 -- so that after `add rsp, 96` they land at [rsp+0..(n-7)*16] in correct order.
+-- The push-slot of arg i is (n-1-i)*16 and its target 96+(i-6)*16 is the push-slot of arg
+-- n-1-i, so from 14 args on a target was a source not yet read (arg 6's target is arg 7's slot:
+-- f14 of 1..14 gave 104 for 105 and f20 194 for 210, known/x86_many_params, until 2026-10-29).
+-- Two clobber-free phases: the stack-arg block is reversed in place by swaps, which puts arg i
+-- at (i-6)*16, then shifted up by 96 from the highest arg down (every target was already read).
+-- The arg registers were loaded before this runs; rax and r10 are the scratch.
 x86_move_stack_args_up n i =
-  if i >= n then ""
+  if n <= 6 then ""
+  else cat [x86_rev_stack_args n 0, x86_shift_stack_args n (n - 1)]
+
+-- swap the slots of arg 6+t and arg n-1-t while 6+t < n-1-t
+x86_rev_stack_args n t =
+  if 6 + t >= n - 1 - t then ""
   else
-    let src = (n - 1 - i) * 16
-    let dst = 96 + (i - 6) * 16
-    cat ["    mov rax, [rsp+", show src, "]\n    mov [rsp+", show dst, "], rax\n", x86_move_stack_args_up n (i + 1)]
+    let a = (n - 7 - t) * 16
+    let b = t * 16
+    cat ["    mov rax, [rsp+", show a, "]\n    mov r10, [rsp+", show b, "]\n    mov [rsp+", show a, "], r10\n    mov [rsp+", show b, "], rax\n", x86_rev_stack_args n (t + 1)]
+
+-- after the reversal arg i sits at (i-6)*16; it goes to 96+(i-6)*16, highest i first
+x86_shift_stack_args n i =
+  if i < 6 then ""
+  else
+    let src = (i - 6) * 16
+    cat ["    mov rax, [rsp+", show src, "]\n    mov [rsp+", show (src + 96), "], rax\n", x86_shift_stack_args n (i - 1)]
 
 -- For TCO with >6 args (self-recursion): write new args 7+ to the CALLER's
 -- own stack-arg slots so they survive `add rsp, fs; pop rbp; jmp`. The new
@@ -7082,6 +7159,21 @@ x86_untag_args n i =
   else
     let r = x86_arg_reg i
     cat ["    mov r10, ", r, "\n    sar r10, 1\n    test ", r, ", 1\n    cmovnz ", r, ", r10\n", x86_untag_args n (i + 1)]
+
+-- The i-th argument register into xmm_i as a double: a boxed float (header 6, the double at
+-- +8) is loaded, a tagged int is untagged and converted. Labels lc+2i and the next.
+x86_float_args n i lc =
+  if i >= n then ""
+  else
+    let r = x86_arg_reg i
+    let x = cat ["xmm", show i]
+    let int_lbl = cat [".Lx_fa_int_", show (lc + 2 * i)]
+    let done_lbl = cat [".Lx_fa_done_", show (lc + 2 * i)]
+    cat ["    test ", r, ", 1\n    jnz ", int_lbl, "\n    movsd ", x, ", qword ptr [", r, "+8]\n    jmp ", done_lbl, "\n", int_lbl, ":\n    sar ", r, ", 1\n    cvtsi2sd ", x, ", ", r, "\n", done_lbl, ":\n", x86_float_args n (i + 1) lc]
+
+-- xmm0 boxed as a Rail float (header 6) in rax; xmm0 is kept on the stack across _rail_alloc
+x86_box_xmm0 _ =
+  "    sub rsp, 16\n    movsd qword ptr [rsp], xmm0\n    mov rdi, 16\n    call _rail_alloc\n    mov qword ptr [rax], 6\n    movsd xmm0, qword ptr [rsp]\n    movsd qword ptr [rax+8], xmm0\n    add rsp, 16\n"
 
 x86_cg_list elems env ar lc sl fs =
   if length elems == 0 then
@@ -7313,13 +7405,21 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
       -- rail_native_gotchas).
       -- Encoding: 1000=int, 2000=str, 3000=float, 4000=raw ptr
       let is_str_ret = ar_raw >= 2000 && ar_raw < 3000
+      let is_float_ret = ar_raw >= 3000 && ar_raw < 4000
       let is_raw_ret = ar_raw >= 4000
       let no_retag = is_str_ret || is_raw_ret
       let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
       let pop = x86_cg_pop_regs (length args) 0
-      let untag = x86_untag_args (length args) 0
-      let retag = if no_retag then "" else "    lea rax, [rax*2+1]\n"
-      (cat [pa, pop, untag, "    call ", fname, "@PLT\n", retag], lc1, sl1)
+      -- A float foreign fn (libm's floor and exp, a declared `foreign fma a b c -> float`): every
+      -- argument is a double in xmm0.., a boxed float unboxed or a tagged int converted, and the
+      -- result comes back in xmm0 and is boxed. Until 2026-10-29 the arguments went in the int
+      -- registers and rax was read back (known/x86_foreign_float_call: floor 2.5 printed
+      -- 4150184800000000).
+      let untag = if is_float_ret then x86_float_args (length args) 0 lc1 else x86_untag_args (length args) 0
+      let setal = if is_float_ret then cat ["    mov eax, ", show (length args), "\n"] else ""
+      let retag = if no_retag then "" else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
+      let lc2 = if is_float_ret then lc1 + 2 * length args else lc1
+      (cat [pa, pop, untag, setal, "    call ", fname, "@PLT\n", retag], lc2, sl1)
     else
     let voff = efind fname env
     if voff != (0 - 1) then
@@ -7413,7 +7513,10 @@ x86_cg node env ar lc sl tp fs =
     let r_in_env = rtg == "V" && efind (nd_s1 rnode) env != (0 - 1)
     let r_simple = rtg == "I" || (rtg == "V" && r_in_env)
     let both_simple = l_simple && r_simple
-    let both_int = is_int lnode env && is_int rnode env
+    -- A dotted operator works on floats, which x86 keeps boxed: never the raw int fast path,
+    -- whatever the syntactic int marks say (clamp_f's `x <. lo` compared the two boxes'
+    -- addresses and returned the low bound for every x: known/x86_float_compare, 2026-10-29).
+    let both_int = (op_is_dotted (nd_s1 node) == false) && is_int lnode env && is_int rnode env
     if both_simple then
       let la_rcx = x86_emit_rcx lnode env
       let (ra, lc1, sl1) = x86_cg rnode env ar (lc + 1) sl false fs
@@ -7608,7 +7711,9 @@ x86_compile_func d ar lc =
   let use_regs = nm != "main" && length ps >= 1 && length ps <= 3 && all_params_int ps bd && (argf_any_float ps nm ar 0 == false)
   let nregs = if use_regs then length ps else 0
   let env = if use_regs then mk_env_reg ps 16 0 else mk_env ps 16
-  let env = if length ps <= 3 then mark_int_params ps bd env else env
+  -- and no int marks on the params when the types proved one of them float: a float param
+  -- marked int sent `x < lo` down the raw int compare (known/x86_float_compare, 2026-10-29)
+  let env = if length ps <= 3 && (argf_any_float ps nm ar 0 == false) then mark_int_params ps bd env else env
   let env = cons ("__nregs", nregs) env
   let first_sl = 16 + 8 * length ps
   let is_tp = nm != "main"
@@ -7658,6 +7763,7 @@ compile_x86 path =
   let (toks, positions) = tokenize_with_pos src
   let ntoks = length toks
   let decls = pprog_ast toks
+  let _ = warn_shadowed src path decls
   let errs = ce_decls decls
   let nerrs = report_errors errs positions ntoks path + guards_unsupported decls path "x86" + check_patterns decls
   if nerrs > 0 then

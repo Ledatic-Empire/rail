@@ -9,6 +9,8 @@ _rail_free_16:
     .quad 0
 _rail_free_24:
     .quad 0
+_rail_free_rover:
+    .quad 0
 //@ piece
 _gc_mark_stack:
     .quad 0
@@ -114,10 +116,20 @@ _gc_mark_msg:
     .asciz "rail: gc mark stack exhausted\n"
 .text
 
-// rail_free_list_alloc: first-fit search. x0=size, returns ptr or 0
+// rail_free_list_alloc: x0=size, returns ptr or 0
 // Exact-size buckets (16B, 24B) checked first, O(1) pop; fall through to
-// the first-fit flat list on miss. Sweep keeps 16/24B blocks OUT of the
-// flat list, so the first-fit scan below only sees larger/odd sizes.
+// the flat list on miss. Sweep keeps 16/24B blocks OUT of the flat list,
+// so the scan below only sees larger/odd sizes.
+// The flat list is scanned next-fit: from the link cell where the last fit
+// was found (_rail_free_rover), to the end, then from the head back to it.
+// First-fit from the head, until 2026-10-29, walked the same small blocks
+// at the head (the sweep prepends, so the head is the youngest garbage) on
+// every request they could not serve: a compile of the TLS stack at the
+// default 1 GB arena spent minutes in this loop and never finished. The
+// rover is a link cell (the head cell or a node's [+8]); it is reset to 0
+// (the head) whenever the list is rebuilt or cleared, and after a fit it
+// is the cell that pointed to the block taken, so it always names a cell
+// still in the list.
 //@ piece
 _rail_free_list_alloc:
     cmp x0, #16
@@ -142,21 +154,46 @@ _rail_free_list_alloc:
     mov x0, x2
     ret
 .Lfla_main:
+    adrp x4, _rail_free_rover@PAGE
+    add x4, x4, _rail_free_rover@PAGEOFF
+    ldr x1, [x4]
+    cbnz x1, .Lfla_start
     adrp x1, _rail_free_list@PAGE
     add x1, x1, _rail_free_list@PAGEOFF
 //@ piece
+.Lfla_start:
+    mov x5, x1
+//@ piece
 .Lfla_loop:
+    ldr x2, [x1]
+    cbz x2, .Lfla_wrap
+    ldr x3, [x2]
+    cmp x3, x0
+    b.ge .Lfla_found
+    add x1, x2, #8
+    cmp x1, x5
+    b.eq .Lfla_fail
+    b .Lfla_loop
+//@ piece
+.Lfla_wrap:
+    adrp x1, _rail_free_list@PAGE
+    add x1, x1, _rail_free_list@PAGEOFF
+    cmp x1, x5
+    b.eq .Lfla_fail
     ldr x2, [x1]
     cbz x2, .Lfla_fail
     ldr x3, [x2]
     cmp x3, x0
     b.ge .Lfla_found
     add x1, x2, #8
+    cmp x1, x5
+    b.eq .Lfla_fail
     b .Lfla_loop
 //@ piece
 .Lfla_found:
     ldr x3, [x2, #8]
     str x3, [x1]
+    str x1, [x4]
     mov x0, x2
     ret
 //@ piece
@@ -169,6 +206,8 @@ _rail_free_list_alloc:
 _rail_free_list_clear:
     adrp x0, _rail_free_list@PAGE
     str xzr, [x0, _rail_free_list@PAGEOFF]
+    adrp x0, _rail_free_rover@PAGE
+    str xzr, [x0, _rail_free_rover@PAGEOFF]
     adrp x0, _rail_free_16@PAGE
     str xzr, [x0, _rail_free_16@PAGEOFF]
     adrp x0, _rail_free_24@PAGE

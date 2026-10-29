@@ -1,17 +1,17 @@
 {
  "x86_foreign_float_call": [
-  "live",
+  "fixed",
   "4000000000000000\n400f000000000000",
-  "x86 backend: a foreign float call (libm floor, fma) returns garbage; measured 2026-10-29 on a GitHub x86-64 runner (raillane R1 T4, T7); arm64 is right"
+  "x86 backend: a foreign float call (libm floor, fma) returns garbage; measured 2026-10-29 on a GitHub x86-64 runner (raillane R1 T4, T7); arm64 is right. Fixed 2026-10-29: a float foreign fn's arguments go to xmm0.. (boxed floats unboxed, tagged ints converted) and xmm0 is boxed back (x86_float_args, x86_box_xmm0 in tools/compile.rail); measured right on a Modal x86-64 box"
  ],
  "x86_float_compare": [
-  "live",
+  "fixed",
   "3fe0000000000000\n4014000000000000\n1",
-  "x86 backend: a float comparison in a clamp takes the wrong branch (raillane R1 T6: every value clamped to the low bound); arm64 is right"
+  "x86 backend: a float comparison in a clamp takes the wrong branch (raillane R1 T6: every value clamped to the low bound); arm64 is right. Fixed 2026-10-29: a dotted operator never takes the raw int path on x86, and no param is marked int when the types proved one float; measured right on a Modal x86-64 box"
  ],
  "x86_many_params": [
-  "live",
+  "fixed",
   "91\n105\n210",
-  "x86 backend: a user fn with 14 or more parameters reads some of them wrong (f14 gives 104, f16 132, f20 194; up to 13 right); measured 2026-10-29 on Modal x86-64 (raillane R3, the engine's 23-parameter step fn crashed); arm64 is right"
+  "x86 backend: a user fn with 14 or more parameters reads some of them wrong (f14 gives 104, f16 132, f20 194; up to 13 right); measured 2026-10-29 on Modal x86-64 (raillane R3, the engine's 23-parameter step fn crashed); arm64 is right. Fixed 2026-10-29: the stack-arg block is reversed in place and shifted (x86_rev_stack_args, x86_shift_stack_args), no target overwrites an unread source; measured right on a Modal x86-64 box"
  ]
 }

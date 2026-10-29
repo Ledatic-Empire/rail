@@ -137,13 +137,15 @@ is its output on macOS, and the Linux run differed only on the two lines sentenc
     relied on; still not pinned by a test), and libm `exp` agreed between Apple's libm and glibc
     2.39 on the eight values probed, which proves nothing. A user-declared foreign float fn's
     raw result reached `_rail_fval` until 2026-10-29 (t267).
-18. The `x86_64` backend's float lowering is not claimed to match ARM64. First measurement,
-    2026-10-29 (crossvendor raillane R1: `probe64.rail` cross-compiled on the Mini, assembled and
-    run on a GitHub x86-64 runner, bits against `probe64.c` built with gcc `-ffp-contract=off`):
-    `+. *. /.`, `fsqrt`, `to_float` and integer-made inputs agree bit for bit (eight 1024-term plain
-    dot products, eight divisions, eight 1/sqrt); a foreign float call (`floor`, `fma`) returns
-    garbage, and a float comparison inside a clamp takes the wrong branch (`tools/fuzz/known/
-    x86_foreign_float_call.rail`, `x86_float_compare.rail`, both live in `x86_cases.json`). No test.
+18. The `x86_64` backend's float lowering is not pinned by the suite (which does not run on
+    x86); it is measured by `tools/verify/numerics_vs_c` on CI's x86-64 Linux runner on every
+    push. First measurement, 2026-10-29 morning (crossvendor raillane R1): `+. *. /.`, `fsqrt`,
+    `to_float` agreed bit for bit with C, a foreign float call (`floor`, `fma`) returned garbage
+    and a float comparison inside a clamp took the wrong branch. Fixed the same day
+    (`tools/fuzz/known/x86_cases.json`: a float foreign fn's arguments in xmm registers and its
+    result boxed; a dotted operator never on the raw int path); since then all seven tests of
+    the probe (T1 to T7, floor, the exp polynomial, the clamped tanh and libm fma included) give
+    C's bits on x86-64 as on arm64.
 
 ## What "bit-exact" is scoped to
 

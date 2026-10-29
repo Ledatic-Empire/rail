@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-253%2F253-brightgreen" alt="tests 253/253"></a>
+  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-254%2F254-brightgreen" alt="tests 254/254"></a>
   <a href="#check-the-claims"><img src="https://img.shields.io/badge/self--hosting-fixed%20point-blue" alt="self-hosting"></a>
   <a href="#2-speaks-https-natively"><img src="https://img.shields.io/badge/HTTPS-pure%20Rail-ff5500" alt="pure-Rail HTTPS"></a>
   <a href="#how-it-works"><img src="https://img.shields.io/badge/GC-ARM64%20assembly-purple" alt="GC in ARM64 asm"></a>
@@ -42,7 +42,7 @@ and compares the bytes.
 
 ```
 RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # silent: the seed is what its source builds
-./rail_native test                                                        # 253/253 tests passed
+./rail_native test                                                        # 254/254 tests passed
 ```
 
 ### What the self-hosting is for
@@ -73,14 +73,13 @@ targets. Nothing to install: the seed binary is in the repo and needs no toolcha
 ```bash
 ./rail_native <file.rail>          # compile to /tmp/rail_out (in-process assembler, linker and signer)
 ./rail_native run <file.rail>      # compile and execute
-./rail_native test                 # the suite; the last line is 253/253 tests passed and the exit code says so
+./rail_native test                 # the suite; the last line is 254/254 tests passed and the exit code says so
 ./rail_native quick                # the 15-case smoke subset, a few seconds
 RAIL_ARENA_MB=6000 ./rail_native self   # self-compile to /tmp/rail_self; cmp it with rail_native
 ./rail_native x86 <file.rail>      # cross-compile to Linux x86_64 assembly (/tmp/rail_x86.s)
 ./rail_native linux <file.rail>    # cross-compile to a Linux ARM64 ELF (/tmp/rail_linux)
 ./rail_native types <file.rail>    # the type checker's report
 ./rail_native run tools/repl.rail  # a REPL
-RAIL_ARENA_MB=3000 ./rail_native run <big.rail>   # a program that imports the TLS stack (see below)
 ```
 
 [`docs/getting-started.md`](docs/getting-started.md) walks the first program;
@@ -97,10 +96,10 @@ here or read them there.
 | Claim | Command | CI |
 |---|---|---|
 | The committed seed is what its source builds, and the build is a fixed point | `RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self` | `test`: seed reproduced, then gen1 == gen2 |
-| The suite passes and the runner reports its own count | `./rail_native test` (253/253 tests passed, exit 0 only then) | `test` |
+| The suite passes and the runner reports its own count | `./rail_native test` (254/254 tests passed, exit 0 only then) | `test` |
 | The documents cite what exists and quote the suite's count (this badge included) | `./rail_native run tools/verify/tour_check.rail` | `test` |
 | The status matrix's numbers are the tree's | `./rail_native run tools/verify/gen_status.rail && git diff docs/STATUS.md` | `test` |
-| Rail's doubles are C's doubles, bit for bit, on arm64; on x86-64 the two open defects are named | `bash tools/verify/numerics_vs_c/run_ci.sh arm64` | `numerics`, `numerics-x86` |
+| Rail's doubles are C's doubles, bit for bit, on arm64 and on x86-64 | `bash tools/verify/numerics_vs_c/run_ci.sh arm64` | `numerics`, `numerics-x86` |
 | Every sentence of the numerics contract has a test | [`docs/NUMERICS.md`](docs/NUMERICS.md) names it; `./rail_native test` runs it | `test` |
 | The collector survives stress | `python3 tools/fuzz/gc_stress.py` (collect every Nth allocation, poison what is freed) | `gc-stress` |
 | An interpreter written outside Rail agrees with the native binary | `python3 tools/fuzz/semantic.py --seed 42 --cases 20` | `semantic` |
@@ -149,11 +148,11 @@ curl. The stdlib is 61 modules in all, and the crypto in it (SHA-256/384/512, HM
 ChaCha20-Poly1305, X25519, Ed25519, ECDSA P-256/P-384/P-521, RSA-PSS and PKCS1) is validated
 against RFC and NIST vectors in the suite. Not constant-time; see [Honest limits](#honest-limits).
 
-Compile a program that imports the TLS stack with `RAIL_ARENA_MB=3000 ./rail_native run ...`:
-with its imports it is 26 files and 269 KB of source, which compiles in 1.5 s from
-`RAIL_ARENA_MB=1500` up and thrashes the collector at the default 1 GB arena (measured
-2026-10-29; the compiler does not yet say so itself). [`examples/life_beacon.rail`](examples/life_beacon.rail)
-is the stack in one page (HTTPS, JSON, a SHA-256 chain, deterministic replay) and runs in CI.
+A program that imports the TLS stack is 26 files and 269 KB of source with its imports and
+compiles in 1.9 s at the default arena (2026-10-29; until that day the allocator's first-fit
+scan made it take minutes, and `RAIL_ARENA_MB=1500` was the workaround).
+[`examples/life_beacon.rail`](examples/life_beacon.rail) is the stack in one page (HTTPS, JSON, a
+SHA-256 chain, deterministic replay) and runs in CI.
 
 ### 3. Puts its numbers under a contract
 
@@ -164,9 +163,9 @@ are, and each sentence names the suite test that pins it and the platforms it wa
 at compile time by integer arithmetic (`tools/decimal64.rail`, pinned against CPython's bits) and
 `parse_float` by the same code at run time, and `show_float_hex`, which derives a double's 64
 bits by exact arithmetic so the same bits print the same sixteen hex digits on every platform.
-Two sentences are marked not claimed (host libm through FFI; the `x86_64` backend's floats), and
+One sentence is marked not claimed (host libm through FFI), and
 [`tools/verify/numerics_vs_c`](tools/verify/numerics_vs_c/) measures all of it against a C
-compiler on every CI run.
+compiler on every CI run, on an arm64 Mac and on an x86-64 Linux box.
 
 Since 2026-10-29 the contract includes binary32 on the double substrate: `round32`, `fma32` and
 `f32_bits`, so a Rail program can compute exactly what a float32 program on a GPU computes.
@@ -220,9 +219,9 @@ The training stack now lives in the private lab repo; the oracle is this one.
 - **A narrow, honest production surface.** Rail ships the crypto it uses and nothing more, every
   primitive vector-validated, none of it constant-time.
 - **Three backends travel with the language.** macOS ARM64 (native), Linux ARM64 (a Pi Zero 2 W
-  runs the numerics probe and the entropy beacon's replay) and Linux x86_64 (measured in CI, two
-  float defects open and named). WebAssembly and the microcontroller backends were cut in October
-  2026; their trees are tagged.
+  runs the numerics probe and the entropy beacon's replay) and Linux x86_64 (the numerics probe
+  passes all seven tests on CI's x86 runner since 2026-10-29). WebAssembly and the microcontroller
+  backends were cut in October 2026; their trees are tagged.
 
 ## The language
 
@@ -325,16 +324,12 @@ Things Rail does not do, so you do not hit them as surprises:
 - No constant-time or side-channel guarantees anywhere in the crypto. This is not OpenSSL.
 - An HTTPS connection costs seconds of wall time (public-key verification dominates). Fine for
   one-shot API calls, wrong for a proxy.
-- The `x86_64` backend is measured, not supported: a foreign float call returns garbage, a float
-  comparison inside a clamp takes the wrong branch, and a function with 14 or more parameters
-  miscompiles. Each is a live case in `tools/fuzz/known/` and a `KNOWN` line in the numerics gate.
+- The `x86_64` backend is measured, not supported: the suite does not run on it, and only the
+  numerics probe and the known-case corpus do. Its three float and calling-convention defects
+  found on 2026-10-29 were fixed the same day (`tools/fuzz/known/x86_cases.json`).
 - A top-level name you define replaces a stdlib function of the same name everywhere, the
-  stdlib's own callers included, with no warning. Treat imported names as reserved.
-- A quoted import is read relative to the current directory, and one that is not found is a
-  warning, not an error: the program then dies at load. Run `rail_native` from the repo root.
-- The default arena (1 GB before the first collection) is too small to compile a program that
-  imports the TLS stack: the collector thrashes for minutes. `RAIL_ARENA_MB=1500` or more
-  compiles it in under 2 s. The compiler should detect this and does not yet.
+  stdlib's own callers included. Since 2026-10-29 the compiler says so (a `WARNING` naming the
+  file); it still compiles. Treat imported names as reserved.
 - Rail has Hindley-Milner inference and no soundness proof, and is standardised by nobody. Use it
   because it is small, fast and checkable, not because it is Haskell.
 - The attested-training model generalizes 0/10 to unseen function names (above). Composition

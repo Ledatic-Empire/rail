@@ -35,8 +35,8 @@ Before declaring a hypothesis confirmed, run the falsification test (e.g., for f
 
 Self-hosting programming language. Compiler written in Rail, compiles itself to ARM64, x86_64, and Linux ARM64.
 
-- **Compiler source**: `tools/compile.rail` (7,782 lines on 2026-10-29; `wc -l`; the measured line is in `docs/STATUS.md`, which CI regenerates and compares; walked in file order by `docs/COMPILER_TOUR.md`, gated by `tools/verify/tour_check.rail`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
-- **Seed binary**: `rail_native` (1,041,288 bytes ARM64, 2026-10-29): checked into repo, self-compile produces byte-identical output (fixed point); regenerate `docs/STATUS.md` in the same commit as any seed change
+- **Compiler source**: `tools/compile.rail` (7,888 lines on 2026-10-29; `wc -l`; the measured line is in `docs/STATUS.md`, which CI regenerates and compares; walked in file order by `docs/COMPILER_TOUR.md`, gated by `tools/verify/tour_check.rail`), `tools/types.rail` (type inference, ~1,400) and `tools/ast.rail` (the typed syntax tree)
+- **Seed binary**: `rail_native` (1,041,320 bytes ARM64, 2026-10-29): checked into repo, self-compile produces byte-identical output (fixed point); regenerate `docs/STATUS.md` in the same commit as any seed change
 - **Native floats**: unboxed IEEE 754 doubles in ARM64 d-registers wherever the compiler has proved float; boxed (tag 6) only when stored into a tuple, list or ADT field or passed generically, and read back through `_rail_fval` (docs/NUMERICS.md, 2026-09-11). Float arrays, foreign float calls (`sin`/`cos`/`tanh`/`sqrt`), auto int→float promotion.
 - **REPL**: `./rail_native run tools/repl.rail`: interactive, persistent definitions
 - **Error messages**: `file:line:col: error: message`: parse errors halt cleanly instead of segfaulting.
@@ -46,14 +46,14 @@ Self-hosting programming language. Compiler written in Rail, compiles itself to 
 - **Effect handlers**: `try body handler`: setjmp/longjmp non-local error recovery. Deep unwinding, nested handlers.
 - **Type checker**: Forward inference pass emits warnings (not errors) for: head/tail on non-list, arithmetic on non-numeric, wrong arity, calling non-functions.
 - **Package manager**: `import math` (bare imports), `rail get github.com/...`, `rail pkg` reads `rail.toml`.
-- **Tests**: `./rail_native test`: 253/253 on master (2026-10-29, t269: a missing quoted import is refused and a quoted import resolves beside the compiler; t267: a user-declared foreign float fn's raw result, t268: the binary32 builtins; before them 250 after Tier 3 step 9, a test per sentence of docs/NUMERICS.md). Count fluctuates only when concurrent sessions collide on `/tmp/rail_out`; rerun with `--out-prefix` to confirm.
+- **Tests**: `./rail_native test`: 254/254 on master (2026-10-29, t270: a program that redefines an imported name is warned; t269: a missing quoted import is refused and a quoted import resolves beside the compiler; t267: a user-declared foreign float fn's raw result, t268: the binary32 builtins; before them 250 after Tier 3 step 9, a test per sentence of docs/NUMERICS.md). Count fluctuates only when concurrent sessions collide on `/tmp/rail_out`; rerun with `--out-prefix` to confirm.
 - **Performance**: Tail-recursive loops match C -O2 (5 instructions/iteration). Self-loop optimization, untagged register params, bottom-test with `subs`.
 - **Targets**: macOS ARM64 (native), Linux ARM64 (Pi Zero), Linux x86_64 (cross-compile)
 
 ### Key Commands
 
 ```bash
-./rail_native test                    # run the suite (253/253)
+./rail_native test                    # run the suite (254/254)
 RAIL_ARENA_MB=6000 ./rail_native self # self-compile: the compiler compiles tools/compile.rail and
                                       #   links it in process (tools/v5/link_lib.rail: assembler,
                                       #   Mach-O linker, ad-hoc signer). One link path since Tier 3
@@ -87,8 +87,8 @@ python3 tools/fuzz/gc_stress.py      # every suite test and tree program under R
 - **Float representation comes from the types** (`tools/types.rail`, `docs/TYPES.md`): a parameter or result whose type is float travels as raw bits; one that untyped data (`dyn`) can reach stays generic. `show(user_func(1.0))` still won't pick the float printer; use `show_float` explicitly.
 - **Float self-loop TCO**: Deferred: `body_has_float` guard prevents int-TCO corruption but float-specific d8-d15 TCO not yet implemented.
 - **Deeply-nested `match` chains**: A `match | ADT -> match | ADT -> ...` chain 5+ levels deep inside a function body with side-effecting `let`s after it triggers "expected decl" parse errors. **Workaround**: flatten multiple `match`es into a single chained form on one indent level: all ADT destructures at the top of the function body followed by a linear `let` stream (the pattern that works lived in `tools/train`, now in the private rail-lab).
-- **A top-level name you define replaces a stdlib function of the same name everywhere, the stdlib's own callers included, with no warning** (2026-10-29): a program's `hex_digit` broke `hex_to_bytes`, `sha256` and `sha512`. Treat imported names as reserved; prefix your helpers.
-- **A program that imports the TLS stack does not compile at the default arena** (2026-10-29, found by the examples gate): `import "stdlib/https_client.rail"` is 26 files and 269 KB of source with its imports; at the default 1 GB arena the collector thrashes (examples/life_beacon.rail ran 11 minutes of CPU without finishing), at `RAIL_ARENA_MB=1500` and above it compiles in 1.5 s (peak 2.86 GB resident at 6000). `tools/verify/examples_check.rail` compiles every example at 3000. The compiler should notice a large program at the default arena and does not yet.
+- **A top-level name you define replaces a stdlib function of the same name everywhere, the stdlib's own callers included** (2026-10-29): a program's `hex_digit` broke `hex_to_bytes`, `sha256` and `sha512`. Since the same evening the compiler prints `WARNING: 'hex_digit' is defined in <file> and by an import ...` (`warn_shadowed`, t270) and compiles anyway. Treat imported names as reserved; prefix your helpers.
+- **The flat free list is scanned next-fit** (runtime/arm64/gc_1.s, 2026-10-29). Until that day it was first-fit from the head, and the sweep prepends, so every request the youngest small blocks could not serve walked them all: a program that imports the TLS stack (26 files, 269 KB of source) took minutes at the default 1 GB arena (examples/life_beacon.rail ran 11 minutes of CPU without finishing) and 1.5 s at `RAIL_ARENA_MB=1500`. With the rover it compiles in 1.9 s at the default (peak 2.73 GB resident); the self-compile is unchanged at about 6 s. A large program that is slow to compile is now a finding, not a known cost.
 - **A quoted import (`import "stdlib/x.rail"`) is read from the current directory, then from beside the compiler; a file found nowhere is a compile error** (`resolve_quoted_import`, t269, 2026-10-29). Until that day it was read from the current directory only and a missing one was a WARNING per name, so the program died at load (`dyld: Symbol not found`); `tools/verify/numerics_vs_c/run_ci.sh` was bitten.
 - **Mixed float+int arithmetic (v2.1.2)**: `0.0 + int_expr` now promotes correctly even when the int operand's type can't be statically inferred. The O-handler emits a runtime `tst x, #1` path that picks scvtf or fmov based on the tag bit. Regression test: `t106 mixed_float_int_op`.
 
