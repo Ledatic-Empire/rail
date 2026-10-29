@@ -5,6 +5,25 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **A call to a name nothing defines is refused at link, by name** (2026-10-29, issue #116
+  item 5). The compiler printed `WARNING: 'foo' is not defined; did you mean 'cos'?` and left
+  `bl _foo` in the text; the in-process linker bound it to libSystem and the program died at
+  load with `dyld: Symbol not found: _foo` (exit 0 from the compiler, a binary written). A bare
+  undefined identifier had been refused since Tier 3 step 6 through the
+  `_RAIL_UNDEFINED_IDENT_<name>` marker; a call now takes the same marker, so `lk_link_file`
+  prints `link: refused, undefined identifier(s): foo`, writes nothing and the compiler exits 1.
+  The message says `error:` now. Found by the suite on the way: `stdlib/file.rail` called
+  `malloc` and `free` without declaring them (t252 was refused), so it declares them now, as
+  `socket.rail` and `sqlite.rail` do; two modules declaring the same foreign name import
+  together without a warning. Measured, not fixed: 18 of the 61 stdlib modules do not compile
+  when imported alone (`asn1`, `cert_chain`, `cert_p384`, `cert_p521`, `dns`, `ecdsa_p256`,
+  `ecdsa_p384`, `ecdsa_p521`, `ed25519`, `ed25519_scalar`, `ed25519_sign`, `elf`, `pem`,
+  `rsa_pss`, `sha512`, `string`, `tls13_cert_verify`, `tls13_record`) because they use names
+  their own imports do not bring (`hex_to_bytes`, `sha_copy_bytes`, `bn_from_be`, `mw_u32`,
+  `any`, bare `malloc` in `dns`); until today such a program printed warnings and died at load,
+  now it is refused at compile. Test t272 (`driver_undefined_call`). Suite 256.
+
+### Fixed
 - **A frame past 4,095 bytes crashed on return from the function** (2026-10-29, carried since
   the 10-22 handoff as "a `main` with about 900 `let`s segfaults"). `sub sp, sp, #imm` holds
   12 bits and the pure-Rail assembler kept the low 12 of whatever it was given: a main with
