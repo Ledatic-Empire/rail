@@ -72,6 +72,17 @@ All notable changes to Rail are documented here.
   encodings checked against clang). `docs/NUMERICS.md` sentences 19 to 21. Suite 252.
 
 ### Fixed
+- **A quoted import that no directory has is a compile error, and a quoted import is also looked
+  up beside the compiler** (2026-10-29, `resolve_quoted_import`, the `str` branch of `pprog_ast`).
+  Until now `import "stdlib/x.rail"` was `read_file` against the current directory and nothing
+  else: run from any other directory, the import read as empty, every name it would have defined
+  was reported as `WARNING: 'x' is not defined`, linked as an import from libSystem, and the
+  program died at load (`dyld: Symbol not found: _sha256_hex`). Now the path is tried in the
+  current directory and then in the compiler's own directory (its stdlib travels with it), and a
+  file found nowhere is `file:line:col: error: cannot open import "..."`, exit 1. Only path
+  characters reach the shell. Test t269 (`driver_import_resolution`: the refusal with its message,
+  and a `stdlib/float_hex.rail` import resolved from `/tmp`). Suite 253; the seed reproduces
+  itself after one cycle. Found by the numerics gate run from its own directory.
 - **A user-declared `foreign f ... -> float` now carries the `__float_ret_` marker** (2026-10-29,
   `get_arities`, `foreign_float_ret_markers`). Its result always left as raw float bits, but
   codegen did not know it: a float fn whose body was such a call, a float argument made of one,
