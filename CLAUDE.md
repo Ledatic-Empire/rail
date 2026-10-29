@@ -87,6 +87,7 @@ python3 tools/fuzz/gc_stress.py      # every suite test and tree program under R
 - **Float representation comes from the types** (`tools/types.rail`, `docs/TYPES.md`): a parameter or result whose type is float travels as raw bits; one that untyped data (`dyn`) can reach stays generic. `show(user_func(1.0))` still won't pick the float printer; use `show_float` explicitly.
 - **Float self-loop TCO**: Deferred: `body_has_float` guard prevents int-TCO corruption but float-specific d8-d15 TCO not yet implemented.
 - **Deeply-nested `match` chains**: A `match | ADT -> match | ADT -> ...` chain 5+ levels deep inside a function body with side-effecting `let`s after it triggers "expected decl" parse errors. **Workaround**: flatten multiple `match`es into a single chained form on one indent level: all ADT destructures at the top of the function body followed by a linear `let` stream (the pattern that works lived in `tools/train`, now in the private rail-lab).
+- **A top-level name you define replaces a stdlib function of the same name everywhere, the stdlib's own callers included, with no warning** (2026-10-29): a program's `hex_digit` broke `hex_to_bytes`, `sha256` and `sha512`. Treat imported names as reserved; prefix your helpers.
 - **Mixed float+int arithmetic (v2.1.2)**: `0.0 + int_expr` now promotes correctly even when the int operand's type can't be statically inferred. The O-handler emits a runtime `tst x, #1` path that picks scvtf or fmov based on the tag bit. Regression test: `t106 mixed_float_int_op`.
 
 ### Modifying the Compiler

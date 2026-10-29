@@ -8,5 +8,10 @@
   "live",
   "3fe0000000000000\n4014000000000000\n1",
   "x86 backend: a float comparison in a clamp takes the wrong branch (raillane R1 T6: every value clamped to the low bound); arm64 is right"
+ ],
+ "x86_many_params": [
+  "live",
+  "91\n105\n210",
+  "x86 backend: a user fn with 14 or more parameters reads some of them wrong (f14 gives 104, f16 132, f20 194; up to 13 right); measured 2026-10-29 on Modal x86-64 (raillane R3, the engine's 23-parameter step fn crashed); arm64 is right"
  ]
 }
