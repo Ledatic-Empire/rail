@@ -12,6 +12,12 @@
 -- Caller must have stdlib/asn1.rail + stdlib/ecdsa_p521.rail +
 -- stdlib/sha512.rail already loaded (typical via tls13_client.rail).
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/asn1.rail"
+import "stdlib/ecdsa_p521.rail"
+import "stdlib/sha256.rail"
+import "stdlib/sha512.rail"
+
 cv_extract_p521_pubkey cert cert_len =
   let fields = asn1_cert_fields cert cert_len
   if arr_get fields 12 == 0 then cvp521_fail 0

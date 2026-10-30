@@ -1,0 +1,53 @@
+-- tools/verify/stdlib_alone.rail: every stdlib module compiles when imported alone.
+--
+-- For each stdlib/<m>.rail: write `import "stdlib/<m>.rail"` and `main = 0` to a file and
+-- compile it. A module that uses a name its own imports do not bring is refused by the compiler
+-- (`error: 'x' is not defined`, then the link refused by name, since Rail #182). Until
+-- 2026-10-30, 18 of the 61 modules were: they leaned on names their importers happened to bring,
+-- and a program importing one alone printed warnings and died at load. Every refusal is printed
+-- with the compiler's first error line; the last line is PASS or FAIL. Exit 0 iff PASS.
+-- Run from the repo root:  ./rail_native run tools/verify/stdlib_alone.rail
+-- `shell` passes no environment through, so the arena setting is in the command.
+
+cat parts = join "" parts
+rstrip_nl s = join "" (reverse (drop_nl (reverse (chars s))))
+drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs
+nonempty xs = if xs == [] then [] else if head xs == "" then nonempty (tail xs) else cons (head xs) (nonempty (tail xs))
+ltrim s = if length s == 0 then s else if str_sub s 0 1 == " " then ltrim (str_sub s 1 (length s - 1)) else s
+last_of xs = if tail xs == [] then head xs else last_of (tail xs)
+
+-- "stdlib/asn1.rail" -> "asn1"
+name_of path = str_sub path 7 (length path - 12)
+
+-- the compiler's first line that names an error, or a note that it printed none
+first_error ls =
+  if ls == [] then "refused, no error line printed"
+  else if str_contains "error" (head ls) then ltrim (head ls)
+  else first_error (tail ls)
+
+-- one module; prints a finding when it is refused, returns 1 then, 0 otherwise
+check_module path =
+  let name = name_of path
+  let src = cat ["/tmp/stdlib_alone_", name, ".rail"]
+  let bin = cat ["/tmp/stdlib_alone_", name]
+  let _ = write_file src (cat ["import \"", path, "\"\nmain = 0\n"])
+  let out = shell (cat ["RAIL_ARENA_MB=3000 ./rail_native --out-prefix ", bin, " ", src, " 2>&1; echo \"EXIT $?\""])
+  let lines = split "\n" (rstrip_nl out)
+  let _ = shell (cat ["rm -f ", src, " ", bin])
+  if last_of lines == "EXIT 0" then 0
+  else
+    let _ = print (cat ["  FAIL ", path, ": ", first_error lines])
+    1
+
+check_all paths n = if paths == [] then n else check_all (tail paths) (n + check_module (head paths))
+
+main =
+  let paths = nonempty (split "\n" (shell "ls stdlib/*.rail"))
+  let total = length paths
+  let fails = check_all paths 0
+  if fails == 0 then
+    let _ = print (cat ["PASS stdlib_alone: ", show total, " modules compile when imported alone"])
+    0
+  else
+    let _ = print (cat ["FAIL stdlib_alone: ", show fails, " of ", show total, " modules do not compile when imported alone"])
+    1

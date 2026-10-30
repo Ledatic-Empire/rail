@@ -21,6 +21,9 @@
 -- skip this file — the surface stays opt-in.
 
 -- ── L as 32-byte LE constant ──────────────────────────────────────────
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/bytes.rail"
+
 sc_l_bytes _ = hex_to_bytes "edd3f55c1a631258d69cf7a2def9de1400000000000000000000000000000010"
 
 -- ── Multi-precision byte primitives ───────────────────────────────────

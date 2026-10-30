@@ -25,6 +25,10 @@
 
 -- ── 32-bit op helpers ────────────────────────────────────────────────
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/bytes.rail"
+import "stdlib/sha256.rail"
+
 s5_and32 a b = bit_and (bit_and a b) 4294967295
 s5_or32  a b = bit_and (bit_or  a b) 4294967295
 s5_xor32 a b = bit_and (bit_xor a b) 4294967295

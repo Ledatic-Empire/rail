@@ -24,6 +24,8 @@
 -- errors (textual imports don't dedupe). Caller must load tls13 first.
 
 import "stdlib/aead.rail"
+import "stdlib/sha256.rail"
+import "stdlib/tls13.rail"
 
 -- Buffer helpers (rec_ prefix to avoid colliding with tls13_hs's ch_/sh_).
 

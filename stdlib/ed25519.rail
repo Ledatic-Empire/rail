@@ -28,6 +28,12 @@
 -- Ed25519 "d" curve param = -121665 / 121666 (mod p), verified via
 -- Python: (-121665 * pow(121666, -1, 2**255-19)) % (2**255-19). Canonical
 -- 32-byte little-endian:
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/bytes.rail"
+import "stdlib/sha256.rail"
+import "stdlib/sha512.rail"
+import "stdlib/x25519.rail"
+
 ed_d_bytes _ = hex_to_bytes "a3785913ca4deb75abd841414d0a700098e879777940c78c73fe6f2bee6c0352"
 
 -- sqrt(-1) mod p; needed when recovering x whose square root candidate

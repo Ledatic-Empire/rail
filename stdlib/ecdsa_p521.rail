@@ -34,6 +34,10 @@
 -- already brings it in via rsa_pss.rail, and a second textual import
 -- duplicates every symbol.
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/bignum_n.rail"
+import "stdlib/bytes.rail"
+
 p521_nl _ = 33
 
 -- Load curve constants (66 bytes each, 33 limbs with the top limb

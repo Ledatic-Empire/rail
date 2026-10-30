@@ -4,6 +4,24 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Added
+- **`tools/verify/stdlib_alone.rail`: every stdlib module compiles when imported alone** (2026-10-30,
+  CI job `stdlib`). For each `stdlib/<m>.rail` it compiles `import "stdlib/<m>.rail"` with `main = 0`
+  and prints the compiler's first error line for any module refused; PASS or FAIL last, exit 0 iff
+  PASS. A planted missing import (`asn1` without `bytes`) fails it: `FAIL stdlib/asn1.rail: error:
+  'hex_to_bytes' is not defined`.
+
+### Fixed
+- **18 stdlib modules import what they use** (2026-10-30; 52 `import` lines). Top-level names are one
+  flat space, so `asn1` could call `hex_to_bytes` without importing `bytes` as long as every
+  importer brought it, and a program importing such a module alone printed warnings and died at
+  load (refused at compile since #182). Now `asn1`, `cert_chain`, `cert_p384`, `cert_p521`, `dns`,
+  `ecdsa_p256`, `ecdsa_p384`, `ecdsa_p521`, `ed25519`, `ed25519_scalar`, `ed25519_sign`, `elf`,
+  `pem`, `rsa_pss`, `sha512`, `string`, `tls13_cert_verify` and `tls13_record` import the modules
+  whose names they use (the graph stays acyclic; `tls13_record` imports `tls13` for
+  `tls13_record_nonce`). Diamonds dedupe as before: the suite (256), every example and the
+  self-compile are unchanged (the seed is not touched).
+
 ### Fixed
 - **A call to a name nothing defines is refused at link, by name** (2026-10-29, issue #116
   item 5). The compiler printed `WARNING: 'foo' is not defined; did you mean 'cos'?` and left

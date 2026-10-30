@@ -27,6 +27,9 @@
 -- ELF constants (sources: <elf.h>, AArch64 ABI ELF Supplement)
 -- ============================================================================
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/macho.rail"
+
 elf_magic_0 = 127       -- 0x7F
 elf_magic_1 = 69        -- 'E'
 elf_magic_2 = 76        -- 'L'

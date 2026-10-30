@@ -23,6 +23,12 @@
 -- Buffer ownership: caller owns seed/msg. Returned arrays are freshly
 -- allocated and may be retained or discarded by the caller.
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/ed25519.rail"
+import "stdlib/ed25519_scalar.rail"
+import "stdlib/sha256.rail"
+import "stdlib/sha512.rail"
+
 ed25519_sk_expand seed =
   let h = sha512_bytes seed 32
   let a = arr_new 32 0

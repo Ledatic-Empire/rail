@@ -14,6 +14,12 @@
 
 -- ── PEM block iterator ────────────────────────────────────────────
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/asn1.rail"
+import "stdlib/b64.rail"
+import "stdlib/sha256.rail"
+import "stdlib/hmac.rail"
+
 pem_begin _ = "-----BEGIN CERTIFICATE-----"
 pem_end   _ = "-----END CERTIFICATE-----"
 

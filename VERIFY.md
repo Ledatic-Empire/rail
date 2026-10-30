@@ -65,6 +65,17 @@ result printed as its 64 bits and compared with the committed reference. [`docs/
 is the contract behind it, a suite test per sentence. CI runs the probe on its macOS and its
 x86-64 Linux runner, seven tests each, all passing since 2026-10-29.
 
+## 3c. Every stdlib module stands on its own imports
+
+```bash
+./rail_native run tools/verify/stdlib_alone.rail      # import each of the 61 modules alone; the last line is PASS
+```
+
+[`tools/verify/stdlib_alone.rail`](tools/verify/stdlib_alone.rail) compiles `import "stdlib/<m>.rail"`
+with `main = 0` for every module. Since Rail #182 a name nothing defines is refused by the
+compiler, so a module that leaned on names its importers happened to bring fails here by name;
+18 of the 61 did until 2026-10-30, when each got the imports it uses. CI job `stdlib`.
+
 ## 4. Read the grammar
 
 The language surface is a single EBNF file you can read end to end:

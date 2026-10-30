@@ -118,6 +118,16 @@ jobs:
         - uses: actions/checkout@v4
         - name: Every example compiles, runs and prints its expected output
           run: ./rail_native --out-prefix /tmp/examples_check run tools/verify/examples_check.rail
+    stdlib:
+      # Every stdlib module compiles when imported alone (tools/verify/stdlib_alone.rail): a module
+      # that uses a name its own imports do not bring is refused by the compiler, as 18 of 61 were
+      # until 2026-10-30.
+      runs-on: macos-latest
+      timeout-minutes: 15
+      steps:
+        - uses: actions/checkout@v4
+        - name: Every stdlib module compiles when imported alone
+          run: ./rail_native --out-prefix /tmp/stdlib_alone run tools/verify/stdlib_alone.rail
     numerics:
       # tools/verify/numerics_vs_c: the same double arithmetic written in C and in Rail, from the
       # same integer-made inputs, every result printed as its 64 bits. Both halves run here and are

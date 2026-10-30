@@ -17,6 +17,9 @@
 -- tls13_cert_verify import chain).
 
 import "stdlib/bignum_n.rail"
+import "stdlib/bytes.rail"
+import "stdlib/sha256.rail"
+import "stdlib/hmac.rail"
 
 -- ── EMSA-PSS-VERIFY constants for SHA-256 + 32-byte salt ───────────
 

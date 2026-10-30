@@ -82,9 +82,12 @@ In the order they appear in `run_tests`:
 | Standalone programs | `./rail_native run tools/test/rail_test.rail tools/test` | every `test_*.rail` under `tools/test` exits 0 and prints PASS last |
 | Runtime copy | `./rail_native run tools/gen_runtime.rail check` | `runtime/arm64/*.s` and the compiler's embedded copy agree |
 | Seed format | `bash tools/independence/seed_format_gate.sh` | a Python writer written from `docs/SEED_FORMAT.md` produces the bytes the Rail linker writes |
+| Every example | `./rail_native run tools/verify/examples_check.rail` | every program in `examples/` compiles, runs and prints the output committed under `examples/expected/` |
+| Every stdlib module alone | `./rail_native run tools/verify/stdlib_alone.rail` | each of the 61 modules compiles when it is the only import (a name its own imports do not bring is refused) |
 | The reader's path | `./rail_native run tools/verify/tour_check.rail` | `docs/COMPILER_TOUR.md` cites symbols and paths that exist, in the compiler's banner order, and every quoted test count is the suite's |
 | The whole kit | `tools/verify/check.sh --quick` | the quick suite, the grammar, the live status matrix (`VERIFY.md`) |
 
 CI (`.github/workflows/ci.yml`) runs the suite, the self-compile with its `cmp`, the
-runtime check, the seed format gate, the tour gate, the semantic oracle, the known cases and
-the collector stress run on every push and pull request.
+runtime check, the seed format gate, the tour gate, the examples, the stdlib modules alone, the
+numerics probe on arm64 and x86-64, the semantic oracle, the known cases and the collector stress
+run on every push and pull request.

@@ -15,6 +15,13 @@
 -- Public API:
 --   cc_walk_chain store certs lens count -> 1/0
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/asn1.rail"
+import "stdlib/pem.rail"
+import "stdlib/sha256.rail"
+import "stdlib/hmac.rail"
+import "stdlib/tls13_cert_verify.rail"
+
 cc_walk_chain store certs lens count =
   if count <= 0 then 0
   else cc_walk_at store certs lens count 0
