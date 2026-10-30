@@ -13,6 +13,7 @@ _rail_write_file:
     adrp x1, _mode_w@PAGE
     add x1, x1, _mode_w@PAGEOFF
     bl _fopen
+    cbz x0, .Lwf_fail
     str x0, [x29, #32]
     ldr x0, [x29, #16]
     bl _strlen
@@ -24,6 +25,35 @@ _rail_write_file:
     ldr x0, [x29, #32]
     bl _fclose
     mov x0, #1
+    ldp x29, x30, [sp], #48
+    ret
+// fopen failed (a missing directory, no permission). Until 2026-10-30 the bytes went to
+// fwrite(NULL) and the result was 0 exactly as on success: silent under launchd. Now the
+// path is named on stderr (write(2), no stdio) and the result is 1.
+.Lwf_fail:
+    mov x0, #2
+    adrp x1, _wf_fail_msg@PAGE
+    add x1, x1, _wf_fail_msg@PAGEOFF
+    mov x2, #30
+    movz x16, #4
+    movk x16, #0x200, lsl #16
+    svc #0x80
+    ldr x0, [x29, #24]
+    bl _strlen
+    mov x2, x0
+    ldr x1, [x29, #24]
+    mov x0, #2
+    movz x16, #4
+    movk x16, #0x200, lsl #16
+    svc #0x80
+    mov x0, #2
+    adrp x1, _wf_nl@PAGE
+    add x1, x1, _wf_nl@PAGEOFF
+    mov x2, #1
+    movz x16, #4
+    movk x16, #0x200, lsl #16
+    svc #0x80
+    mov x0, #3
     ldp x29, x30, [sp], #48
     ret
 

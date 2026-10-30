@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-256%2F256-brightgreen" alt="tests 256/256"></a>
+  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-257%2F257-brightgreen" alt="tests 257/257"></a>
   <a href="#check-the-claims"><img src="https://img.shields.io/badge/self--hosting-fixed%20point-blue" alt="self-hosting"></a>
   <a href="#2-speaks-https-natively"><img src="https://img.shields.io/badge/HTTPS-pure%20Rail-ff5500" alt="pure-Rail HTTPS"></a>
   <a href="#how-it-works"><img src="https://img.shields.io/badge/GC-ARM64%20assembly-purple" alt="GC in ARM64 asm"></a>
@@ -42,7 +42,7 @@ and compares the bytes.
 
 ```
 RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self   # silent: the seed is what its source builds
-./rail_native test                                                        # 256/256 tests passed
+./rail_native test                                                        # 257/257 tests passed
 ```
 
 ### What the self-hosting is for
@@ -73,7 +73,7 @@ targets. Nothing to install: the seed binary is in the repo and needs no toolcha
 ```bash
 ./rail_native <file.rail>          # compile to /tmp/rail_out (in-process assembler, linker and signer)
 ./rail_native run <file.rail>      # compile and execute
-./rail_native test                 # the suite; the last line is 256/256 tests passed and the exit code says so
+./rail_native test                 # the suite; the last line is 257/257 tests passed and the exit code says so
 ./rail_native quick                # the 15-case smoke subset, a few seconds
 RAIL_ARENA_MB=6000 ./rail_native self   # self-compile to /tmp/rail_self; cmp it with rail_native
 ./rail_native x86 <file.rail>      # cross-compile to Linux x86_64 assembly (/tmp/rail_x86.s)
@@ -96,7 +96,7 @@ here or read them there.
 | Claim | Command | CI |
 |---|---|---|
 | The committed seed is what its source builds, and the build is a fixed point | `RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self` | `test`: seed reproduced, then gen1 == gen2 |
-| The suite passes and the runner reports its own count | `./rail_native test` (256/256 tests passed, exit 0 only then) | `test` |
+| The suite passes and the runner reports its own count | `./rail_native test` (257/257 tests passed, exit 0 only then) | `test` |
 | The documents cite what exists and quote the suite's count (this badge included) | `./rail_native run tools/verify/tour_check.rail` | `test` |
 | The status matrix's numbers are the tree's | `./rail_native run tools/verify/gen_status.rail && git diff docs/STATUS.md` | `test` |
 | Rail's doubles are C's doubles, bit for bit, on arm64 and on x86-64 | `bash tools/verify/numerics_vs_c/run_ci.sh arm64` | `numerics`, `numerics-x86` |

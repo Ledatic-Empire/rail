@@ -4,6 +4,17 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Fixed
+- **`write_file` says so and returns 1 when it cannot open the file** (2026-10-30,
+  `_rail_write_file` in `runtime/arm64/io.s`). Until now a failed `fopen` (a missing directory, no
+  permission) went on to `fwrite(NULL)` and `fclose(NULL)` and returned 0 exactly as on success: a
+  tool under launchd lost its output in silence (the rules carried this as a trap since
+  2026-10-22). Now the path is named on standard error (`rail: write_file: cannot open <path>`, by
+  `write(2)`, no stdio) and the result is 1; a successful write still returns 0. The string is
+  still written up to its first NUL byte (C strings). The x86-64 runtime (`tools/x86_rt.s`)
+  skips the write when `fopen` fails but still returns 0: unchanged, not measured. Test t273
+  (`write_file_fopen_fails`). Suite 257.
+
 ### Added
 - **`tools/verify/stdlib_alone.rail`: every stdlib module compiles when imported alone** (2026-10-30,
   CI job `stdlib`). For each `stdlib/<m>.rail` it compiles `import "stdlib/<m>.rail"` with `main = 0`
