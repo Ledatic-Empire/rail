@@ -43,10 +43,13 @@ let content = read_file "/tmp/data.txt"
 
 ### `write_file`
 
-Write a string to a file, creating it if it does not exist, overwriting if it does.
+Write a string to a file, creating it if it does not exist, overwriting if it does. Returns 0
+when the file was written. When the file cannot be opened (a missing directory, no permission)
+it prints `rail: write_file: cannot open <path>` on standard error and returns 1 (since
+2026-10-30; it returned 0 either way before). The string is written up to its first NUL byte.
 
 ```rail
-write_file "/tmp/output.txt" "hello, world"
+let r = write_file "/tmp/output.txt" "hello, world"   -- 0 when written, 1 when not
 ```
 
 ### `shell`

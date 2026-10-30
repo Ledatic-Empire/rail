@@ -29,6 +29,10 @@ _rail_empty_str:
     .byte 0
 _mode_w:
     .asciz "w"
+_wf_fail_msg:
+    .asciz "rail: write_file: cannot open "
+_wf_nl:
+    .asciz "\n"
 _mode_r:
     .asciz "r"
 _rail_arena_env_name:
