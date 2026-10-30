@@ -26,8 +26,9 @@ main =
   let chars = split "" "abcdef"
   let _ = print (show (length chars))
 
-  -- Use shell for more string ops
-  let date = shell "date +%Y-%m-%d"
-  let _ = print date
+  -- Use shell for more string ops (nothing that reads the clock: the output is a committed
+  -- expectation, examples/expected/string_processing.txt, and a date failed it at midnight UTC)
+  let upper = shell "printf hello | tr a-z A-Z"
+  let _ = print upper
 
   0

@@ -12,6 +12,10 @@ All notable changes to Rail are documented here.
   'hex_to_bytes' is not defined`.
 
 ### Fixed
+- **`examples/string_processing.rail` no longer prints the date** (2026-10-30): its expected output
+  (written 2026-10-29) carried that day's date and the examples gate failed on CI at midnight UTC;
+  the shell transform it demonstrates is `tr a-z A-Z` now. An example's output must not depend on
+  the clock.
 - **18 stdlib modules import what they use** (2026-10-30; 52 `import` lines). Top-level names are one
   flat space, so `asn1` could call `hex_to_bytes` without importing `bytes` as long as every
   importer brought it, and a program importing such a module alone printed warnings and died at
