@@ -18,6 +18,9 @@
 -- the very next server answered normally. A resolver that accepts and
 -- drops is indistinguishable from having no network at all, so every
 -- Rail HTTPS consumer went dark at once, attestation signing included.
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/socket.rail"
+
 dns_servers _ =
   let s = read_file "/etc/resolv.conf"
   dns_collect_ns (split_lines s)

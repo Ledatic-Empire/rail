@@ -25,6 +25,18 @@
 
 -- ── Build the TLS 1.3 "signed data" ────────────────────────────────────
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/asn1.rail"
+import "stdlib/cert_p384.rail"
+import "stdlib/cert_p521.rail"
+import "stdlib/ecdsa_p256.rail"
+import "stdlib/ecdsa_p521.rail"
+import "stdlib/rsa_pss.rail"
+import "stdlib/sha256.rail"
+import "stdlib/hmac.rail"
+import "stdlib/sha512.rail"
+import "stdlib/bytes.rail"
+
 cv_context_str _ = "TLS 1.3, server CertificateVerify"
 cv_context_len _ = 33
 

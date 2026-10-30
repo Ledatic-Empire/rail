@@ -10,7 +10,7 @@ cleanup candidate.
 |---|---|
 | `tools/` | Everything Rail-source-but-not-compiler-or-stdlib: the compiler driver (`compile.rail`, `types.rail`, `ast.rail`), the runtime generator, the v5 assembler and linker (`v5/`), attestation (`attest/`), the verify scripts, the semantic oracle and GC stress driver (`fuzz/`), the test runner and smokes (`test/`), the REPL and LSP, the stdlib docs generator, the Quartz and channels bridges (`desk/`, `runtime/`), and `fleet/` until its daemon is repointed. |
 | `runtime/arm64/` | The ARM64 runtime every native program links, as assembly (21 `.s` files). `tools/gen_runtime.rail` carries it into the compiler as the generated `tools/runtime_arm64.rail`. Root `runtime/` is otherwise gitignored build output. See its README. |
-| `stdlib/` | Rail's standard library; the module count is a measured row of `docs/STATUS.md`. Everything `import`-able. |
+| `stdlib/` | Rail's standard library; the module count is a measured row of `docs/STATUS.md`. Everything `import`-able, each module on its own imports: `tools/verify/stdlib_alone.rail` compiles every one alone in CI. |
 | `examples/` | Hand-curated `.rail` programs that demonstrate language features, each with its expected output under `examples/expected/`; `tools/verify/examples_check.rail` runs them in CI. |
 | `tests/` | Placeholder dir; the actual test corpus is inside `tools/compile.rail` as `run_test` calls. See `tests/README.md`. |
 | `docs/` | Current-truth documentation: language ref, stdlib, ABI, release runbook, active design docs. Dated retros / closed investigations live in `docs/archive/`. |

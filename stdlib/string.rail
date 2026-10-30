@@ -2,6 +2,9 @@
 -- Import: import "stdlib/string.rail"
 
 -- Check if string starts with prefix
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/list.rail"
+
 starts_with prefix s =
   let plen = length prefix
   let slen = length s

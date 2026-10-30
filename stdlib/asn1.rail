@@ -47,6 +47,9 @@
 --   [3] = next_off (int) — content_off + content_len
 --   [4] = valid (1 on success, 0 on short-buf / malformed length)
 
+-- The modules whose names this one uses (2026-10-30): it compiles when imported alone.
+import "stdlib/bytes.rail"
+
 asn1_read_tlv buf buf_len off =
   if off + 2 > buf_len then asn1_tlv_fail 0
   else

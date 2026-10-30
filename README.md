@@ -107,6 +107,7 @@ here or read them there.
 | The runtime's source and the compiler's copy of it agree | `./rail_native run tools/gen_runtime.rail check` | `test` |
 | The seed's container is derivable from its document | `bash tools/independence/seed_format_gate.sh` (a Python writer written from [`docs/SEED_FORMAT.md`](docs/SEED_FORMAT.md) builds the same bytes) | `test` |
 | Every example compiles, runs and prints what it says | `./rail_native run tools/verify/examples_check.rail` | `examples` |
+| Every stdlib module compiles when imported alone | `./rail_native run tools/verify/stdlib_alone.rail` | `stdlib` |
 | A release is signed against a public entropy beacon | [`VERIFY.md`](VERIFY.md) section 6 | by hand |
 
 [`VERIFY.md`](VERIFY.md) is the same list for a stranger with one afternoon, and says what each
