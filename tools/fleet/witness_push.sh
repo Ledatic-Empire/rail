@@ -15,6 +15,26 @@ LAST_MARK=${LAST_MARK:-$WITNESS_DIR/pushed_pulse_id}
 NODE=${NODE:-$(hostname)}
 PUSH_URL=${PUSH_URL:-https://ledatic.org/witness/${NODE}/latest}
 POLL_SEC=${POLL_SEC:-5}
+RESOLVE_SEC=${RESOLVE_SEC:-300}     # look the push host up at most this often
+
+# Same pin as witness.sh: one lookup per RESOLVE_SEC instead of one per PUT,
+# forgotten after any failed PUT so the next one looks the name up again.
+push_host=${PUSH_URL#*://}; push_host=${push_host%%/*}
+push_port=443
+case "$PUSH_URL" in http://*) push_port=80 ;; esac
+pin_ip=""
+pin_at=0
+pin_args=()
+pin_refresh() {
+  if [ -z "$pin_ip" ] || [ $((EPOCHSECONDS - pin_at)) -ge "$RESOLVE_SEC" ]; then
+    pin_ip=$(getent ahostsv4 "$push_host" 2>/dev/null | awk 'NR==1{print $1}') || pin_ip=""
+    pin_at=$EPOCHSECONDS
+  fi
+  pin_args=()
+  if [ -n "$pin_ip" ]; then
+    pin_args=(--resolve "$push_host:$push_port:$pin_ip")
+  fi
+}
 
 if [ ! -s "$TOKEN_FILE" ]; then
   echo "witness_push: $TOKEN_FILE missing or empty — need beacon token" >&2
@@ -41,17 +61,19 @@ while :; do
     continue
   fi
 
+  pin_refresh
   http_code=$(curl -sS -X PUT \
     -H "x-beacon-token: $TOKEN" \
     -H "content-type: application/json" \
     --data-binary "@$LATEST" \
     -o /dev/null -w '%{http_code}' \
-    --max-time 10 "$PUSH_URL" || echo "000")
+    --max-time 10 "${pin_args[@]}" "$PUSH_URL" || echo "000")
 
   if [ "$http_code" = "200" ]; then
     printf '%s' "$pulse_id" > "$LAST_MARK"
     last_pushed=$pulse_id
   else
+    pin_ip=""
     echo "witness_push: PUT $PUSH_URL → $http_code (pulse $pulse_id)" >&2
   fi
 

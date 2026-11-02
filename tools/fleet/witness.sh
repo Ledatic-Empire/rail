@@ -19,6 +19,7 @@ BEACON_URL=${BEACON_URL:-https://ledatic.org/entropy/pulse}
 ROTATE_AT=${ROTATE_AT:-104857600}   # 100 MB
 ROTATE_KEEP=${ROTATE_KEEP:-50}
 POLL_SEC=${POLL_SEC:-2}
+RESOLVE_SEC=${RESOLVE_SEC:-300}     # look the beacon's host up at most this often
 WITNESS_NAME=${WITNESS_NAME:-$(hostname)}
 
 mkdir -p "$WITNESS_DIR"
@@ -68,9 +69,38 @@ sign_b64() {
   rm -f "$tmp"
 }
 
-json_field() {
-  # $1=raw json, $2=key. Python json handles whitespace + escape robustly.
-  printf '%s' "$1" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('$2',''))"
+read_fields() {
+  # $1=raw json. One python3 for all five fields: five per poll held 37% of
+  # a Pi Zero core (measured 2026-11-01). Fields are joined by the unit
+  # separator, not a tab: tabs are IFS whitespace and an empty field between
+  # two of them would collapse and shift the rest.
+  printf '%s' "$1" | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+keys = ("pulse_id", "value_hex", "prev_value_hex", "timestamp_utc", "unix_timestamp")
+print("\x1f".join(str(d.get(k, "")) for k in keys))'
+}
+
+# Look the beacon's host up once per RESOLVE_SEC and hand curl the address.
+# A fresh lookup on every 2 s poll was 69% of all the queries the Pi's DNS
+# sinkhole served (measured 2026-11-01). A failed fetch forgets the address,
+# so the next poll looks it up again; a failed lookup leaves the pin empty
+# and curl resolves the name itself, as it always did.
+beacon_host=${BEACON_URL#*://}; beacon_host=${beacon_host%%/*}
+beacon_port=443
+case "$BEACON_URL" in http://*) beacon_port=80 ;; esac
+pin_ip=""
+pin_at=0
+pin_args=()
+pin_refresh() {
+  if [ -z "$pin_ip" ] || [ $((EPOCHSECONDS - pin_at)) -ge "$RESOLVE_SEC" ]; then
+    pin_ip=$(getent ahostsv4 "$beacon_host" 2>/dev/null | awk 'NR==1{print $1}') || pin_ip=""
+    pin_at=$EPOCHSECONDS
+  fi
+  pin_args=()
+  if [ -n "$pin_ip" ]; then
+    pin_args=(--resolve "$beacon_host:$beacon_port:$pin_ip")
+  fi
 }
 
 write_latest() {
@@ -86,14 +116,12 @@ prev_value=""
 echo "witness: starting (pk_fp=$pk_fp, name=$WITNESS_NAME, beacon=$BEACON_URL)"
 
 while :; do
-  raw=$(curl -sf --max-time 5 "$BEACON_URL" 2>/dev/null) || { sleep "$POLL_SEC"; continue; }
+  pin_refresh
+  raw=$(curl -sf --max-time 5 "${pin_args[@]}" "$BEACON_URL" 2>/dev/null) || { pin_ip=""; sleep "$POLL_SEC"; continue; }
   [ -n "$raw" ] || { sleep "$POLL_SEC"; continue; }
 
-  pulse_id=$(json_field "$raw" pulse_id)    || { sleep "$POLL_SEC"; continue; }
-  value_hex=$(json_field "$raw" value_hex)
-  prev_hex=$(json_field "$raw" prev_value_hex)
-  ts_iso=$(json_field "$raw" timestamp_utc)
-  ts_unix=$(json_field "$raw" unix_timestamp)
+  fields=$(read_fields "$raw") || { sleep "$POLL_SEC"; continue; }
+  IFS=$'\x1f' read -r pulse_id value_hex prev_hex ts_iso ts_unix <<< "$fields"
 
   [ -n "$pulse_id" ] && [ -n "$value_hex" ] || { sleep "$POLL_SEC"; continue; }
   [ "$pulse_id" = "$last_seen" ] && { sleep "$POLL_SEC"; continue; }
