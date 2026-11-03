@@ -5,6 +5,13 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six
+  backends in one heading, about 9,700 compiler lines (7,949 in `tools/compile.rail`), a runtime
+  embedded in the compiler (source files under `runtime/arm64/` since Tier 3 step 1), the JIT
+  trampoline and the Metal host as optional helpers, and the training loop as Rail-built;
+  `backends.md` named the host `as` and `ld` for macOS (Rail links in process since Tier 3
+  step 6). ledatic.org's `/rail/docs/` is built from these files and still served the cut JIT and
+  WebAssembly pages.
 - **`write_file` says so and returns 1 when it cannot open the file** (2026-10-30,
   `_rail_write_file` in `runtime/arm64/io.s`). Until now a failed `fopen` (a missing directory, no
   permission) went on to `fwrite(NULL)` and `fclose(NULL)` and returned 0 exactly as on success: a
