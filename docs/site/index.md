@@ -1,6 +1,6 @@
 # Rail
 
-Rail is a self-hosted ARM64 language with three backends (macOS ARM64, Linux ARM64, Linux x86_64) and a verifiable provenance layer. The compiler is about 9,700 lines of Rail and compiles itself byte-identically at gen2; the runtime is ARM64 assembly embedded in the compiler. The compiler binary links only libSystem. Programs it builds may link small optional C and ObjC helpers (the JIT trampoline, the Metal host) and system libraries such as SQLite when they use them; `SHIMS.md` lists every one.
+Rail is a self-hosted ARM64 language with three backends (macOS ARM64, Linux ARM64, Linux x86_64) and a verifiable provenance layer. The compiler is about 7,900 lines of Rail (`tools/compile.rail`) and compiles itself byte-identically at gen2; the runtime is ARM64 assembly source files under `runtime/arm64/`. The compiler binary links only libSystem. Programs it builds may link system libraries such as SQLite when they use them; `SHIMS.md` lists every file in the build and runtime that is not Rail.
 
 ## Quickstart
 
@@ -53,7 +53,7 @@ main =
 
 Functions are `name args = body`. `main` is the entry point and returns an int. ADTs use `type T = | Ctor args | ...`. Pattern matching uses `match` (no `with`). Tail calls are compiled to loops with no stack growth.
 
-## Six backends, one compiler
+## Three backends, one compiler
 
 ```bash
 ./rail_native run file.rail        # macOS ARM64 (native execute)
@@ -65,6 +65,6 @@ The same source compiles to all of them. See [backends.md](backends.md) for tool
 
 ## Why it exists
 
-The thesis is in [CLAUDE.md](../../CLAUDE.md): the compiler is the source of truth. The HTTPS client, the training loop, the documentation generator you're reading: all are compiled by the same binary you cloned. If it compiles, it runs.
+The thesis is in [CLAUDE.md](../../CLAUDE.md): the compiler is the source of truth. The HTTPS client, the compiler itself, the documentation generator you're reading: all are compiled by the same binary you cloned. If it compiles, it runs.
 
 The closer-term motivation for *this* documentation: open-source LLMs are bad at Rail because there's no Rail corpus to read. These pages, together with the auto-generated stdlib reference, are the substrate fix.
