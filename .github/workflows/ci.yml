@@ -130,7 +130,7 @@ jobs:
           run: ./rail_native --out-prefix /tmp/stdlib_alone run tools/verify/stdlib_alone.rail
     neon:
       # tools/verify/neon_enc.rail: the assembler's Advanced SIMD encodings (the nine forms lowbit's
-      # integer dot kernels use) equal the 601 words Apple clang emitted for the same lines
+      # integer dot kernels use) equal the 663 words Apple clang emitted for the same lines
       # (tools/verify/neon_enc.cases). Seven of the ten base constants were first typed wrong by
       # hand on 2026-11-04 and this table caught every one.
       runs-on: macos-latest

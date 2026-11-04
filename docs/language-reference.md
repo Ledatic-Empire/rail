@@ -515,13 +515,33 @@ All functions from the imported module get the prefix `M_`.
 
 ### Link Pragma
 
-The `link` keyword is reserved for future use with external C libraries:
+`link "path.s"` carries a file of ARM64 assembly into the program (since 2026-11-04). The file
+is found like a quoted import (the current directory, then beside the compiler), assembled by
+Rail's own assembler together with the program, and its labels are called through `foreign`:
 
 ```rail
-link "-lsqlite3"
+link "tools/test/link_add3.s"
+foreign add3 a b c
+
+main = print (show (add3 1 2 3))
 ```
 
-Currently, link pragmas are parsed but not acted upon.
+```
+; tools/test/link_add3.s   (comments are `;` or `//`)
+.text
+.p2align 2
+_add3:
+    add x0, x0, x1
+    add x0, x0, x2
+    ret
+```
+
+The file may use any instruction the assembler encodes (`tools/v5/arm64.rail`), including the
+Advanced SIMD forms; a line it cannot encode is refused at link, naming the line. Arguments
+arrive untagged as the FFI passes them (ints as machine integers, strings as pointers to their
+bytes); the result is retagged by the declared return kind. A file no directory has is a compile
+error naming the path. A string starting with `-` (`link "-lsqlite3"`) is still parsed and not
+acted upon, and the x86-64 backend ignores every link declaration.
 
 ## Foreign Function Interface (FFI)
 

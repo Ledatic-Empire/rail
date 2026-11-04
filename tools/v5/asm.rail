@@ -55,7 +55,9 @@ asm_chars_to_strs cs =
 -- (the common case) instead of rebuilding the whole string via join.
 asm_strip_comment s =
   let i = str_find ";" s
-  if i < 0 then s else str_sub s 0 i
+  let j = str_find "//" s      -- the runtime/arm64 files' comment, so a linked file may use either
+  let k = if i < 0 then j else if j < 0 then i else if i < j then i else j
+  if k < 0 then s else str_sub s 0 k
 
 -- True if s ends with `:` (= a label definition line).
 asm_is_label s =
@@ -196,6 +198,7 @@ asm_classify2 line =
   let cs = asm_skip_ws (chars line)
   if cs == [] then "skip"
   else if (head cs) == ";" then "skip"   -- a comment-only line (the compiler's `; ERROR ...` marker)
+  else if (asm_cprefix cs "//") == 1 then "skip"   -- a `//` comment line (a linked file's)
   else if (head cs) == "." then asm_classify_dot cs line
   else if (asm_chars_end_colon cs) == 1 then "label"
   else "insn"
@@ -413,6 +416,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "ushr" then enc_ushr_16b (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_imm (head (tail (tail ops))))
   else if mnemonic == "sdot" then asm_enc_3vreg ops enc_sdot_4s
   else if mnemonic == "addv" then enc_addv_4s (asm_sreg_num (head ops)) (asm_vreg_num (head (tail ops)))
+  else if mnemonic == "sxtw" then enc_sxtw (asm_reg_num (head ops)) (asm_reg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
 
 -- add xD, xN, (xM | #imm | sym@PAGEOFF). 3-reg, immediate, or a @PAGEOFF
