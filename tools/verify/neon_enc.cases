@@ -1,0 +1,663 @@
+3cc10540 ldr q0, [x10], #16
+3cc1040d ldr q13, [x0], #16
+4f00e5e0 movi v0.16b, #15
+6f00e400 movi v0.2d, #0
+4e2a1da0 and v0.16b, v13.16b, v10.16b
+4e2a1c0d and v13.16b, v0.16b, v10.16b
+4e201d4d and v13.16b, v10.16b, v0.16b
+6f0c05a0 ushr v0.16b, v13.16b, #4
+6f0c040d ushr v13.16b, v0.16b, #4
+4e8a95a0 sdot v0.4s, v13.16b, v10.16b
+4e8a940d sdot v13.4s, v0.16b, v10.16b
+4e80954d sdot v13.4s, v10.16b, v0.16b
+4eaa85a0 add v0.4s, v13.4s, v10.4s
+4ea0854d add v13.4s, v10.4s, v0.4s
+4eb1b9a0 addv s0, v13.4s
+4eb1b80d addv s13, v0.4s
+1e2601a0 fmov w0, s13
+1e26000a fmov w10, s0
+3cc105e1 ldr q1, [x15], #16
+3cc10437 ldr q23, [x1], #16
+4f00e5e1 movi v1.16b, #15
+6f00e401 movi v1.2d, #0
+4e2f1ee1 and v1.16b, v23.16b, v15.16b
+4e2f1c37 and v23.16b, v1.16b, v15.16b
+4e211df7 and v23.16b, v15.16b, v1.16b
+6f0c06e1 ushr v1.16b, v23.16b, #4
+6f0c0437 ushr v23.16b, v1.16b, #4
+4e8f96e1 sdot v1.4s, v23.16b, v15.16b
+4e8f9437 sdot v23.4s, v1.16b, v15.16b
+4e8195f7 sdot v23.4s, v15.16b, v1.16b
+4eaf86e1 add v1.4s, v23.4s, v15.4s
+4ea185f7 add v23.4s, v15.4s, v1.4s
+4eb1bae1 addv s1, v23.4s
+4eb1b837 addv s23, v1.4s
+1e2602e1 fmov w1, s23
+1e26002f fmov w15, s1
+3cc104e2 ldr q2, [x7], #16
+3cc10441 ldr q1, [x2], #16
+4f00e5e2 movi v2.16b, #15
+6f00e402 movi v2.2d, #0
+4e271c22 and v2.16b, v1.16b, v7.16b
+4e271c41 and v1.16b, v2.16b, v7.16b
+4e221ce1 and v1.16b, v7.16b, v2.16b
+6f0c0422 ushr v2.16b, v1.16b, #4
+6f0c0441 ushr v1.16b, v2.16b, #4
+4e879422 sdot v2.4s, v1.16b, v7.16b
+4e879441 sdot v1.4s, v2.16b, v7.16b
+4e8294e1 sdot v1.4s, v7.16b, v2.16b
+4ea78422 add v2.4s, v1.4s, v7.4s
+4ea284e1 add v1.4s, v7.4s, v2.4s
+4eb1b822 addv s2, v1.4s
+4eb1b841 addv s1, v2.4s
+1e260022 fmov w2, s1
+1e260047 fmov w7, s2
+3cc10403 ldr q3, [x0], #16
+3cc10478 ldr q24, [x3], #16
+4f00e5e3 movi v3.16b, #15
+6f00e403 movi v3.2d, #0
+4e201f03 and v3.16b, v24.16b, v0.16b
+4e201c78 and v24.16b, v3.16b, v0.16b
+4e231c18 and v24.16b, v0.16b, v3.16b
+6f0c0703 ushr v3.16b, v24.16b, #4
+6f0c0478 ushr v24.16b, v3.16b, #4
+4e809703 sdot v3.4s, v24.16b, v0.16b
+4e809478 sdot v24.4s, v3.16b, v0.16b
+4e839418 sdot v24.4s, v0.16b, v3.16b
+4ea08703 add v3.4s, v24.4s, v0.4s
+4ea38418 add v24.4s, v0.4s, v3.4s
+4eb1bb03 addv s3, v24.4s
+4eb1b878 addv s24, v3.4s
+1e260303 fmov w3, s24
+1e260060 fmov w0, s3
+3cc105c4 ldr q4, [x14], #16
+3cc10484 ldr q4, [x4], #16
+4f00e5e4 movi v4.16b, #15
+6f00e404 movi v4.2d, #0
+4e2e1c84 and v4.16b, v4.16b, v14.16b
+4e2e1c84 and v4.16b, v4.16b, v14.16b
+4e241dc4 and v4.16b, v14.16b, v4.16b
+6f0c0484 ushr v4.16b, v4.16b, #4
+6f0c0484 ushr v4.16b, v4.16b, #4
+4e8e9484 sdot v4.4s, v4.16b, v14.16b
+4e8e9484 sdot v4.4s, v4.16b, v14.16b
+4e8495c4 sdot v4.4s, v14.16b, v4.16b
+4eae8484 add v4.4s, v4.4s, v14.4s
+4ea485c4 add v4.4s, v14.4s, v4.4s
+4eb1b884 addv s4, v4.4s
+4eb1b884 addv s4, v4.4s
+1e260084 fmov w4, s4
+1e26008e fmov w14, s4
+3cc10785 ldr q5, [x28], #16
+3cc104b8 ldr q24, [x5], #16
+4f00e5e5 movi v5.16b, #15
+6f00e405 movi v5.2d, #0
+4e3c1f05 and v5.16b, v24.16b, v28.16b
+4e3c1cb8 and v24.16b, v5.16b, v28.16b
+4e251f98 and v24.16b, v28.16b, v5.16b
+6f0c0705 ushr v5.16b, v24.16b, #4
+6f0c04b8 ushr v24.16b, v5.16b, #4
+4e9c9705 sdot v5.4s, v24.16b, v28.16b
+4e9c94b8 sdot v24.4s, v5.16b, v28.16b
+4e859798 sdot v24.4s, v28.16b, v5.16b
+4ebc8705 add v5.4s, v24.4s, v28.4s
+4ea58798 add v24.4s, v28.4s, v5.4s
+4eb1bb05 addv s5, v24.4s
+4eb1b8b8 addv s24, v5.4s
+1e260305 fmov w5, s24
+1e2600bc fmov w28, s5
+3cc105c6 ldr q6, [x14], #16
+3cc104c1 ldr q1, [x6], #16
+4f00e5e6 movi v6.16b, #15
+6f00e406 movi v6.2d, #0
+4e2e1c26 and v6.16b, v1.16b, v14.16b
+4e2e1cc1 and v1.16b, v6.16b, v14.16b
+4e261dc1 and v1.16b, v14.16b, v6.16b
+6f0c0426 ushr v6.16b, v1.16b, #4
+6f0c04c1 ushr v1.16b, v6.16b, #4
+4e8e9426 sdot v6.4s, v1.16b, v14.16b
+4e8e94c1 sdot v1.4s, v6.16b, v14.16b
+4e8695c1 sdot v1.4s, v14.16b, v6.16b
+4eae8426 add v6.4s, v1.4s, v14.4s
+4ea685c1 add v1.4s, v14.4s, v6.4s
+4eb1b826 addv s6, v1.4s
+4eb1b8c1 addv s1, v6.4s
+1e260026 fmov w6, s1
+1e2600ce fmov w14, s6
+3cc10767 ldr q7, [x27], #16
+3cc104ea ldr q10, [x7], #16
+4f00e5e7 movi v7.16b, #15
+6f00e407 movi v7.2d, #0
+4e3b1d47 and v7.16b, v10.16b, v27.16b
+4e3b1cea and v10.16b, v7.16b, v27.16b
+4e271f6a and v10.16b, v27.16b, v7.16b
+6f0c0547 ushr v7.16b, v10.16b, #4
+6f0c04ea ushr v10.16b, v7.16b, #4
+4e9b9547 sdot v7.4s, v10.16b, v27.16b
+4e9b94ea sdot v10.4s, v7.16b, v27.16b
+4e87976a sdot v10.4s, v27.16b, v7.16b
+4ebb8547 add v7.4s, v10.4s, v27.4s
+4ea7876a add v10.4s, v27.4s, v7.4s
+4eb1b947 addv s7, v10.4s
+4eb1b8ea addv s10, v7.4s
+1e260147 fmov w7, s10
+1e2600fb fmov w27, s7
+3cc106c8 ldr q8, [x22], #16
+3cc1051e ldr q30, [x8], #16
+4f00e5e8 movi v8.16b, #15
+6f00e408 movi v8.2d, #0
+4e361fc8 and v8.16b, v30.16b, v22.16b
+4e361d1e and v30.16b, v8.16b, v22.16b
+4e281ede and v30.16b, v22.16b, v8.16b
+6f0c07c8 ushr v8.16b, v30.16b, #4
+6f0c051e ushr v30.16b, v8.16b, #4
+4e9697c8 sdot v8.4s, v30.16b, v22.16b
+4e96951e sdot v30.4s, v8.16b, v22.16b
+4e8896de sdot v30.4s, v22.16b, v8.16b
+4eb687c8 add v8.4s, v30.4s, v22.4s
+4ea886de add v30.4s, v22.4s, v8.4s
+4eb1bbc8 addv s8, v30.4s
+4eb1b91e addv s30, v8.4s
+1e2603c8 fmov w8, s30
+1e260116 fmov w22, s8
+3cc10749 ldr q9, [x26], #16
+3cc1052f ldr q15, [x9], #16
+4f00e5e9 movi v9.16b, #15
+6f00e409 movi v9.2d, #0
+4e3a1de9 and v9.16b, v15.16b, v26.16b
+4e3a1d2f and v15.16b, v9.16b, v26.16b
+4e291f4f and v15.16b, v26.16b, v9.16b
+6f0c05e9 ushr v9.16b, v15.16b, #4
+6f0c052f ushr v15.16b, v9.16b, #4
+4e9a95e9 sdot v9.4s, v15.16b, v26.16b
+4e9a952f sdot v15.4s, v9.16b, v26.16b
+4e89974f sdot v15.4s, v26.16b, v9.16b
+4eba85e9 add v9.4s, v15.4s, v26.4s
+4ea9874f add v15.4s, v26.4s, v9.4s
+4eb1b9e9 addv s9, v15.4s
+4eb1b92f addv s15, v9.4s
+1e2601e9 fmov w9, s15
+1e26013a fmov w26, s9
+3cc1070a ldr q10, [x24], #16
+3cc10547 ldr q7, [x10], #16
+4f00e5ea movi v10.16b, #15
+6f00e40a movi v10.2d, #0
+4e381cea and v10.16b, v7.16b, v24.16b
+4e381d47 and v7.16b, v10.16b, v24.16b
+4e2a1f07 and v7.16b, v24.16b, v10.16b
+6f0c04ea ushr v10.16b, v7.16b, #4
+6f0c0547 ushr v7.16b, v10.16b, #4
+4e9894ea sdot v10.4s, v7.16b, v24.16b
+4e989547 sdot v7.4s, v10.16b, v24.16b
+4e8a9707 sdot v7.4s, v24.16b, v10.16b
+4eb884ea add v10.4s, v7.4s, v24.4s
+4eaa8707 add v7.4s, v24.4s, v10.4s
+4eb1b8ea addv s10, v7.4s
+4eb1b947 addv s7, v10.4s
+1e2600ea fmov w10, s7
+1e260158 fmov w24, s10
+3cc106cb ldr q11, [x22], #16
+3cc10572 ldr q18, [x11], #16
+4f00e5eb movi v11.16b, #15
+6f00e40b movi v11.2d, #0
+4e361e4b and v11.16b, v18.16b, v22.16b
+4e361d72 and v18.16b, v11.16b, v22.16b
+4e2b1ed2 and v18.16b, v22.16b, v11.16b
+6f0c064b ushr v11.16b, v18.16b, #4
+6f0c0572 ushr v18.16b, v11.16b, #4
+4e96964b sdot v11.4s, v18.16b, v22.16b
+4e969572 sdot v18.4s, v11.16b, v22.16b
+4e8b96d2 sdot v18.4s, v22.16b, v11.16b
+4eb6864b add v11.4s, v18.4s, v22.4s
+4eab86d2 add v18.4s, v22.4s, v11.4s
+4eb1ba4b addv s11, v18.4s
+4eb1b972 addv s18, v11.4s
+1e26024b fmov w11, s18
+1e260176 fmov w22, s11
+3cc104cc ldr q12, [x6], #16
+3cc10592 ldr q18, [x12], #16
+4f00e5ec movi v12.16b, #15
+6f00e40c movi v12.2d, #0
+4e261e4c and v12.16b, v18.16b, v6.16b
+4e261d92 and v18.16b, v12.16b, v6.16b
+4e2c1cd2 and v18.16b, v6.16b, v12.16b
+6f0c064c ushr v12.16b, v18.16b, #4
+6f0c0592 ushr v18.16b, v12.16b, #4
+4e86964c sdot v12.4s, v18.16b, v6.16b
+4e869592 sdot v18.4s, v12.16b, v6.16b
+4e8c94d2 sdot v18.4s, v6.16b, v12.16b
+4ea6864c add v12.4s, v18.4s, v6.4s
+4eac84d2 add v18.4s, v6.4s, v12.4s
+4eb1ba4c addv s12, v18.4s
+4eb1b992 addv s18, v12.4s
+1e26024c fmov w12, s18
+1e260186 fmov w6, s12
+3cc1070d ldr q13, [x24], #16
+3cc105a7 ldr q7, [x13], #16
+4f00e5ed movi v13.16b, #15
+6f00e40d movi v13.2d, #0
+4e381ced and v13.16b, v7.16b, v24.16b
+4e381da7 and v7.16b, v13.16b, v24.16b
+4e2d1f07 and v7.16b, v24.16b, v13.16b
+6f0c04ed ushr v13.16b, v7.16b, #4
+6f0c05a7 ushr v7.16b, v13.16b, #4
+4e9894ed sdot v13.4s, v7.16b, v24.16b
+4e9895a7 sdot v7.4s, v13.16b, v24.16b
+4e8d9707 sdot v7.4s, v24.16b, v13.16b
+4eb884ed add v13.4s, v7.4s, v24.4s
+4ead8707 add v7.4s, v24.4s, v13.4s
+4eb1b8ed addv s13, v7.4s
+4eb1b9a7 addv s7, v13.4s
+1e2600ed fmov w13, s7
+1e2601b8 fmov w24, s13
+3cc1062e ldr q14, [x17], #16
+3cc105d4 ldr q20, [x14], #16
+4f00e5ee movi v14.16b, #15
+6f00e40e movi v14.2d, #0
+4e311e8e and v14.16b, v20.16b, v17.16b
+4e311dd4 and v20.16b, v14.16b, v17.16b
+4e2e1e34 and v20.16b, v17.16b, v14.16b
+6f0c068e ushr v14.16b, v20.16b, #4
+6f0c05d4 ushr v20.16b, v14.16b, #4
+4e91968e sdot v14.4s, v20.16b, v17.16b
+4e9195d4 sdot v20.4s, v14.16b, v17.16b
+4e8e9634 sdot v20.4s, v17.16b, v14.16b
+4eb1868e add v14.4s, v20.4s, v17.4s
+4eae8634 add v20.4s, v17.4s, v14.4s
+4eb1ba8e addv s14, v20.4s
+4eb1b9d4 addv s20, v14.4s
+1e26028e fmov w14, s20
+1e2601d1 fmov w17, s14
+3cc1074f ldr q15, [x26], #16
+3cc105ff ldr q31, [x15], #16
+4f00e5ef movi v15.16b, #15
+6f00e40f movi v15.2d, #0
+4e3a1fef and v15.16b, v31.16b, v26.16b
+4e3a1dff and v31.16b, v15.16b, v26.16b
+4e2f1f5f and v31.16b, v26.16b, v15.16b
+6f0c07ef ushr v15.16b, v31.16b, #4
+6f0c05ff ushr v31.16b, v15.16b, #4
+4e9a97ef sdot v15.4s, v31.16b, v26.16b
+4e9a95ff sdot v31.4s, v15.16b, v26.16b
+4e8f975f sdot v31.4s, v26.16b, v15.16b
+4eba87ef add v15.4s, v31.4s, v26.4s
+4eaf875f add v31.4s, v26.4s, v15.4s
+4eb1bbef addv s15, v31.4s
+4eb1b9ff addv s31, v15.4s
+1e2603ef fmov w15, s31
+1e2601fa fmov w26, s15
+3cc10590 ldr q16, [x12], #16
+3cc1061f ldr q31, [x16], #16
+4f00e5f0 movi v16.16b, #15
+6f00e410 movi v16.2d, #0
+4e2c1ff0 and v16.16b, v31.16b, v12.16b
+4e2c1e1f and v31.16b, v16.16b, v12.16b
+4e301d9f and v31.16b, v12.16b, v16.16b
+6f0c07f0 ushr v16.16b, v31.16b, #4
+6f0c061f ushr v31.16b, v16.16b, #4
+4e8c97f0 sdot v16.4s, v31.16b, v12.16b
+4e8c961f sdot v31.4s, v16.16b, v12.16b
+4e90959f sdot v31.4s, v12.16b, v16.16b
+4eac87f0 add v16.4s, v31.4s, v12.4s
+4eb0859f add v31.4s, v12.4s, v16.4s
+4eb1bbf0 addv s16, v31.4s
+4eb1ba1f addv s31, v16.4s
+1e2603f0 fmov w16, s31
+1e26020c fmov w12, s16
+3cc10551 ldr q17, [x10], #16
+3cc1063c ldr q28, [x17], #16
+4f00e5f1 movi v17.16b, #15
+6f00e411 movi v17.2d, #0
+4e2a1f91 and v17.16b, v28.16b, v10.16b
+4e2a1e3c and v28.16b, v17.16b, v10.16b
+4e311d5c and v28.16b, v10.16b, v17.16b
+6f0c0791 ushr v17.16b, v28.16b, #4
+6f0c063c ushr v28.16b, v17.16b, #4
+4e8a9791 sdot v17.4s, v28.16b, v10.16b
+4e8a963c sdot v28.4s, v17.16b, v10.16b
+4e91955c sdot v28.4s, v10.16b, v17.16b
+4eaa8791 add v17.4s, v28.4s, v10.4s
+4eb1855c add v28.4s, v10.4s, v17.4s
+4eb1bb91 addv s17, v28.4s
+4eb1ba3c addv s28, v17.4s
+1e260391 fmov w17, s28
+1e26022a fmov w10, s17
+3cc106f2 ldr q18, [x23], #16
+3cc1064b ldr q11, [x18], #16
+4f00e5f2 movi v18.16b, #15
+6f00e412 movi v18.2d, #0
+4e371d72 and v18.16b, v11.16b, v23.16b
+4e371e4b and v11.16b, v18.16b, v23.16b
+4e321eeb and v11.16b, v23.16b, v18.16b
+6f0c0572 ushr v18.16b, v11.16b, #4
+6f0c064b ushr v11.16b, v18.16b, #4
+4e979572 sdot v18.4s, v11.16b, v23.16b
+4e97964b sdot v11.4s, v18.16b, v23.16b
+4e9296eb sdot v11.4s, v23.16b, v18.16b
+4eb78572 add v18.4s, v11.4s, v23.4s
+4eb286eb add v11.4s, v23.4s, v18.4s
+4eb1b972 addv s18, v11.4s
+4eb1ba4b addv s11, v18.4s
+1e260172 fmov w18, s11
+1e260257 fmov w23, s18
+3cc106f3 ldr q19, [x23], #16
+3cc1067a ldr q26, [x19], #16
+4f00e5f3 movi v19.16b, #15
+6f00e413 movi v19.2d, #0
+4e371f53 and v19.16b, v26.16b, v23.16b
+4e371e7a and v26.16b, v19.16b, v23.16b
+4e331efa and v26.16b, v23.16b, v19.16b
+6f0c0753 ushr v19.16b, v26.16b, #4
+6f0c067a ushr v26.16b, v19.16b, #4
+4e979753 sdot v19.4s, v26.16b, v23.16b
+4e97967a sdot v26.4s, v19.16b, v23.16b
+4e9396fa sdot v26.4s, v23.16b, v19.16b
+4eb78753 add v19.4s, v26.4s, v23.4s
+4eb386fa add v26.4s, v23.4s, v19.4s
+4eb1bb53 addv s19, v26.4s
+4eb1ba7a addv s26, v19.4s
+1e260353 fmov w19, s26
+1e260277 fmov w23, s19
+3cc10494 ldr q20, [x4], #16
+3cc1068d ldr q13, [x20], #16
+4f00e5f4 movi v20.16b, #15
+6f00e414 movi v20.2d, #0
+4e241db4 and v20.16b, v13.16b, v4.16b
+4e241e8d and v13.16b, v20.16b, v4.16b
+4e341c8d and v13.16b, v4.16b, v20.16b
+6f0c05b4 ushr v20.16b, v13.16b, #4
+6f0c068d ushr v13.16b, v20.16b, #4
+4e8495b4 sdot v20.4s, v13.16b, v4.16b
+4e84968d sdot v13.4s, v20.16b, v4.16b
+4e94948d sdot v13.4s, v4.16b, v20.16b
+4ea485b4 add v20.4s, v13.4s, v4.4s
+4eb4848d add v13.4s, v4.4s, v20.4s
+4eb1b9b4 addv s20, v13.4s
+4eb1ba8d addv s13, v20.4s
+1e2601b4 fmov w20, s13
+1e260284 fmov w4, s20
+3cc106b5 ldr q21, [x21], #16
+3cc106ae ldr q14, [x21], #16
+4f00e5f5 movi v21.16b, #15
+6f00e415 movi v21.2d, #0
+4e351dd5 and v21.16b, v14.16b, v21.16b
+4e351eae and v14.16b, v21.16b, v21.16b
+4e351eae and v14.16b, v21.16b, v21.16b
+6f0c05d5 ushr v21.16b, v14.16b, #4
+6f0c06ae ushr v14.16b, v21.16b, #4
+4e9595d5 sdot v21.4s, v14.16b, v21.16b
+4e9596ae sdot v14.4s, v21.16b, v21.16b
+4e9596ae sdot v14.4s, v21.16b, v21.16b
+4eb585d5 add v21.4s, v14.4s, v21.4s
+4eb586ae add v14.4s, v21.4s, v21.4s
+4eb1b9d5 addv s21, v14.4s
+4eb1baae addv s14, v21.4s
+1e2601d5 fmov w21, s14
+1e2602b5 fmov w21, s21
+3cc107d6 ldr q22, [x30], #16
+3cc106c2 ldr q2, [x22], #16
+4f00e5f6 movi v22.16b, #15
+6f00e416 movi v22.2d, #0
+4e3e1c56 and v22.16b, v2.16b, v30.16b
+4e3e1ec2 and v2.16b, v22.16b, v30.16b
+4e361fc2 and v2.16b, v30.16b, v22.16b
+6f0c0456 ushr v22.16b, v2.16b, #4
+6f0c06c2 ushr v2.16b, v22.16b, #4
+4e9e9456 sdot v22.4s, v2.16b, v30.16b
+4e9e96c2 sdot v2.4s, v22.16b, v30.16b
+4e9697c2 sdot v2.4s, v30.16b, v22.16b
+4ebe8456 add v22.4s, v2.4s, v30.4s
+4eb687c2 add v2.4s, v30.4s, v22.4s
+4eb1b856 addv s22, v2.4s
+4eb1bac2 addv s2, v22.4s
+1e260056 fmov w22, s2
+1e2602de fmov w30, s22
+3cc106f7 ldr q23, [x23], #16
+3cc106f4 ldr q20, [x23], #16
+4f00e5f7 movi v23.16b, #15
+6f00e417 movi v23.2d, #0
+4e371e97 and v23.16b, v20.16b, v23.16b
+4e371ef4 and v20.16b, v23.16b, v23.16b
+4e371ef4 and v20.16b, v23.16b, v23.16b
+6f0c0697 ushr v23.16b, v20.16b, #4
+6f0c06f4 ushr v20.16b, v23.16b, #4
+4e979697 sdot v23.4s, v20.16b, v23.16b
+4e9796f4 sdot v20.4s, v23.16b, v23.16b
+4e9796f4 sdot v20.4s, v23.16b, v23.16b
+4eb78697 add v23.4s, v20.4s, v23.4s
+4eb786f4 add v20.4s, v23.4s, v23.4s
+4eb1ba97 addv s23, v20.4s
+4eb1baf4 addv s20, v23.4s
+1e260297 fmov w23, s20
+1e2602f7 fmov w23, s23
+3cc10618 ldr q24, [x16], #16
+3cc1071f ldr q31, [x24], #16
+4f00e5f8 movi v24.16b, #15
+6f00e418 movi v24.2d, #0
+4e301ff8 and v24.16b, v31.16b, v16.16b
+4e301f1f and v31.16b, v24.16b, v16.16b
+4e381e1f and v31.16b, v16.16b, v24.16b
+6f0c07f8 ushr v24.16b, v31.16b, #4
+6f0c071f ushr v31.16b, v24.16b, #4
+4e9097f8 sdot v24.4s, v31.16b, v16.16b
+4e90971f sdot v31.4s, v24.16b, v16.16b
+4e98961f sdot v31.4s, v16.16b, v24.16b
+4eb087f8 add v24.4s, v31.4s, v16.4s
+4eb8861f add v31.4s, v16.4s, v24.4s
+4eb1bbf8 addv s24, v31.4s
+4eb1bb1f addv s31, v24.4s
+1e2603f8 fmov w24, s31
+1e260310 fmov w16, s24
+3cc10759 ldr q25, [x26], #16
+3cc10720 ldr q0, [x25], #16
+4f00e5f9 movi v25.16b, #15
+6f00e419 movi v25.2d, #0
+4e3a1c19 and v25.16b, v0.16b, v26.16b
+4e3a1f20 and v0.16b, v25.16b, v26.16b
+4e391f40 and v0.16b, v26.16b, v25.16b
+6f0c0419 ushr v25.16b, v0.16b, #4
+6f0c0720 ushr v0.16b, v25.16b, #4
+4e9a9419 sdot v25.4s, v0.16b, v26.16b
+4e9a9720 sdot v0.4s, v25.16b, v26.16b
+4e999740 sdot v0.4s, v26.16b, v25.16b
+4eba8419 add v25.4s, v0.4s, v26.4s
+4eb98740 add v0.4s, v26.4s, v25.4s
+4eb1b819 addv s25, v0.4s
+4eb1bb20 addv s0, v25.4s
+1e260019 fmov w25, s0
+1e26033a fmov w26, s25
+3cc105fa ldr q26, [x15], #16
+3cc10756 ldr q22, [x26], #16
+4f00e5fa movi v26.16b, #15
+6f00e41a movi v26.2d, #0
+4e2f1eda and v26.16b, v22.16b, v15.16b
+4e2f1f56 and v22.16b, v26.16b, v15.16b
+4e3a1df6 and v22.16b, v15.16b, v26.16b
+6f0c06da ushr v26.16b, v22.16b, #4
+6f0c0756 ushr v22.16b, v26.16b, #4
+4e8f96da sdot v26.4s, v22.16b, v15.16b
+4e8f9756 sdot v22.4s, v26.16b, v15.16b
+4e9a95f6 sdot v22.4s, v15.16b, v26.16b
+4eaf86da add v26.4s, v22.4s, v15.4s
+4eba85f6 add v22.4s, v15.4s, v26.4s
+4eb1bada addv s26, v22.4s
+4eb1bb56 addv s22, v26.4s
+1e2602da fmov w26, s22
+1e26034f fmov w15, s26
+3cc105bb ldr q27, [x13], #16
+3cc10778 ldr q24, [x27], #16
+4f00e5fb movi v27.16b, #15
+6f00e41b movi v27.2d, #0
+4e2d1f1b and v27.16b, v24.16b, v13.16b
+4e2d1f78 and v24.16b, v27.16b, v13.16b
+4e3b1db8 and v24.16b, v13.16b, v27.16b
+6f0c071b ushr v27.16b, v24.16b, #4
+6f0c0778 ushr v24.16b, v27.16b, #4
+4e8d971b sdot v27.4s, v24.16b, v13.16b
+4e8d9778 sdot v24.4s, v27.16b, v13.16b
+4e9b95b8 sdot v24.4s, v13.16b, v27.16b
+4ead871b add v27.4s, v24.4s, v13.4s
+4ebb85b8 add v24.4s, v13.4s, v27.4s
+4eb1bb1b addv s27, v24.4s
+4eb1bb78 addv s24, v27.4s
+1e26031b fmov w27, s24
+1e26036d fmov w13, s27
+3cc104fc ldr q28, [x7], #16
+3cc1078c ldr q12, [x28], #16
+4f00e5fc movi v28.16b, #15
+6f00e41c movi v28.2d, #0
+4e271d9c and v28.16b, v12.16b, v7.16b
+4e271f8c and v12.16b, v28.16b, v7.16b
+4e3c1cec and v12.16b, v7.16b, v28.16b
+6f0c059c ushr v28.16b, v12.16b, #4
+6f0c078c ushr v12.16b, v28.16b, #4
+4e87959c sdot v28.4s, v12.16b, v7.16b
+4e87978c sdot v12.4s, v28.16b, v7.16b
+4e9c94ec sdot v12.4s, v7.16b, v28.16b
+4ea7859c add v28.4s, v12.4s, v7.4s
+4ebc84ec add v12.4s, v7.4s, v28.4s
+4eb1b99c addv s28, v12.4s
+4eb1bb8c addv s12, v28.4s
+1e26019c fmov w28, s12
+1e260387 fmov w7, s28
+3cc1061d ldr q29, [x16], #16
+3cc107a0 ldr q0, [x29], #16
+4f00e5fd movi v29.16b, #15
+6f00e41d movi v29.2d, #0
+4e301c1d and v29.16b, v0.16b, v16.16b
+4e301fa0 and v0.16b, v29.16b, v16.16b
+4e3d1e00 and v0.16b, v16.16b, v29.16b
+6f0c041d ushr v29.16b, v0.16b, #4
+6f0c07a0 ushr v0.16b, v29.16b, #4
+4e90941d sdot v29.4s, v0.16b, v16.16b
+4e9097a0 sdot v0.4s, v29.16b, v16.16b
+4e9d9600 sdot v0.4s, v16.16b, v29.16b
+4eb0841d add v29.4s, v0.4s, v16.4s
+4ebd8600 add v0.4s, v16.4s, v29.4s
+4eb1b81d addv s29, v0.4s
+4eb1bba0 addv s0, v29.4s
+1e26001d fmov w29, s0
+1e2603b0 fmov w16, s29
+3cc1063e ldr q30, [x17], #16
+3cc107dd ldr q29, [x30], #16
+4f00e5fe movi v30.16b, #15
+6f00e41e movi v30.2d, #0
+4e311fbe and v30.16b, v29.16b, v17.16b
+4e311fdd and v29.16b, v30.16b, v17.16b
+4e3e1e3d and v29.16b, v17.16b, v30.16b
+6f0c07be ushr v30.16b, v29.16b, #4
+6f0c07dd ushr v29.16b, v30.16b, #4
+4e9197be sdot v30.4s, v29.16b, v17.16b
+4e9197dd sdot v29.4s, v30.16b, v17.16b
+4e9e963d sdot v29.4s, v17.16b, v30.16b
+4eb187be add v30.4s, v29.4s, v17.4s
+4ebe863d add v29.4s, v17.4s, v30.4s
+4eb1bbbe addv s30, v29.4s
+4eb1bbdd addv s29, v30.4s
+1e2603be fmov w30, s29
+1e2603d1 fmov w17, s30
+3cc1063f ldr q31, [x17], #16
+3cc107ce ldr q14, [x30], #16
+4f00e5ff movi v31.16b, #15
+6f00e41f movi v31.2d, #0
+4e311ddf and v31.16b, v14.16b, v17.16b
+4e311fee and v14.16b, v31.16b, v17.16b
+4e3f1e2e and v14.16b, v17.16b, v31.16b
+6f0c05df ushr v31.16b, v14.16b, #4
+6f0c07ee ushr v14.16b, v31.16b, #4
+4e9195df sdot v31.4s, v14.16b, v17.16b
+4e9197ee sdot v14.4s, v31.16b, v17.16b
+4e9f962e sdot v14.4s, v17.16b, v31.16b
+4eb185df add v31.4s, v14.4s, v17.4s
+4ebf862e add v14.4s, v17.4s, v31.4s
+4eb1b9df addv s31, v14.4s
+4eb1bbee addv s14, v31.4s
+1e2601de fmov w30, s14
+1e2603f1 fmov w17, s31
+3cd004a3 ldr q3, [x5], #-256
+3cdf04a3 ldr q3, [x5], #-16
+3cc004a3 ldr q3, [x5], #0
+3cc104a3 ldr q3, [x5], #16
+3cc204a3 ldr q3, [x5], #32
+3cc404a3 ldr q3, [x5], #64
+3ccff4a3 ldr q3, [x5], #255
+4f00e409 movi v9.16b, #0
+4f00e429 movi v9.16b, #1
+4f00e5e9 movi v9.16b, #15
+4f00e609 movi v9.16b, #16
+4f00e7e9 movi v9.16b, #31
+4f01e409 movi v9.16b, #32
+4f03e7e9 movi v9.16b, #127
+4f04e409 movi v9.16b, #128
+4f07e609 movi v9.16b, #240
+4f07e7e9 movi v9.16b, #255
+6f0f0462 ushr v2.16b, v3.16b, #1
+6f0e0462 ushr v2.16b, v3.16b, #2
+6f0d0462 ushr v2.16b, v3.16b, #3
+6f0c0462 ushr v2.16b, v3.16b, #4
+6f0b0462 ushr v2.16b, v3.16b, #5
+6f0a0462 ushr v2.16b, v3.16b, #6
+6f090462 ushr v2.16b, v3.16b, #7
+6f080462 ushr v2.16b, v3.16b, #8
+93407d40 sxtw x0, w10
+93407fc1 sxtw x1, w30
+93407c82 sxtw x2, w4
+93407d83 sxtw x3, w12
+93407e84 sxtw x4, w20
+93407c25 sxtw x5, w1
+93407c46 sxtw x6, w2
+93407f47 sxtw x7, w26
+93407e28 sxtw x8, w17
+93407c69 sxtw x9, w3
+93407d6a sxtw x10, w11
+93407e4b sxtw x11, w18
+93407c2c sxtw x12, w1
+93407fad sxtw x13, w29
+93407e0e sxtw x14, w16
+93407ccf sxtw x15, w6
+93407c30 sxtw x16, w1
+93407c51 sxtw x17, w2
+93407db2 sxtw x18, w13
+93407db3 sxtw x19, w13
+93407c54 sxtw x20, w2
+93407cf5 sxtw x21, w7
+93407c56 sxtw x22, w2
+93407e37 sxtw x23, w17
+93407db8 sxtw x24, w13
+93407c39 sxtw x25, w1
+93407f5a sxtw x26, w26
+93407e5b sxtw x27, w18
+93407c7c sxtw x28, w3
+93407fdd sxtw x29, w30
+93407cfe sxtw x30, w7
+93407c14 sxtw x20, w0
+93407c34 sxtw x20, w1
+93407c52 sxtw x18, w2
+93407c7e sxtw x30, w3
+93407c81 sxtw x1, w4
+93407cb2 sxtw x18, w5
+93407cd2 sxtw x18, w6
+93407cec sxtw x12, w7
+93407d01 sxtw x1, w8
+93407d27 sxtw x7, w9
+93407d41 sxtw x1, w10
+93407d71 sxtw x17, w11
+93407d9b sxtw x27, w12
+93407da4 sxtw x4, w13
+93407dc9 sxtw x9, w14
+93407ded sxtw x13, w15
+93407e04 sxtw x4, w16
+93407e31 sxtw x17, w17
+93407e43 sxtw x3, w18
+93407e72 sxtw x18, w19
+93407e89 sxtw x9, w20
+93407eb1 sxtw x17, w21
+93407eda sxtw x26, w22
+93407ef5 sxtw x21, w23
+93407f05 sxtw x5, w24
+93407f23 sxtw x3, w25
+93407f52 sxtw x18, w26
+93407f72 sxtw x18, w27
+93407f94 sxtw x20, w28
+93407fa6 sxtw x6, w29
+93407fcb sxtw x11, w30

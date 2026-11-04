@@ -23,6 +23,31 @@ All notable changes to Rail are documented here.
   (`write_file_fopen_fails`). Suite 257.
 
 ### Added
+- **`link "path.s"` carries assembly into a program** (2026-11-04). The keyword was parsed and
+  dropped since it was reserved; now the file is found like a quoted import (the current
+  directory, then beside the compiler), its text is placed after the program's functions and
+  before the runtime, Rail's assembler assembles it with the rest, and `foreign` calls its labels
+  (`tools/test/link_add3.s`, t274: `add3 1 2 3` prints 6). A link no directory has is a compile
+  error naming the path (t275); `link "-l..."` is still ignored; the x86-64 backend ignores every
+  link. Comments in a linked file are `;`, the assembler's own. This is the door for kernels that
+  live outside the compiler (lowbit's dot products, rail-lab) instead of inside every binary.
+  A linked file's comments are `;` or `//` (the runtime files' form, which the generator
+  stripped before the assembler saw it; now the assembler skips a `//` line and cuts a trailing
+  `//` itself). Suite 259.
+- **The assembler encodes nine Advanced SIMD forms** (2026-11-04, `tools/v5/arm64.rail`,
+  `tools/v5/asm.rail`): `ldr qT, [xN], #imm` and `ldr qT, [xN, #imm]`, `movi vD.16b, #imm8` and
+  `movi vD.2d, #0`, `and vD.16b`, `ushr vD.16b, #n`, `sdot vD.4s, vN.16b, vM.16b` (FEAT_DotProd),
+  `add vD.4s`, `addv sD, vN.4s`, `fmov wD, sN` and `sxtw xD, wN` (the 32-bit sum signed into
+  the register Rail retags): the forms an exact 4-bit by int8 group dot product needs (lowbit,
+  rail-lab). Operands `vN.<arr>` and `qN` parse; the arrangement after the
+  dot is not read, each mnemonic here having one. `tools/verify/neon_enc.rail` (CI job `neon`)
+  encodes the 663 lines of `tools/verify/neon_enc.cases` and compares each with the word Apple
+  clang `-march=armv8.2-a+dotprod` emitted for it; seven of the ten base constants were first
+  typed wrong by hand and the table caught every one (292/601 before, 601/601 after; `sxtw`'s
+  base was typed wrong too and caught the same way). A planted wrong word fails it (600/601,
+  FAIL, exit 1). No compiled program changes: nothing emits these
+  yet. The seed `rail_native` is rebuilt (1,057,768 to 1,057,816 bytes: the encoder code itself);
+  the second and third self-compiles are byte-identical. Suite 257.
 - **`tools/verify/stdlib_alone.rail`: every stdlib module compiles when imported alone** (2026-10-30,
   CI job `stdlib`). For each `stdlib/<m>.rail` it compiles `import "stdlib/<m>.rail"` with `main = 0`
   and prints the compiler's first error line for any module refused; PASS or FAIL last, exit 0 iff

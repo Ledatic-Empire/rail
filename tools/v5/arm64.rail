@@ -645,3 +645,56 @@ enc_idx9_b base dst n imm = bit_or base (bit_or (shl (bit_and imm 511) 12) (bit_
 
 -- movn wD, #imm16  (32-bit move-NOT-wide; for `mov wD, #neg`)   Base: 0x12800000
 enc_movnw_imm16 dst imm = bit_or 310378496 (bit_or (shl (bit_and imm 65535) 5) dst)
+
+-- ============================================================================
+-- Advanced SIMD (the forms lowbit's integer dot kernels need; 2026-11-04). Each was first
+-- encoded by hand in rail-lab/lowbit/l2/neon_ref.py and held to Apple clang over every register
+-- and the kernel's immediates; tools/verify/neon_enc.rail holds these to the same 601 words.
+-- ============================================================================
+
+-- ldr qT, [xN], #imm9        (128-bit SIMD&FP load, post-index)
+-- Base: 0x3CC00400 | ((imm & 0x1FF) << 12) | (N << 5) | T
+enc_ldr_q_post t n imm =
+  bit_or 1019216896 (bit_or (shl (bit_and imm 511) 12) (bit_or (shl n 5) t))
+
+-- ldr qT, [xN, #imm]         (unsigned offset, scaled by 16; imm a multiple of 16)
+-- Base: 0x3DC00000 | ((imm / 16) << 10) | (N << 5) | T
+enc_ldr_q_imm t n imm =
+  bit_or 1035993088 (bit_or (shl (shr imm 4) 10) (bit_or (shl n 5) t))
+
+-- movi vD.16b, #imm8
+-- Base: 0x4F00E400 | ((imm8 >> 5) << 16) | ((imm8 & 31) << 5) | D
+enc_movi_16b d imm8 =
+  bit_or 1325458432 (bit_or (shl (shr imm8 5) 16) (bit_or (shl (bit_and imm8 31) 5) d))
+
+-- movi vD.2d, #0             (zero a vector)
+-- Base: 0x6F00E400 | D
+enc_movi_2d_zero d = bit_or 1862329344 d
+
+-- and vD.16b, vN.16b, vM.16b    Base: 0x4E201C00 | (M << 16) | (N << 5) | D
+enc_and_16b d n m =
+  bit_or 1310727168 (bit_or (shl m 16) (bit_or (shl n 5) d))
+
+-- ushr vD.16b, vN.16b, #shift   (1..8; immh:immb = 16 - shift)
+-- Base: 0x6F000400 | ((16 - shift) << 16) | (N << 5) | D
+enc_ushr_16b d n shift =
+  bit_or 1862272000 (bit_or (shl (16 - shift) 16) (bit_or (shl n 5) d))
+
+-- sdot vD.4s, vN.16b, vM.16b    (FEAT_DotProd: four signed int8 products summed into each lane)
+-- Base: 0x4E809400 | (M << 16) | (N << 5) | D
+enc_sdot_4s d n m =
+  bit_or 1317049344 (bit_or (shl m 16) (bit_or (shl n 5) d))
+
+-- add vD.4s, vN.4s, vM.4s       Base: 0x4EA08400 | (M << 16) | (N << 5) | D
+enc_add_4s d n m =
+  bit_or 1319142400 (bit_or (shl m 16) (bit_or (shl n 5) d))
+
+-- addv sD, vN.4s                (sum the four lanes)   Base: 0x4EB1B800 | (N << 5) | D
+enc_addv_4s d n = bit_or 1320269824 (bit_or (shl n 5) d)
+
+-- fmov wD, sN                   (the lane sum out to a general register)  Base: 0x1E260000 | (N << 5) | D
+enc_fmov_w_s d n = bit_or 505806848 (bit_or (shl n 5) d)
+
+-- sxtw xD, wN                   (sbfm xD, xN, #0, #31: a 32-bit result, a lane sum, signed into x)
+-- Base: 0x93407C00 | (N << 5) | D
+enc_sxtw d n = bit_or 2470476800 (bit_or (shl n 5) d)
