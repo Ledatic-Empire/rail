@@ -695,6 +695,33 @@ enc_addv_4s d n = bit_or 1320269824 (bit_or (shl n 5) d)
 -- fmov wD, sN                   (the lane sum out to a general register)  Base: 0x1E260000 | (N << 5) | D
 enc_fmov_w_s d n = bit_or 505806848 (bit_or (shl n 5) d)
 
+-- The scalar forms lowbit's qmatvec4 kernel needs beside the SIMD ones (2026-11-04). Each base
+-- constant is computed by machine from the ARM encoding and held to clang over every register
+-- (tools/verify/neon_enc.cases): typing them by hand went wrong seven times out of ten in #187.
+-- fmov sD, wN                   (a 32-bit pattern into a single)  Base: 0x1E270000 | (N << 5) | D
+enc_fmov_s_w d n = bit_or 505872384 (bit_or (shl n 5) d)
+
+-- scvtf dD, wN                  (a signed 32-bit integer to double; sf=0)  Base: 0x1E620000 | (N << 5) | D
+-- enc_scvtf is the x-source form (0x9E620000). Reading a w source as x would take the register's
+-- upper half as part of the value: a negative lane sum, zero-extended, becomes a large positive.
+enc_scvtf_w d n = bit_or 509739008 (bit_or (shl n 5) d)
+
+-- ldrh wD, [xN], #imm9          (post-index halfword load)  Base: 0x78400400 | (imm9 << 12) | (N << 5) | D
+enc_ldrh_postidx d n imm = bit_or 2017461248 (bit_or (shl (bit_and imm 511) 12) (bit_or (shl n 5) d))
+
+-- ldrh wD, [xN, #imm12]         (unsigned offset, scaled by 2)  Base: 0x79400000 | ((imm/2) << 10) | (N << 5) | D
+enc_ldrh_imm d n imm = bit_or 2034237440 (bit_or (shl (shr imm 1) 10) (bit_or (shl n 5) d))
+
+-- fcvtas xD, dN                 (double to signed 64-bit, nearest, ties away: the blk8 rounding)  Base: 0x9E640000 | (N << 5) | D
+enc_fcvtas d n = bit_or 2657353728 (bit_or (shl n 5) d)
+
+-- lsl wD, wN, #shift            (ubfm wD, wN, #((-shift) mod 32), #(31 - shift); N=0)  Base: 0x53000000
+-- The 64-bit enc_lsl_imm with bit 31 cleared is not this: its immr and imms are mod 64 and N=1.
+enc_lsl_imm_w d n shift =
+  let immr = bit_and (32 - shift) 31
+  let imms = 31 - shift
+  bit_or 1392508928 (bit_or (shl immr 16) (bit_or (shl imms 10) (bit_or (shl n 5) d)))
+
 -- sxtw xD, wN                   (sbfm xD, xN, #0, #31: a 32-bit result, a lane sum, signed into x)
 -- Base: 0x93407C00 | (N << 5) | D
 enc_sxtw d n = bit_or 2470476800 (bit_or (shl n 5) d)

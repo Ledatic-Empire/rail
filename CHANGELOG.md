@@ -34,6 +34,19 @@ All notable changes to Rail are documented here.
   A linked file's comments are `;` or `//` (the runtime files' form, which the generator
   stripped before the assembler saw it; now the assembler skips a `//` line and cuts a trailing
   `//` itself). Suite 259.
+- **The assembler encodes the scalar forms lowbit's matrix kernels need** (2026-11-04,
+  `tools/v5/arm64.rail`, `tools/v5/asm.rail`): `ldrh wD, [xN], #imm` and `ldrh wD, [xN, #imm]`
+  (a bf16 scale in), `fmov sD, wN`, `fcvtas xD, dN` (nearest, ties away: the blk8 rounding),
+  `scvtf dD, wN` (the 32-bit source form) and `lsl wD, wN, #imm` (the 32-bit `ubfm`). The last
+  two were accepted before and mis-encoded in silence: `scvtf dD, wN` was emitted as the x form
+  (a lane sum of -3, zero-extended in w, became 2e13) and `lsl w` carried 64-bit shift fields with
+  N=1. `tools/verify/neon_enc.cases` grows to 2,669 lines (2,006 scalar lines from rail-lab's
+  `lowbit/l2/scalar_cases.py`, every register in every field, Apple clang the oracle) and holds
+  every scalar form the two kernels use (`fdiv`, `csel`, `cset`, `movz`/`movk` with `lsl`, the
+  logical immediates, `strb` post-index among them); a planted wrong word fails it (1708/1709,
+  FAIL, exit 1). Test t276 (`tools/test/link_bf16_forms.s`): two bf16 values and a 32-bit -3 whose
+  upper half is garbage give -9. Seed rebuilt; the second and third self-compiles are
+  byte-identical. Suite 260.
 - **The assembler encodes nine Advanced SIMD forms** (2026-11-04, `tools/v5/arm64.rail`,
   `tools/v5/asm.rail`): `ldr qT, [xN], #imm` and `ldr qT, [xN, #imm]`, `movi vD.16b, #imm8` and
   `movi vD.2d, #0`, `and vD.16b`, `ushr vD.16b, #n`, `sdot vD.4s, vN.16b, vM.16b` (FEAT_DotProd),
