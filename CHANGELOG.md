@@ -23,6 +23,18 @@ All notable changes to Rail are documented here.
   (`write_file_fopen_fails`). Suite 257.
 
 ### Added
+- **The assembler encodes nine Advanced SIMD forms** (2026-11-04, `tools/v5/arm64.rail`,
+  `tools/v5/asm.rail`): `ldr qT, [xN], #imm` and `ldr qT, [xN, #imm]`, `movi vD.16b, #imm8` and
+  `movi vD.2d, #0`, `and vD.16b`, `ushr vD.16b, #n`, `sdot vD.4s, vN.16b, vM.16b` (FEAT_DotProd),
+  `add vD.4s`, `addv sD, vN.4s` and `fmov wD, sN`: the forms an exact 4-bit by int8 group dot
+  product needs (lowbit, rail-lab). Operands `vN.<arr>` and `qN` parse; the arrangement after the
+  dot is not read, each mnemonic here having one. `tools/verify/neon_enc.rail` (CI job `neon`)
+  encodes the 601 lines of `tools/verify/neon_enc.cases` and compares each with the word Apple
+  clang `-march=armv8.2-a+dotprod` emitted for it; seven of the ten base constants were first
+  typed wrong by hand and the table caught every one (292/601 before, 601/601 after). A planted
+  wrong word fails it (600/601, FAIL, exit 1). No compiled program changes: nothing emits these
+  yet. The seed `rail_native` is rebuilt (1,057,768 to 1,057,816 bytes: the encoder code itself);
+  the second and third self-compiles are byte-identical. Suite 257.
 - **`tools/verify/stdlib_alone.rail`: every stdlib module compiles when imported alone** (2026-10-30,
   CI job `stdlib`). For each `stdlib/<m>.rail` it compiles `import "stdlib/<m>.rail"` with `main = 0`
   and prints the compiler's first error line for any module refused; PASS or FAIL last, exit 0 iff
