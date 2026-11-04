@@ -344,7 +344,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "movz" then asm_enc_movz ops
   else if mnemonic == "movk" then asm_enc_movk ops
   else if mnemonic == "movn" then asm_enc_movn ops
-  else if mnemonic == "add"  then asm_enc_add ops
+  else if mnemonic == "add"  then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_add_4s else asm_enc_add ops)
   else if mnemonic == "sub"  then asm_enc_sub ops
   else if mnemonic == "mul"  then asm_enc_3reg ops enc_mul
   else if mnemonic == "smulh" then asm_enc_3reg ops enc_smulh   -- mul_shr's high 64 bits (t185)
@@ -370,7 +370,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "b.ls" then asm_enc_branch ops cur_off labels enc_bls_byte_off
   else if mnemonic == "blr"  then enc_blr (asm_reg_num (head ops))
   else if mnemonic == "br"   then enc_br  (asm_reg_num (head ops))
-  else if mnemonic == "and"  then asm_enc_logical ops 2449473536 enc_and
+  else if mnemonic == "and"  then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_and_16b else asm_enc_logical ops 2449473536 enc_and)
   else if mnemonic == "orr"  then asm_enc_logical ops 2986344448 enc_orr
   else if mnemonic == "eor"  then asm_enc_logical ops 3523215360 enc_eor
   else if mnemonic == "lsl"  then asm_enc_ri ops enc_lsl enc_lsl_imm
@@ -409,6 +409,10 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "fmadd" then asm_enc_fmadd ops
   else if mnemonic == "fneg" then enc_fneg_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else if mnemonic == "fsqrt" then enc_fsqrt_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
+  else if mnemonic == "movi" then asm_enc_movi ops
+  else if mnemonic == "ushr" then enc_ushr_16b (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_imm (head (tail (tail ops))))
+  else if mnemonic == "sdot" then asm_enc_3vreg ops enc_sdot_4s
+  else if mnemonic == "addv" then enc_addv_4s (asm_sreg_num (head ops)) (asm_vreg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
 
 -- add xD, xN, (xM | #imm | sym@PAGEOFF). 3-reg, immediate, or a @PAGEOFF
@@ -636,6 +640,39 @@ asm_sreg_num s =
   else if (head cs) == "s" then asm_parse_int_chars (tail cs) 0
   else 0 - 1
 
+-- ---------------------------------------------------------------------------
+-- Advanced SIMD operands (2026-11-04, lowbit's kernels): `vN.16b`, `vN.4s`, `vN.2d` and `qN`.
+-- The arrangement after the dot is not read: each mnemonic here has one arrangement
+-- (movi .16b or .2d #0, and/ushr .16b, sdot/add .4s, addv .4s), as the kernels use them.
+-- ---------------------------------------------------------------------------
+asm_vreg_num s =
+  let cs = chars s
+  if cs == [] then 0 - 1
+  else if (head cs) == "v" || (head cs) == "q" then asm_parse_int_chars (tail cs) 0
+  else 0 - 1
+
+asm_is_vec s =
+  let cs = chars s
+  if cs == [] then 0 else if (head cs) == "v" then 1 else 0
+
+asm_enc_3vreg ops enc_fn =
+  enc_fn (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_vreg_num (head (tail (tail ops))))
+
+-- movi vD.16b, #imm8  |  movi vD.2d, #0
+asm_enc_movi ops =
+  let dst = head ops
+  let imm = asm_imm (head (tail ops))
+  if asm_last_is dst "d" then (if imm == 0 then enc_movi_2d_zero (asm_vreg_num dst) else 0 - 1)
+  else enc_movi_16b (asm_vreg_num dst) imm
+
+-- ldr qT, [xN], #imm  (post-index)  |  ldr qT, [xN]  |  ldr qT, [xN, #imm]  (stores are not needed yet)
+asm_enc_q_mem dst_s base_s rest base is_ldr =
+  let t = asm_vreg_num dst_s
+  if is_ldr == 0 then 0 - 1
+  else if asm_last_is base_s "]" then
+    (if rest == [] then enc_ldr_q_imm t base 0 else enc_ldr_q_post t base (asm_imm (head rest)))
+  else enc_ldr_q_imm t base (asm_imm_from_brk (if rest == [] then "0]" else head rest))
+
 -- ARM condition name -> 4-bit code.
 asm_cond_code c =
   if c == "eq" then 0 else if c == "ne" then 1
@@ -721,7 +758,8 @@ asm_enc_mem ops is_ldr =
   let base_s = head (tail ops)
   let rest = tail (tail ops)
   let base = asm_reg_after_bracket base_s
-  if ((head (chars dst_s)) == "d") || ((head (chars dst_s)) == "s") then asm_enc_fp_mem dst_s base_s rest base is_ldr
+  if (head (chars dst_s)) == "q" then asm_enc_q_mem dst_s base_s rest base is_ldr
+  else if ((head (chars dst_s)) == "d") || ((head (chars dst_s)) == "s") then asm_enc_fp_mem dst_s base_s rest base is_ldr
   else if asm_last_is base_s "]" then
     if rest == [] then
       -- `[xN]` with NO displacement = zero-offset SCALED load, NOT post-index.
@@ -878,6 +916,7 @@ asm_enc_fmov ops =
   let src_cs = chars src
   if src_cs == [] then 0 - 1
   else if (head (chars dst)) == "x" then enc_fmov_x_d (asm_reg_num dst) (asm_dreg_num src)   -- fmov xD, dN
+  else if (head (chars dst)) == "w" then enc_fmov_w_s (asm_reg_num dst) (asm_sreg_num src)   -- fmov wD, sN (a lane sum out)
   else if (head src_cs) == "d" then enc_fmov_d_d (asm_dreg_num dst) (asm_dreg_num src)
   else enc_fmov_d_x (asm_dreg_num dst) (asm_reg_num src)
 
