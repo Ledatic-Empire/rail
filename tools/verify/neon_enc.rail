@@ -3,7 +3,8 @@
 -- tools/verify/neon_enc.cases has one line per case, `WORD ASM`: the 32-bit word Apple clang
 -- (-march=armv8.2-a+dotprod) emitted for that line, over every register in every field and the
 -- immediates lowbit's kernels use (601 lines, rail-lab/lowbit/l2/neon_ref.py, 2026-11-04, 62
--- `sxtw` lines after them, and 2,006 scalar lines from l2/scalar_cases.py for the qmatvec4 and quant_blk8 kernels). Each
+-- `sxtw` lines after them, 2,006 scalar lines from l2/scalar_cases.py for the qmatvec4 and quant_blk8
+-- kernels, and 768 float post-index lines from l4/attn_cases.py, 2026-11-04). Each
 -- line is encoded by asm_encode_insn and compared. Every mismatch is printed; the last line is
 -- PASS or FAIL, exit 0 iff PASS. Run from the repo root:
 --   ./rail_native run tools/verify/neon_enc.rail [cases_file]

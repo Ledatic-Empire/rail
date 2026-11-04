@@ -760,7 +760,14 @@ asm_enc_fp_mem dst_s base_s rest base is_ldr =
   let is_d = (head (chars dst_s)) == "d"
   let reg = if is_d then asm_dreg_num dst_s else asm_sreg_num dst_s
   if asm_last_is base_s "]" then
-    (if is_ldr == 1 then enc_ldr_d reg base 0 else enc_str_d reg base 0)
+    if rest == [] then
+      (if is_ldr == 1 then enc_ldr_d reg base 0 else enc_str_d reg base 0)
+    else
+      -- `[xN], #imm` post-index (imm9 unscaled). Until 2026-11-04 the immediate was dropped in
+      -- silence and the word was the zero-offset load: lowbit's attention kernel read one element.
+      let immp = asm_imm (head rest)
+      (if is_d then (if is_ldr == 1 then enc_idx9_b 4232053760 reg base immp else enc_idx9_b 4227859456 reg base immp)
+       else (if is_ldr == 1 then enc_idx9_b 3158311936 reg base immp else enc_idx9_b 3154117632 reg base immp))
   else
     let off_s = if rest == [] then "0" else head rest
     let oc0 = head (chars off_s)

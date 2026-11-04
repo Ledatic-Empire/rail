@@ -5,6 +5,12 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **A float post-index load or store dropped its immediate** (2026-11-04). `ldr d1, [x0], #8` and
+  `str d0, [x1], #8` (and the `s` forms) assembled as the zero-offset access with no writeback, in
+  silence, so a loop over doubles read the same one every pass. They now encode the post-index
+  word (imm9), held to clang over every register and six immediates (768 new lines in
+  `tools/verify/neon_enc.cases`). t278 links a running-sum loop. Found by lowbit's L4 attention
+  kernel, which summed 128 copies of one product.
 - **A one-operand branch with a trailing comment branched to itself** (2026-11-04). `b.le .Ldone
   // why` kept the blanks before `//` on the label, the lookup missed, and the word was emitted
   with offset 0 (the external-symbol path): a linked kernel hung with nothing said. Comments are
