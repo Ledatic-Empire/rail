@@ -5,6 +5,12 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **A one-operand branch with a trailing comment branched to itself** (2026-11-04). `b.le .Ldone
+  // why` kept the blanks before `//` on the label, the lookup missed, and the word was emitted
+  with offset 0 (the external-symbol path): a linked kernel hung with nothing said. Comments are
+  now stripped with their trailing blanks, and a local label (`.L...`) that no line defines is a
+  refused line at link, like an immediate with no encoding. t277 links a counting loop whose
+  branches all carry comments. Found by lowbit's L3 engine (its argmax helper).
 - **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six
   backends in one heading, about 9,700 compiler lines (7,949 in `tools/compile.rail`), a runtime
   embedded in the compiler (source files under `runtime/arm64/` since Tier 3 step 1), the JIT

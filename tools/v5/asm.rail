@@ -57,7 +57,19 @@ asm_strip_comment s =
   let i = str_find ";" s
   let j = str_find "//" s      -- the runtime/arm64 files' comment, so a linked file may use either
   let k = if i < 0 then j else if j < 0 then i else if i < j then i else j
-  if k < 0 then s else str_sub s 0 k
+  if k < 0 then s else asm_rtrim (str_sub s 0 k)
+-- Trailing blanks go too: until 2026-11-04 `b.le .Ldone    // why` kept them on the label, the
+-- lookup missed, and the branch was emitted to itself (a one-operand branch is not split on
+-- commas, so nothing else trimmed it). A linked kernel hung with nothing said.
+asm_rtrim s =
+  let cs = chars s
+  let n = asm_count_trail_ws cs 0
+  if n == 0 then s else str_sub s 0 ((length cs) - n)
+-- the run of blanks at the end of cs: `run` counts the current run, reset by a non-blank
+asm_count_trail_ws cs run =
+  if cs == [] then run
+  else if (head cs) == " " || (head cs) == "\t" then asm_count_trail_ws (tail cs) (run + 1)
+  else asm_count_trail_ws (tail cs) 0
 
 -- True if s ends with `:` (= a label definition line).
 asm_is_label s =
@@ -575,16 +587,22 @@ asm_enc_cmp ops =
 
 -- bl / b / b.cond LABEL. An UNRESOLVED (external) symbol -> emit 0 offset
 -- (matches `as`; the linker fills it via a BRANCH26 reloc). Local labels resolve.
+-- A local label (`.L...`) that no line defines has no target: a negative word, so pass 2 names
+-- the line and the file is refused (until 2026-11-04 it was emitted with offset 0, a branch to
+-- itself, and the program hung).
 asm_enc_branch ops cur_off labels enc_fn =
   let target = asm_lookup (head ops) labels
-  if target < 0 then enc_fn 0
+  if target < 0 then (if asm_is_local_label (head ops) == 1 then 0 - 1 else enc_fn 0)
   else enc_fn (target - cur_off)
 
 -- cbz / cbnz xR|wR, LABEL — picks the 32-bit variant for a w-register.
 asm_enc_cb ops cur_off labels enc_x enc_w =
   let reg = asm_reg_num (head ops)
-  let delta = (asm_lookup (head (tail ops)) labels) - cur_off
-  if (asm_is_w (head ops)) == 1 then enc_w reg delta else enc_x reg delta
+  let target = asm_lookup (head (tail ops)) labels
+  if target < 0 then 0 - 1
+  else
+    let delta = target - cur_off
+    if (asm_is_w (head ops)) == 1 then enc_w reg delta else enc_x reg delta
 
 -- 4-register form: <mn> xD, xN, xM, xA  (madd / msub)
 asm_enc_4reg ops enc_fn =
