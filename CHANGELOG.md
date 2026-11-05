@@ -19,6 +19,12 @@ All notable changes to Rail are documented here.
   (3) `round32` was emitted as `call _round32` with nothing behind it; `_round32` in
   `tools/x86_rt.s` is `cvtsd2ss` then `cvtss2sd` on the boxed double (`x86_round32`: 0.1, 1/3
   and 2.5 give `3fb99999a0000000`, `3fd5555560000000`, `4004000000000000`, arm64's values).
+  (4) The x86 runtime laid a float array out as a tag word, the length, then the doubles from +16;
+  arm64's is the length, then the doubles from +8 (`runtime/arm64/float.s`). No Rail program could
+  tell, every foreign kernel given the array's address could (lowbit's engine wrote its doubles
+  over the length and every attention score differed on the runner). `_float_arr_new`, `_get`,
+  `_set`, `_len` and the two f32 file transfers in `tools/x86_rt.s` now use arm64's layout
+  (`x86_float_arr_layout`: the first sixteen bytes of `float_arr_new 3 1.5` are 3, then 1.5).
   Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
   rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
 - **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six

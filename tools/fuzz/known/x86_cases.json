@@ -28,5 +28,10 @@
   "fixed",
   "3fb99999a0000000\n3fd5555560000000\n4004000000000000",
   "x86 backend: round32 was emitted as `call _round32` with no runtime piece behind it (a link error); found 2026-11-05 by lowbit's engine. Fixed 2026-11-05: _round32 in tools/x86_rt.s (cvtsd2ss, cvtss2sd on a boxed double, boxed back); measured on a GitHub x86-64 runner"
+ ],
+ "x86_float_arr_layout": [
+  "fixed",
+  "3 0 0 0 0 0 0 0 0 0 0 0 0 0 248 63",
+  "x86 runtime: a float array was a tag word, the length, then the doubles from +16; arm64's is the length, then the doubles from +8 (runtime/arm64/float.s). Unobservable from Rail, observable by any foreign kernel given the array's address: lowbit's engine wrote its doubles over the length and every attention score differed on the x86 runner, 2026-11-05. Fixed 2026-11-05: tools/x86_rt.s _float_arr_new/get/set/len and the two f32 file transfers use arm64's layout; the first sixteen bytes of float_arr_new 3 1.5 are the length 3 then 1.5 (0x3FF8000000000000, little-endian)"
  ]
 }

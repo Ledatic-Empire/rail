@@ -1,0 +1,12 @@
+-- A Rail float array's memory is the length word, then the doubles from +8, on every backend. The x86
+-- runtime laid it out as a tag word, the length, then the doubles from +16 until 2026-11-05: nothing
+-- in Rail could see the difference, every foreign kernel handed the array's address could (lowbit's
+-- engine wrote its doubles over the length). memcpy copies the first sixteen bytes out to be printed.
+foreign memcpy dst src n -> ptr
+bytes p i acc = if i >= 16 then acc else bytes p (i + 1) (cat [acc, (if i == 0 then "" else " "), show (byte_at p i)])
+main =
+  let fa = float_arr_new 3 1.5
+  let buf = rc_alloc 16
+  let _ = memcpy buf fa 16
+  let _ = print (bytes buf 0 "")
+  0

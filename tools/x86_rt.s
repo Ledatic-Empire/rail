@@ -2049,18 +2049,17 @@ _float_arr_new:
     mov [rbp-8], rdi          # save size (untagged)
     movsd xmm0, qword ptr [rsi+8]
     movsd [rbp-24], xmm0      # save init double
-    lea rdi, [rdi*8+16]       # size*8 + 16-byte header
+    lea rdi, [rdi*8+8]        # size*8 + the 8-byte length: arm64's layout (runtime/arm64/float.s), 2026-11-05
     call _rail_alloc
     mov [rbp-16], rax         # save buffer
-    mov qword ptr [rax], 7
     mov rcx, [rbp-8]
-    mov [rax+8], rcx          # length (untagged)
+    mov [rax], rcx            # length (untagged); the doubles follow at +8
     movsd xmm0, qword ptr [rbp-24]
     xor rcx, rcx              # i = 0
 .Lfan_loop:
     cmp rcx, [rbp-8]
     jae .Lfan_done
-    lea rdx, [rcx+2]          # element offset = (i+2)*8
+    lea rdx, [rcx+1]          # element offset = (i+1)*8
     movsd qword ptr [rax+rdx*8], xmm0
     inc rcx
     jmp .Lfan_loop
@@ -2078,7 +2077,7 @@ _float_arr_get:
     mov rbp, rsp
     sub rsp, 16
     sar rsi, 1                # untag idx
-    add rsi, 2                # account for [tag, length] header
+    add rsi, 1                # past the length word
     movsd xmm0, qword ptr [rdi+rsi*8]
     movsd [rbp-16], xmm0
     mov rdi, 16
@@ -2096,7 +2095,7 @@ _float_arr_get:
 _float_arr_set:
     movsd xmm0, qword ptr [rdx+8]
     sar rsi, 1
-    add rsi, 2
+    add rsi, 1
     movsd qword ptr [rdi+rsi*8], xmm0
     mov rax, 3
     ret
@@ -2106,7 +2105,7 @@ _float_arr_set:
 # calls `float_arr_len` explicitly and it falls through to user-symbol emit).
 .global _float_arr_len
 _float_arr_len:
-    mov rax, [rdi+8]
+    mov rax, [rdi]
     lea rax, [rax*2+1]
     ret
 
@@ -2147,7 +2146,7 @@ _float_arr_to_f32_file:
     cmp rcx, [rbp-24]
     jae .Lf32w_write
     mov rax, [rbp-16]
-    lea rdx, [rcx+2]
+    lea rdx, [rcx+1]
     movsd xmm0, qword ptr [rax+rdx*8]
     cvtsd2ss xmm0, xmm0
     mov rax, [rbp-40]
@@ -2217,7 +2216,7 @@ _float_arr_from_f32_file:
     movss xmm0, dword ptr [rax+rcx*4]
     cvtss2sd xmm0, xmm0
     mov rax, [rbp-16]
-    lea rdx, [rcx+2]
+    lea rdx, [rcx+1]
     movsd qword ptr [rax+rdx*8], xmm0
     inc rcx
     jmp .Lf32r_load
