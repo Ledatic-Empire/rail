@@ -41,7 +41,9 @@ _rail_argv:
 .bss
 .p2align 3
 _rail_heap:
-    .space 268435456    # 256MB bump allocator
+    .space 4294967296   # a 4 GB bump arena: zero pages until touched; arena_mark and arena_reset
+                        # let a program reuse it (lowbit's 4B token spent 256 MB and spilled to
+                        # malloc, which nothing frees, 2026-11-05)
 
 .text
 
@@ -54,7 +56,8 @@ main:
     lea rax, [rip+_rail_heap]
     lea rcx, [rip+_rail_heap_ptr]
     mov [rcx], rax
-    lea rdx, [rax+268435456]
+    mov rdx, 4294967296
+    add rdx, rax
     lea rcx, [rip+_rail_heap_end]
     mov [rcx], rdx
     # Call user main with argc, argv
@@ -87,8 +90,52 @@ _rail_alloc:
     pop rbp
     ret
 .Lalloc_slow:
-    # Fallback to malloc
+    # Fallback to malloc once the arena is spent. The fast path leaves rsi, rdx, r11 and every xmm
+    # register alone and callers rely on that (_rail_add computes into xmm0, allocates, then stores
+    # xmm0): malloc clobbers them (its first call runs a vector memset for the tcache), so one boxed
+    # double came back as garbage, the first allocation past 256 MB (lowbit's attention test,
+    # 2026-11-05: 1 score of 13,120). Saved here around the call.
+    push rsi
+    push rdx
+    push r11
+    sub rsp, 264
+    movups [rsp], xmm0
+    movups [rsp+16], xmm1
+    movups [rsp+32], xmm2
+    movups [rsp+48], xmm3
+    movups [rsp+64], xmm4
+    movups [rsp+80], xmm5
+    movups [rsp+96], xmm6
+    movups [rsp+112], xmm7
+    movups [rsp+128], xmm8
+    movups [rsp+144], xmm9
+    movups [rsp+160], xmm10
+    movups [rsp+176], xmm11
+    movups [rsp+192], xmm12
+    movups [rsp+208], xmm13
+    movups [rsp+224], xmm14
+    movups [rsp+240], xmm15
     call malloc@PLT
+    movups xmm0, [rsp]
+    movups xmm1, [rsp+16]
+    movups xmm2, [rsp+32]
+    movups xmm3, [rsp+48]
+    movups xmm4, [rsp+64]
+    movups xmm5, [rsp+80]
+    movups xmm6, [rsp+96]
+    movups xmm7, [rsp+112]
+    movups xmm8, [rsp+128]
+    movups xmm9, [rsp+144]
+    movups xmm10, [rsp+160]
+    movups xmm11, [rsp+176]
+    movups xmm12, [rsp+192]
+    movups xmm13, [rsp+208]
+    movups xmm14, [rsp+224]
+    movups xmm15, [rsp+240]
+    add rsp, 264
+    pop r11
+    pop rdx
+    pop rsi
     pop rbp
     ret
 
@@ -1494,6 +1541,7 @@ _rail_free_list_clear:
 _rail_rc_alloc:
     push rbp
     mov rbp, rsp
+    sar rdi, 1                # the size arrives tagged (compile.rail rc_alloc, 2026-11-05)
     add rdi, 8
     call _rail_alloc
     pop rbp
@@ -1979,6 +2027,27 @@ _fneg:
     leave
     ret
 
+# ── _round32 : boxed double → boxed double rounded to binary32 and back ──────
+# The ARM64 builtin is fcvt s0,d0; fcvt d0,s0 (nearest, ties to even); cvtsd2ss and cvtss2sd
+# under the default MXCSR are the same two roundings. rdi = boxed float. Until 2026-11-05 the
+# backend emitted `call _round32` and nothing defined it (known/x86_round32).
+.global _round32
+_round32:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 16
+    movsd xmm0, qword ptr [rdi+8]
+    cvtsd2ss xmm0, xmm0
+    cvtss2sd xmm0, xmm0
+    movsd [rbp-16], xmm0
+    mov rdi, 16
+    call _rail_alloc
+    mov qword ptr [rax], 6
+    movsd xmm0, qword ptr [rbp-16]
+    movsd [rax+8], xmm0
+    leave
+    ret
+
 .global _fsqrt
 _fsqrt:
     push rbp
@@ -2027,18 +2096,17 @@ _float_arr_new:
     mov [rbp-8], rdi          # save size (untagged)
     movsd xmm0, qword ptr [rsi+8]
     movsd [rbp-24], xmm0      # save init double
-    lea rdi, [rdi*8+16]       # size*8 + 16-byte header
+    lea rdi, [rdi*8+8]        # size*8 + the 8-byte length: arm64's layout (runtime/arm64/float.s), 2026-11-05
     call _rail_alloc
     mov [rbp-16], rax         # save buffer
-    mov qword ptr [rax], 7
     mov rcx, [rbp-8]
-    mov [rax+8], rcx          # length (untagged)
+    mov [rax], rcx            # length (untagged); the doubles follow at +8
     movsd xmm0, qword ptr [rbp-24]
     xor rcx, rcx              # i = 0
 .Lfan_loop:
     cmp rcx, [rbp-8]
     jae .Lfan_done
-    lea rdx, [rcx+2]          # element offset = (i+2)*8
+    lea rdx, [rcx+1]          # element offset = (i+1)*8
     movsd qword ptr [rax+rdx*8], xmm0
     inc rcx
     jmp .Lfan_loop
@@ -2056,7 +2124,7 @@ _float_arr_get:
     mov rbp, rsp
     sub rsp, 16
     sar rsi, 1                # untag idx
-    add rsi, 2                # account for [tag, length] header
+    add rsi, 1                # past the length word
     movsd xmm0, qword ptr [rdi+rsi*8]
     movsd [rbp-16], xmm0
     mov rdi, 16
@@ -2074,7 +2142,7 @@ _float_arr_get:
 _float_arr_set:
     movsd xmm0, qword ptr [rdx+8]
     sar rsi, 1
-    add rsi, 2
+    add rsi, 1
     movsd qword ptr [rdi+rsi*8], xmm0
     mov rax, 3
     ret
@@ -2084,7 +2152,7 @@ _float_arr_set:
 # calls `float_arr_len` explicitly and it falls through to user-symbol emit).
 .global _float_arr_len
 _float_arr_len:
-    mov rax, [rdi+8]
+    mov rax, [rdi]
     lea rax, [rax*2+1]
     ret
 
@@ -2125,7 +2193,7 @@ _float_arr_to_f32_file:
     cmp rcx, [rbp-24]
     jae .Lf32w_write
     mov rax, [rbp-16]
-    lea rdx, [rcx+2]
+    lea rdx, [rcx+1]
     movsd xmm0, qword ptr [rax+rdx*8]
     cvtsd2ss xmm0, xmm0
     mov rax, [rbp-40]
@@ -2195,7 +2263,7 @@ _float_arr_from_f32_file:
     movss xmm0, dword ptr [rax+rcx*4]
     cvtss2sd xmm0, xmm0
     mov rax, [rbp-16]
-    lea rdx, [rcx+2]
+    lea rdx, [rcx+1]
     movsd qword ptr [rax+rdx*8], xmm0
     inc rcx
     jmp .Lf32r_load

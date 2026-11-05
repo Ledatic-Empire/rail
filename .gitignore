@@ -102,3 +102,4 @@ notes/bisect_*/
 # internal ops/strategy/client audits — keep private
 /docs/plans/
 
+tools/fuzz/known/x86_emit/

@@ -1,0 +1,9 @@
+-- x86 backend: a str-returning foreign fn that returns NULL (getenv of a name the environment does
+-- not have) handed the NULL on as the string, and the next comparison or strtol died; arm64's FFI
+-- gives the empty string there (ptr_fixup). lowbit's engine read LOWBIT_EOS unset, 2026-11-05.
+foreign getenv name -> str
+main =
+  let s = getenv "LOWBIT_NO_SUCH_VARIABLE_2026"
+  let _ = print (if s == "" then "empty" else "set")
+  let _ = print (cat ["[", s, "]"])
+  0

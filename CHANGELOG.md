@@ -5,6 +5,39 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **The x86-64 backend's three defects of 2026-11-05**, each found by lowbit's Qwen3 engine on
+  its way to a GitHub x86 runner, each a case in `tools/fuzz/known/x86_cases.json` (now six), and
+  the cases now run: `tools/fuzz/x86_known.py` emits them on CI's macOS job and assembles, links
+  and runs them on the Linux `numerics-x86` job (until now `x86_cases.json` was a record nobody
+  executed). (1) A `foreign` call with seven or more arguments popped every argument past the
+  sixth into `rax`, one over the other; the six register arguments are now loaded from their push
+  slots and the rest copied down, untagged, into a 16-aligned block of System V 8-byte slots, with
+  `al` zero for a variadic callee (`x86_stack_extra_args`; `x86_foreign_stack_args`: an
+  eight-argument `printf` and a seven-argument `snprintf`). (2) `rc_alloc` went down the generic
+  path as `call _rc_alloc`, a symbol no runtime defines: a link error on any program with a raw
+  buffer; the emit now calls `_rail_rc_alloc`, which untags the size (`x86_rc_alloc`).
+  (3) `round32` was emitted as `call _round32` with nothing behind it; `_round32` in
+  `tools/x86_rt.s` is `cvtsd2ss` then `cvtss2sd` on the boxed double (`x86_round32`: 0.1, 1/3
+  and 2.5 give `3fb99999a0000000`, `3fd5555560000000`, `4004000000000000`, arm64's values).
+  (4) The x86 runtime laid a float array out as a tag word, the length, then the doubles from +16;
+  arm64's is the length, then the doubles from +8 (`runtime/arm64/float.s`). No Rail program could
+  tell, every foreign kernel given the array's address could (lowbit's engine wrote its doubles
+  over the length and every attention score differed on the runner). `_float_arr_new`, `_get`,
+  `_set`, `_len` and the two f32 file transfers in `tools/x86_rt.s` now use arm64's layout
+  (`x86_float_arr_layout`: the first sixteen bytes of `float_arr_new 3 1.5` are 3, then 1.5).
+  (5) `_rail_alloc`'s malloc fallback, taken once the 256 MB arena is spent, clobbered the xmm
+  registers and `rsi`, `rdx`, `r11` that the arena path leaves alone and callers rely on
+  (`_rail_add` keeps its result in `xmm0` across the call); glibc's first `malloc` runs a vector
+  memset, so the first boxed double past the arena was garbage (lowbit's attention test on the
+  runner: 1 score of 13,120 differed from the kernel and from arm64). The fallback now saves and
+  restores them (`x86_alloc_fallback`: forty 8 MB arrays, then a sum across the boundary).
+  (6) A str-returning `foreign` fn that returns NULL (`getenv` of an unset name) handed the NULL on
+  as the string on x86-64 and the next `strcmp` or `strtol` died; arm64's FFI gives the empty string
+  there. The x86 emit now tests the return and substitutes `_rail_empty_str`
+  (`x86_foreign_null_str`). The x86-64 bump arena grows from 256 MB to 4 GB of zero-fill pages (touched only as used):
+  lowbit's 4B token spent the 256 MB and the rest went to `malloc`, which nothing frees.
+  Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
+  rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
 - **A float post-index load or store dropped its immediate** (2026-11-04). `ldr d1, [x0], #8` and
   `str d0, [x1], #8` (and the `s` forms) assembled as the zero-offset access with no writeback, in
   silence, so a loop over doubles read the same one every pass. They now encode the post-index

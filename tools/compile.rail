@@ -7263,6 +7263,18 @@ x86_untag_args n i =
     let r = x86_arg_reg i
     cat ["    mov r10, ", r, "\n    sar r10, 1\n    test ", r, ", 1\n    cmovnz ", r, ", r10\n", x86_untag_args n (i + 1)]
 
+-- A foreign call's arguments past the sixth (System V: 8-byte stack slots, the 7th at [rsp] when
+-- the call is made). The push slots are 16 bytes each, argument j at [rsp + area + 16 (n-1-j)]
+-- once `area` bytes have been taken below them; each is copied down into its slot, untagged.
+-- Until 2026-11-05 every argument past the sixth was popped into rax, one over the other
+-- (known/x86_foreign_stack_args: an eight-argument printf).
+x86_stack_extra_args n j area =
+  if j >= n then ""
+  else
+    let src = area + 16 * (n - 1 - j)
+    let dst = 8 * (j - 6)
+    cat ["    mov r10, [rsp+", show src, "]\n    mov r11, r10\n    sar r11, 1\n    test r10, 1\n    cmovnz r10, r11\n    mov [rsp+", show dst, "], r10\n", x86_stack_extra_args n (j + 1) area]
+
 -- The i-th argument register into xmm_i as a double: a boxed float (header 6, the double at
 -- +8) is loaded, a tagged int is untagged and converted. Labels lc+2i and the next.
 x86_float_args n i lc =
@@ -7483,6 +7495,11 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
   else if fname == "err_msg" then
     let (aa, lc1, sl1) = x86_cg (head args) env ar lc sl false fs
     (cat [aa, "    mov rax, [rax+8]\n"], lc1, sl1)
+  else if fname == "rc_alloc" then
+    -- the raw buffer (x86_rt.s _rail_rc_alloc untags the size). Until 2026-11-05 the generic path
+    -- emitted `call _rc_alloc`, a symbol no runtime defines (known/x86_rc_alloc)
+    let (aa, lc1, sl1) = x86_cg (head args) env ar lc sl false fs
+    (cat [aa, "    mov rdi, rax\n    call _rail_rc_alloc\n"], lc1, sl1)
   else if fname == "arena_mark" then
     ("    lea rax, [rip+_rail_heap_ptr]\n    mov rax, [rax]\n", lc, sl)
   else if fname == "arena_reset" then
@@ -7520,9 +7537,21 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
       -- 4150184800000000).
       let untag = if is_float_ret then x86_float_args (length args) 0 lc1 else x86_untag_args (length args) 0
       let setal = if is_float_ret then cat ["    mov eax, ", show (length args), "\n"] else ""
-      let retag = if no_retag then "" else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
-      let lc2 = if is_float_ret then lc1 + 2 * length args else lc1
-      (cat [pa, pop, untag, setal, "    call ", fname, "@PLT\n", retag], lc2, sl1)
+      -- a str-returning foreign fn that returns NULL (getenv of an unset name) yields the empty
+      -- string, as the arm64 FFI's ptr_fixup does; until 2026-11-05 the NULL went on as the string
+      -- and the next strcmp or strtol died (known/x86_foreign_null_str)
+      let nullfix = if is_str_ret then cat ["    test rax, rax\n    jnz .Lx_ffi_nn_", show lc1, "\n    lea rax, [rip+_rail_empty_str]\n.Lx_ffi_nn_", show lc1, ":\n"] else ""
+      let retag = if no_retag then nullfix else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
+      let lc2 = (if is_float_ret then lc1 + 2 * length args else lc1) + 1
+      let n = length args
+      if n <= 6 || is_float_ret then
+        (cat [pa, pop, untag, setal, "    call ", fname, "@PLT\n", retag], lc2, sl1)
+      else
+        -- seven or more integer arguments: six in registers from their push slots, the rest copied
+        -- down into a 16-aligned block of 8-byte slots (x86_stack_extra_args), al = 0 for a variadic
+        -- callee, and the block and every push slot dropped after the call
+        let area = (((n - 6) * 8 + 15) / 16) * 16
+        (cat [pa, x86_load_arg_regs n 0, "    sub rsp, ", show area, "\n", x86_stack_extra_args n 6 area, x86_untag_args 6 0, "    xor eax, eax\n    call ", fname, "@PLT\n    add rsp, ", show (area + 16 * n), "\n", retag], lc2, sl1)
     else
     let voff = efind fname env
     if voff != (0 - 1) then
