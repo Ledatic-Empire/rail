@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-262%2F262-brightgreen" alt="tests 264/264"></a>
+  <a href="#check-the-claims"><img src="https://img.shields.io/badge/tests-264%2F264-brightgreen" alt="tests 264/264"></a>
   <a href="#check-the-claims"><img src="https://img.shields.io/badge/self--hosting-fixed%20point-blue" alt="self-hosting"></a>
   <a href="#2-speaks-https-natively"><img src="https://img.shields.io/badge/HTTPS-pure%20Rail-ff5500" alt="pure-Rail HTTPS"></a>
   <a href="#how-it-works"><img src="https://img.shields.io/badge/GC-ARM64%20assembly-purple" alt="GC in ARM64 asm"></a>
