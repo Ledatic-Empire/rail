@@ -89,7 +89,10 @@ builtin allocator. `foreign sleep` is int-only. `foreign fopen` (and `fread`,
 `fwrite`, `fseek`, `ftell`, `fclose`) is Rail's own descriptor-returning open on
 arm64 (`runtime/arm64/syscall.s`) and glibc's `FILE*` on x86-64, so a program
 that hands its result to `mmap` runs on one and dies on the other (lowbit's
-engine, 2026-11-05); a descriptor is `open`, `lseek`, `close` on both. GPU: an in-place tensor mutation
+engine, 2026-11-05); a descriptor is `open`, `lseek`, `close` on both. A pointer
+handed to a `foreign` call must be even: an odd address is taken for a tagged int
+and halved (lowbit's converter mapped a safetensors file whose header is 153,359
+bytes long, so every tensor sat at an odd address; copy through an aligned buffer). GPU: an in-place tensor mutation
 between two GPU matmuls is invisible to the second. Backends: the x86_64 backend
 carries the same top-level-const guard as ARM64 (`x86_emit_rcx`, `both_s` with
 `cl_local_v`) and x86-64 `mov r64, imm64` takes any immediate, but nothing here can
