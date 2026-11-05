@@ -57,7 +57,19 @@ asm_strip_comment s =
   let i = str_find ";" s
   let j = str_find "//" s      -- the runtime/arm64 files' comment, so a linked file may use either
   let k = if i < 0 then j else if j < 0 then i else if i < j then i else j
-  if k < 0 then s else str_sub s 0 k
+  if k < 0 then s else asm_rtrim (str_sub s 0 k)
+-- Trailing blanks go too: until 2026-11-04 `b.le .Ldone    // why` kept them on the label, the
+-- lookup missed, and the branch was emitted to itself (a one-operand branch is not split on
+-- commas, so nothing else trimmed it). A linked kernel hung with nothing said.
+asm_rtrim s =
+  let cs = chars s
+  let n = asm_count_trail_ws cs 0
+  if n == 0 then s else str_sub s 0 ((length cs) - n)
+-- the run of blanks at the end of cs: `run` counts the current run, reset by a non-blank
+asm_count_trail_ws cs run =
+  if cs == [] then run
+  else if (head cs) == " " || (head cs) == "\t" then asm_count_trail_ws (tail cs) (run + 1)
+  else asm_count_trail_ws (tail cs) 0
 
 -- True if s ends with `:` (= a label definition line).
 asm_is_label s =
@@ -376,7 +388,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "and"  then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_and_16b else asm_enc_logical ops 2449473536 enc_and)
   else if mnemonic == "orr"  then asm_enc_logical ops 2986344448 enc_orr
   else if mnemonic == "eor"  then asm_enc_logical ops 3523215360 enc_eor
-  else if mnemonic == "lsl"  then asm_enc_ri ops enc_lsl enc_lsl_imm
+  else if mnemonic == "lsl"  then (if asm_is_w (head ops) == 1 && (head (chars (head (tail (tail ops))))) == "#" then enc_lsl_imm_w (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) (asm_imm (head (tail (tail ops)))) else asm_enc_ri ops enc_lsl enc_lsl_imm)
   else if mnemonic == "lsr"  then asm_enc_ri ops enc_lsr enc_lsr_imm
   else if mnemonic == "ror"  then asm_enc_3reg ops enc_ror   -- register form only: rotl/rotr emit no immediate ror
   else if mnemonic == "asr"  then asm_enc_ri ops enc_asr enc_asr_imm
@@ -389,6 +401,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "ldr"  then asm_enc_mem ops 1
   else if mnemonic == "str"  then asm_enc_mem ops 0
   else if mnemonic == "ldrb" then asm_enc_byte_ldst ops 1
+  else if mnemonic == "ldrh" then asm_enc_half_ld ops
   else if mnemonic == "strb" then asm_enc_byte_ldst ops 0
   else if mnemonic == "ldp"  then asm_enc_pair ops 1
   else if mnemonic == "stp"  then asm_enc_pair ops 0
@@ -399,6 +412,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "fcmp" then asm_enc_fcmp ops
   else if mnemonic == "scvtf" then asm_enc_scvtf ops
   else if mnemonic == "fcvtzs" then asm_enc_fcvtzs ops
+  else if mnemonic == "fcvtas" then enc_fcvtas (asm_reg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else if mnemonic == "fmov" then asm_enc_fmov ops
   else if mnemonic == "subs" then asm_enc_subs ops
   else if mnemonic == "tbnz" then asm_enc_tb ops cur_off labels enc_tbnz
@@ -439,7 +453,9 @@ asm_enc_add ops =
       else if imm > 4095 || imm < 0 then 0 - 1
       else enc_add_imm dst n imm
     else if c0 == "x" || c0 == "w" then
-      (if rest != [] then enc_add_sh dst n (asm_reg_num op2) (asm_imm (asm_after_lsl (head rest)))
+      (if rest != [] then
+         (if (asm_shift_kind (head rest)) < 0 then 0 - 1
+          else enc_add_shk dst n (asm_reg_num op2) (asm_shift_kind (head rest)) (asm_imm (asm_after_lsl (head rest))))
        else enc_add dst n (asm_reg_num op2))
     else enc_add_imm dst n 0
   if word < 0 then word else if (asm_is_w (head ops)) == 1 then w32 word else word
@@ -448,7 +464,20 @@ asm_enc_add ops =
 -- encoding: until 2026-10-29 enc_sub_imm kept its low 12 bits, so a 4,416-byte
 -- frame was entered with `sub sp, sp, #320` (tools/compile.rail, sp_adjust).
 -- A negative word names the line in pass 2 and lk_link_file refuses the file.
+-- sub xD, xN, xM, <lsl|lsr|asr> #imm6 (the shifted register form) goes its own way; everything else as before
 asm_enc_sub ops =
+  if (length ops) == 4 && (head (chars (head (tail (tail ops))))) != "#" then
+    (let dst = asm_reg_num (head ops)
+     let n = asm_reg_num (head (tail ops))
+     let m = asm_reg_num (head (tail (tail ops)))
+     let sh = head (tail (tail (tail ops)))
+     let kind = asm_shift_kind sh
+     if kind < 0 then 0 - 1
+     else
+       let word = enc_sub_shk dst n m kind (asm_imm (asm_after_lsl sh))
+       if (asm_is_w (head ops)) == 1 then w32 word else word)
+  else asm_enc_sub_plain ops
+asm_enc_sub_plain ops =
   let op2 = head (tail (tail ops))
   if (head (chars op2)) == "#" then
     (let imm = asm_imm op2
@@ -528,6 +557,11 @@ asm_enc_movn ops =
     enc_movn dst imm shift_n
 
 asm_after_lsl s = asm_ltrim (asm_drop_word s)
+-- the shift kind named by an operand such as "lsr #3": 0 lsl, 1 lsr, 2 asr; anything else is -1
+asm_shift_kind s =
+  let w = asm_ltrim s
+  if asm_starts_with w "lsl" then 0 else if asm_starts_with w "lsr" then 1 else if asm_starts_with w "asr" then 2 else 0 - 1
+asm_starts_with s pre = (length (chars s)) >= (length (chars pre)) && (str_sub s 0 (length (chars pre))) == pre
 
 asm_drop_word s =
   let cs = chars s
@@ -573,16 +607,22 @@ asm_enc_cmp ops =
 
 -- bl / b / b.cond LABEL. An UNRESOLVED (external) symbol -> emit 0 offset
 -- (matches `as`; the linker fills it via a BRANCH26 reloc). Local labels resolve.
+-- A local label (`.L...`) that no line defines has no target: a negative word, so pass 2 names
+-- the line and the file is refused (until 2026-11-04 it was emitted with offset 0, a branch to
+-- itself, and the program hung).
 asm_enc_branch ops cur_off labels enc_fn =
   let target = asm_lookup (head ops) labels
-  if target < 0 then enc_fn 0
+  if target < 0 then (if asm_is_local_label (head ops) == 1 then 0 - 1 else enc_fn 0)
   else enc_fn (target - cur_off)
 
 -- cbz / cbnz xR|wR, LABEL — picks the 32-bit variant for a w-register.
 asm_enc_cb ops cur_off labels enc_x enc_w =
   let reg = asm_reg_num (head ops)
-  let delta = (asm_lookup (head (tail ops)) labels) - cur_off
-  if (asm_is_w (head ops)) == 1 then enc_w reg delta else enc_x reg delta
+  let target = asm_lookup (head (tail ops)) labels
+  if target < 0 then 0 - 1
+  else
+    let delta = target - cur_off
+    if (asm_is_w (head ops)) == 1 then enc_w reg delta else enc_x reg delta
 
 -- 4-register form: <mn> xD, xN, xM, xA  (madd / msub)
 asm_enc_4reg ops enc_fn =
@@ -636,6 +676,13 @@ asm_is_w s =
   if cs == [] then 0
   else if (head cs) == "w" then 1
   else 0
+
+-- hN -> N (16-bit float reg, the source of fcvt dD, hN / fcvt sD, hN)
+asm_hreg_num s =
+  let cs = chars s
+  if cs == [] then 0 - 1
+  else if (head cs) == "h" then asm_parse_int_chars (tail cs) 0
+  else 0 - 1
 
 -- sN -> N (32-bit float reg, for fcvt)
 asm_sreg_num s =
@@ -693,7 +740,7 @@ asm_cond_code c =
 asm_enc_csel ops =
   enc_csel (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) (asm_reg_num (head (tail (tail ops)))) (asm_cond_code (head (tail (tail (tail ops)))))
 
--- fcvt dD, sN (single->double) or fcvt sD, dN (double->single)
+-- fcvt dD, sN (single->double), fcvt sD, dN (double->single), fcvt dD, hN and fcvt sD, hN (half, 2026-11-05)
 -- fmadd sD, sN, sM, sA (single) or fmadd dD, dN, dM, dA (double): D = A + N*M
 asm_enc_fmadd ops =
   let d = head ops
@@ -705,7 +752,10 @@ asm_enc_fmadd ops =
 asm_enc_fcvt ops =
   let dst = head ops
   let src = head (tail ops)
-  if (head (chars dst)) == "d" then enc_fcvt_d_s (asm_dreg_num dst) (asm_sreg_num src)
+  if (head (chars src)) == "h" then
+    (if (head (chars dst)) == "d" then enc_fcvt_d_h (asm_dreg_num dst) (asm_hreg_num src)
+     else enc_fcvt_s_h (asm_sreg_num dst) (asm_hreg_num src))
+  else if (head (chars dst)) == "d" then enc_fcvt_d_s (asm_dreg_num dst) (asm_sreg_num src)
   else enc_fcvt_s_d (asm_sreg_num dst) (asm_dreg_num src)
 
 -- cset xD, <cond>
@@ -740,7 +790,14 @@ asm_enc_fp_mem dst_s base_s rest base is_ldr =
   let is_d = (head (chars dst_s)) == "d"
   let reg = if is_d then asm_dreg_num dst_s else asm_sreg_num dst_s
   if asm_last_is base_s "]" then
-    (if is_ldr == 1 then enc_ldr_d reg base 0 else enc_str_d reg base 0)
+    if rest == [] then
+      (if is_ldr == 1 then enc_ldr_d reg base 0 else enc_str_d reg base 0)
+    else
+      -- `[xN], #imm` post-index (imm9 unscaled). Until 2026-11-04 the immediate was dropped in
+      -- silence and the word was the zero-offset load: lowbit's attention kernel read one element.
+      let immp = asm_imm (head rest)
+      (if is_d then (if is_ldr == 1 then enc_idx9_b 4232053760 reg base immp else enc_idx9_b 4227859456 reg base immp)
+       else (if is_ldr == 1 then enc_idx9_b 3158311936 reg base immp else enc_idx9_b 3154117632 reg base immp))
   else
     let off_s = if rest == [] then "0" else head rest
     let oc0 = head (chars off_s)
@@ -892,6 +949,16 @@ asm_enc_byte_ldst ops is_ldr =
       let m = asm_reg_after_bracket op3
       (if is_ldr == 1 then enc_ldrb_regoff dst base m else enc_strb_regoff dst base m)
 
+-- ldrh wD, [xN], #imm (post-index) or ldrh wD, [xN, #imm] / [xN] (offset): the bf16 scale reads
+asm_enc_half_ld ops =
+  let dst = asm_reg_num (head ops)
+  let base_s = head (tail ops)
+  let rest = tail (tail ops)
+  let base = asm_reg_after_bracket base_s
+  if asm_last_is base_s "]" then
+    (if rest == [] then enc_ldrh_imm dst base 0 else enc_ldrh_postidx dst base (asm_imm (head rest)))
+  else enc_ldrh_imm dst base (asm_imm_from_brk (head rest))
+
 -- ── Float ops: fadd / fsub / fmul / fdiv  dD, dA, dB
 asm_dreg_num s =
   let cs = chars s
@@ -908,7 +975,8 @@ asm_enc_fcmp ops =
   enc_fcmp (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
 
 asm_enc_scvtf ops =
-  enc_scvtf (asm_dreg_num (head ops)) (asm_reg_num (head (tail ops)))
+  if asm_is_w (head (tail ops)) == 1 then enc_scvtf_w (asm_dreg_num (head ops)) (asm_reg_num (head (tail ops)))
+  else enc_scvtf (asm_dreg_num (head ops)) (asm_reg_num (head (tail ops)))
 
 asm_enc_fcvtzs ops =
   enc_fcvtzs (asm_reg_num (head ops)) (asm_dreg_num (head (tail ops)))
@@ -921,6 +989,7 @@ asm_enc_fmov ops =
   if src_cs == [] then 0 - 1
   else if (head (chars dst)) == "x" then enc_fmov_x_d (asm_reg_num dst) (asm_dreg_num src)   -- fmov xD, dN
   else if (head (chars dst)) == "w" then enc_fmov_w_s (asm_reg_num dst) (asm_sreg_num src)   -- fmov wD, sN (a lane sum out)
+  else if (head (chars dst)) == "s" then enc_fmov_s_w (asm_sreg_num dst) (asm_reg_num src)   -- fmov sD, wN (bf16 bits in)
   else if (head src_cs) == "d" then enc_fmov_d_d (asm_dreg_num dst) (asm_dreg_num src)
   else enc_fmov_d_x (asm_dreg_num dst) (asm_reg_num src)
 
