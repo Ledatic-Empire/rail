@@ -7518,8 +7518,12 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
       -- 4150184800000000).
       let untag = if is_float_ret then x86_float_args (length args) 0 lc1 else x86_untag_args (length args) 0
       let setal = if is_float_ret then cat ["    mov eax, ", show (length args), "\n"] else ""
-      let retag = if no_retag then "" else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
-      let lc2 = if is_float_ret then lc1 + 2 * length args else lc1
+      -- a str-returning foreign fn that returns NULL (getenv of an unset name) yields the empty
+      -- string, as the arm64 FFI's ptr_fixup does; until 2026-11-05 the NULL went on as the string
+      -- and the next strcmp or strtol died (known/x86_foreign_null_str)
+      let nullfix = if is_str_ret then cat ["    test rax, rax\n    jnz .Lx_ffi_nn_", show lc1, "\n    lea rax, [rip+_rail_empty_str]\n.Lx_ffi_nn_", show lc1, ":\n"] else ""
+      let retag = if no_retag then nullfix else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
+      let lc2 = (if is_float_ret then lc1 + 2 * length args else lc1) + 1
       let n = length args
       if n <= 6 || is_float_ret then
         (cat [pa, pop, untag, setal, "    call ", fname, "@PLT\n", retag], lc2, sl1)

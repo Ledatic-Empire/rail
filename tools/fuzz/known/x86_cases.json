@@ -38,5 +38,10 @@
   "fixed",
   "40fe848000000000\n40ee848000000000",
   "x86 runtime: _rail_alloc's malloc fallback (past the 256 MB arena) clobbered the xmm registers and rsi, rdx, r11 that the arena path leaves alone and callers rely on (_rail_add keeps its result in xmm0 across the call); glibc's first malloc runs a vector memset, so the first boxed double past the arena was garbage (lowbit's attention test on the runner, 2026-11-05: 1 score of 13,120). Fixed 2026-11-05: the fallback saves and restores them around malloc. The case spends the arena with forty 8 MB arrays, then sums 1.25 a hundred thousand times across the boundary: 125000 = 40fe848000000000, half of it 40ee848000000000"
+ ],
+ "x86_foreign_null_str": [
+  "fixed",
+  "empty\n[]",
+  "x86 backend: a str-returning foreign fn that returns NULL (getenv of an unset name) handed the NULL on as the string; the next strcmp or strtol died (lowbit's engine reading LOWBIT_EOS unset on the runner, 2026-11-05); arm64's FFI gives the empty string (ptr_fixup). Fixed 2026-11-05: the x86 emit tests the return and substitutes _rail_empty_str"
  ]
 }
