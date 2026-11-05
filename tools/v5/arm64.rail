@@ -636,6 +636,10 @@ enc_add_imm_sh dst n imm sh = bit_or 2432696320 (bit_or (shl sh 22) (bit_or (shl
 enc_cmp_imm_sh reg imm sh = bit_or 4043309087 (bit_or (shl sh 22) (bit_or (shl (bit_and imm 4095) 10) (shl reg 5)))
 -- add xD, xA, xB, lsl #shift  (shifted register, imm6 bits 10-15)
 enc_add_sh dst a b shift = bit_or 2332033024 (bit_or (shl shift 10) (bit_or (shl b 16) (bit_or (shl a 5) dst)))
+-- add/sub xD, xN, xM, <lsl|lsr|asr> #imm6: kind 0 lsl, 1 lsr, 2 asr at bits 22..23 (2026-11-05; until then the
+-- kind was read as lsl whatever the text said, and sub's register form ignored a fourth operand in silence)
+enc_add_shk dst a b kind shift = bit_or 2332033024 (bit_or (shl kind 22) (bit_or (shl shift 10) (bit_or (shl b 16) (bit_or (shl a 5) dst))))
+enc_sub_shk dst a b kind shift = bit_or 3405774848 (bit_or (shl kind 22) (bit_or (shl shift 10) (bit_or (shl b 16) (bit_or (shl a 5) dst))))
 -- ldur/stur xD, [xN, #imm9]  (unscaled, signed 9-bit; for negative/non-x8 offsets)
 enc_ldur dst n imm = bit_or 4164943872 (bit_or (shl (bit_and imm 511) 12) (bit_or (shl n 5) dst))
 enc_stur dst n imm = bit_or 4160749568 (bit_or (shl (bit_and imm 511) 12) (bit_or (shl n 5) dst))

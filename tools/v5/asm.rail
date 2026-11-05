@@ -453,7 +453,9 @@ asm_enc_add ops =
       else if imm > 4095 || imm < 0 then 0 - 1
       else enc_add_imm dst n imm
     else if c0 == "x" || c0 == "w" then
-      (if rest != [] then enc_add_sh dst n (asm_reg_num op2) (asm_imm (asm_after_lsl (head rest)))
+      (if rest != [] then
+         (if (asm_shift_kind (head rest)) < 0 then 0 - 1
+          else enc_add_shk dst n (asm_reg_num op2) (asm_shift_kind (head rest)) (asm_imm (asm_after_lsl (head rest))))
        else enc_add dst n (asm_reg_num op2))
     else enc_add_imm dst n 0
   if word < 0 then word else if (asm_is_w (head ops)) == 1 then w32 word else word
@@ -462,7 +464,20 @@ asm_enc_add ops =
 -- encoding: until 2026-10-29 enc_sub_imm kept its low 12 bits, so a 4,416-byte
 -- frame was entered with `sub sp, sp, #320` (tools/compile.rail, sp_adjust).
 -- A negative word names the line in pass 2 and lk_link_file refuses the file.
+-- sub xD, xN, xM, <lsl|lsr|asr> #imm6 (the shifted register form) goes its own way; everything else as before
 asm_enc_sub ops =
+  if (length ops) == 4 && (head (chars (head (tail (tail ops))))) != "#" then
+    (let dst = asm_reg_num (head ops)
+     let n = asm_reg_num (head (tail ops))
+     let m = asm_reg_num (head (tail (tail ops)))
+     let sh = head (tail (tail (tail ops)))
+     let kind = asm_shift_kind sh
+     if kind < 0 then 0 - 1
+     else
+       let word = enc_sub_shk dst n m kind (asm_imm (asm_after_lsl sh))
+       if (asm_is_w (head ops)) == 1 then w32 word else word)
+  else asm_enc_sub_plain ops
+asm_enc_sub_plain ops =
   let op2 = head (tail (tail ops))
   if (head (chars op2)) == "#" then
     (let imm = asm_imm op2
@@ -542,6 +557,11 @@ asm_enc_movn ops =
     enc_movn dst imm shift_n
 
 asm_after_lsl s = asm_ltrim (asm_drop_word s)
+-- the shift kind named by an operand such as "lsr #3": 0 lsl, 1 lsr, 2 asr; anything else is -1
+asm_shift_kind s =
+  let w = asm_ltrim s
+  if asm_starts_with w "lsl" then 0 else if asm_starts_with w "lsr" then 1 else if asm_starts_with w "asr" then 2 else 0 - 1
+asm_starts_with s pre = (length (chars s)) >= (length (chars pre)) && (str_sub s 0 (length (chars pre))) == pre
 
 asm_drop_word s =
   let cs = chars s

@@ -35,6 +35,12 @@ All notable changes to Rail are documented here.
   (`write_file_fopen_fails`). Suite 257.
 
 ### Added
+- **`add` and `sub` with a shifted register, `xD, xN, xM, <lsl|lsr|asr> #n`** (2026-11-05): the kind
+  was read as `lsl` whatever the text said (`add x16, x16, x14, lsr #3` added `x14 << 3`), and `sub`
+  ignored a fourth operand in silence; lowbit L6's quantizer indexed its bit planes with the lsr form
+  and the engine's first matvec was wrong where clang's assembly of the same file was right. Both
+  forms encode the kind now (192 clang cases, 3,757 in all), t280 (`tools/test/link_shift.s`).
+  Suite 264.
 - **`fcvt dD, hN` and `fcvt sD, hN`** (2026-11-05): the assembler widens a half-precision register
   (bases 0x1EE2C000 and 0x1EE24000, held to clang over every register in each field: 128 lines in
   `tools/verify/neon_enc.cases`, 3,565 in all); lowbit L6's 1-bit kernels read Bonsai's f16 scales
