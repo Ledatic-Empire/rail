@@ -38,6 +38,18 @@ All notable changes to Rail are documented here.
   lowbit's 4B token spent the 256 MB and the rest went to `malloc`, which nothing frees.
   Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
   rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
+- **A float post-index load or store dropped its immediate** (2026-11-04). `ldr d1, [x0], #8` and
+  `str d0, [x1], #8` (and the `s` forms) assembled as the zero-offset access with no writeback, in
+  silence, so a loop over doubles read the same one every pass. They now encode the post-index
+  word (imm9), held to clang over every register and six immediates (768 new lines in
+  `tools/verify/neon_enc.cases`). t278 links a running-sum loop. Found by lowbit's L4 attention
+  kernel, which summed 128 copies of one product.
+- **A one-operand branch with a trailing comment branched to itself** (2026-11-04). `b.le .Ldone
+  // why` kept the blanks before `//` on the label, the lookup missed, and the word was emitted
+  with offset 0 (the external-symbol path): a linked kernel hung with nothing said. Comments are
+  now stripped with their trailing blanks, and a local label (`.L...`) that no line defines is a
+  refused line at link, like an immediate with no encoding. t277 links a counting loop whose
+  branches all carry comments. Found by lowbit's L3 engine (its argmax helper).
 - **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six
   backends in one heading, about 9,700 compiler lines (7,949 in `tools/compile.rail`), a runtime
   embedded in the compiler (source files under `runtime/arm64/` since Tier 3 step 1), the JIT
@@ -56,6 +68,18 @@ All notable changes to Rail are documented here.
   (`write_file_fopen_fails`). Suite 257.
 
 ### Added
+- **`add` and `sub` with a shifted register, `xD, xN, xM, <lsl|lsr|asr> #n`** (2026-11-05): the kind
+  was read as `lsl` whatever the text said (`add x16, x16, x14, lsr #3` added `x14 << 3`), and `sub`
+  ignored a fourth operand in silence; lowbit L6's quantizer indexed its bit planes with the lsr form
+  and the engine's first matvec was wrong where clang's assembly of the same file was right. Both
+  forms encode the kind now (192 clang cases, 3,757 in all), t280 (`tools/test/link_shift.s`).
+  Suite 264.
+- **`fcvt dD, hN` and `fcvt sD, hN`** (2026-11-05): the assembler widens a half-precision register
+  (bases 0x1EE2C000 and 0x1EE24000, held to clang over every register in each field: 128 lines in
+  `tools/verify/neon_enc.cases`, 3,565 in all); lowbit L6's 1-bit kernels read Bonsai's f16 scales
+  with it. t279 (`tools/test/link_f16.s`: 0x3E00 widens to 1.5, 0xC500 to -5.0). Suite 263. The
+  first draft's base words were mis-converted from hex and the verifier and t279 both said so
+  before anything shipped.
 - **`link "path.s"` carries assembly into a program** (2026-11-04). The keyword was parsed and
   dropped since it was reserved; now the file is found like a quoted import (the current
   directory, then beside the compiler), its text is placed after the program's functions and
@@ -67,6 +91,19 @@ All notable changes to Rail are documented here.
   A linked file's comments are `;` or `//` (the runtime files' form, which the generator
   stripped before the assembler saw it; now the assembler skips a `//` line and cuts a trailing
   `//` itself). Suite 259.
+- **The assembler encodes the scalar forms lowbit's matrix kernels need** (2026-11-04,
+  `tools/v5/arm64.rail`, `tools/v5/asm.rail`): `ldrh wD, [xN], #imm` and `ldrh wD, [xN, #imm]`
+  (a bf16 scale in), `fmov sD, wN`, `fcvtas xD, dN` (nearest, ties away: the blk8 rounding),
+  `scvtf dD, wN` (the 32-bit source form) and `lsl wD, wN, #imm` (the 32-bit `ubfm`). The last
+  two were accepted before and mis-encoded in silence: `scvtf dD, wN` was emitted as the x form
+  (a lane sum of -3, zero-extended in w, became 2e13) and `lsl w` carried 64-bit shift fields with
+  N=1. `tools/verify/neon_enc.cases` grows to 2,669 lines (2,006 scalar lines from rail-lab's
+  `lowbit/l2/scalar_cases.py`, every register in every field, Apple clang the oracle) and holds
+  every scalar form the two kernels use (`fdiv`, `csel`, `cset`, `movz`/`movk` with `lsl`, the
+  logical immediates, `strb` post-index among them); a planted wrong word fails it (1708/1709,
+  FAIL, exit 1). Test t276 (`tools/test/link_bf16_forms.s`): two bf16 values and a 32-bit -3 whose
+  upper half is garbage give -9. Seed rebuilt; the second and third self-compiles are
+  byte-identical. Suite 260.
 - **The assembler encodes nine Advanced SIMD forms** (2026-11-04, `tools/v5/arm64.rail`,
   `tools/v5/asm.rail`): `ldr qT, [xN], #imm` and `ldr qT, [xN, #imm]`, `movi vD.16b, #imm8` and
   `movi vD.2d, #0`, `and vD.16b`, `ushr vD.16b, #n`, `sdot vD.4s, vN.16b, vM.16b` (FEAT_DotProd),
