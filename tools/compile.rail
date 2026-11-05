@@ -6578,8 +6578,11 @@ run_tests _ =
   let t280 = run_test "link_shift" "link \"tools/test/link_shift.s\"\nforeign shr3add a b -> int\nforeign sub2shl a b -> int\nforeign asradd a b -> int\nmain =\n  let _ = print (show (shr3add 5 40))\n  let _ = print (show (sub2shl 100 3))\n  let _ = print (show (asradd 10 (0 - 8)))\n  0" "10\n88\n6"
   let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0) + (if t280 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd + s_lnk
-  let _ = print (cat [show total, "/264 tests passed"])
-  if total == 262 then 0 else 1
+  -- one literal carries the count: the printed line and the exit check both read it (2026-11-05: the
+  -- check said 262 while the line said 264, and `test` exited 1 on green)
+  let summary = cat [show total, "/264 tests passed"]
+  let _ = print summary
+  if summary == cat [show total, "/", show total, " tests passed"] then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE

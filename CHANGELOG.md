@@ -5,6 +5,11 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **`rail_native test` exited 1 with every test passing** (2026-11-05). The runner compared the
+  total to a literal 262 while printing a literal 264 (t279 and t280 raised the count without the
+  check), so any script that trusted the exit code saw a failure on green; CI reads the n/n line and
+  never noticed. The one `/264 tests passed` literal now feeds both the line and the check (exit 0
+  on 264/264; `tour_check` still reads that literal). Seed rebuilt (gen3 == gen4), `docs/STATUS.md` regenerated.
 - **The x86-64 backend's three defects of 2026-11-05**, each found by lowbit's Qwen3 engine on
   its way to a GitHub x86 runner, each a case in `tools/fuzz/known/x86_cases.json` (now six), and
   the cases now run: `tools/fuzz/x86_known.py` emits them on CI's macOS job and assembles, links
