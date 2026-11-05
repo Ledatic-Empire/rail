@@ -25,6 +25,12 @@ All notable changes to Rail are documented here.
   over the length and every attention score differed on the runner). `_float_arr_new`, `_get`,
   `_set`, `_len` and the two f32 file transfers in `tools/x86_rt.s` now use arm64's layout
   (`x86_float_arr_layout`: the first sixteen bytes of `float_arr_new 3 1.5` are 3, then 1.5).
+  (5) `_rail_alloc`'s malloc fallback, taken once the 256 MB arena is spent, clobbered the xmm
+  registers and `rsi`, `rdx`, `r11` that the arena path leaves alone and callers rely on
+  (`_rail_add` keeps its result in `xmm0` across the call); glibc's first `malloc` runs a vector
+  memset, so the first boxed double past the arena was garbage (lowbit's attention test on the
+  runner: 1 score of 13,120 differed from the kernel and from arm64). The fallback now saves and
+  restores them (`x86_alloc_fallback`: forty 8 MB arrays, then a sum across the boundary).
   Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
   rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
 - **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six

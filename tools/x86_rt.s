@@ -87,8 +87,52 @@ _rail_alloc:
     pop rbp
     ret
 .Lalloc_slow:
-    # Fallback to malloc
+    # Fallback to malloc once the arena is spent. The fast path leaves rsi, rdx, r11 and every xmm
+    # register alone and callers rely on that (_rail_add computes into xmm0, allocates, then stores
+    # xmm0): malloc clobbers them (its first call runs a vector memset for the tcache), so one boxed
+    # double came back as garbage, the first allocation past 256 MB (lowbit's attention test,
+    # 2026-11-05: 1 score of 13,120). Saved here around the call.
+    push rsi
+    push rdx
+    push r11
+    sub rsp, 264
+    movups [rsp], xmm0
+    movups [rsp+16], xmm1
+    movups [rsp+32], xmm2
+    movups [rsp+48], xmm3
+    movups [rsp+64], xmm4
+    movups [rsp+80], xmm5
+    movups [rsp+96], xmm6
+    movups [rsp+112], xmm7
+    movups [rsp+128], xmm8
+    movups [rsp+144], xmm9
+    movups [rsp+160], xmm10
+    movups [rsp+176], xmm11
+    movups [rsp+192], xmm12
+    movups [rsp+208], xmm13
+    movups [rsp+224], xmm14
+    movups [rsp+240], xmm15
     call malloc@PLT
+    movups xmm0, [rsp]
+    movups xmm1, [rsp+16]
+    movups xmm2, [rsp+32]
+    movups xmm3, [rsp+48]
+    movups xmm4, [rsp+64]
+    movups xmm5, [rsp+80]
+    movups xmm6, [rsp+96]
+    movups xmm7, [rsp+112]
+    movups xmm8, [rsp+128]
+    movups xmm9, [rsp+144]
+    movups xmm10, [rsp+160]
+    movups xmm11, [rsp+176]
+    movups xmm12, [rsp+192]
+    movups xmm13, [rsp+208]
+    movups xmm14, [rsp+224]
+    movups xmm15, [rsp+240]
+    add rsp, 264
+    pop r11
+    pop rdx
+    pop rsi
     pop rbp
     ret
 
