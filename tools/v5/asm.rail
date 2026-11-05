@@ -657,6 +657,13 @@ asm_is_w s =
   else if (head cs) == "w" then 1
   else 0
 
+-- hN -> N (16-bit float reg, the source of fcvt dD, hN / fcvt sD, hN)
+asm_hreg_num s =
+  let cs = chars s
+  if cs == [] then 0 - 1
+  else if (head cs) == "h" then asm_parse_int_chars (tail cs) 0
+  else 0 - 1
+
 -- sN -> N (32-bit float reg, for fcvt)
 asm_sreg_num s =
   let cs = chars s
@@ -713,7 +720,7 @@ asm_cond_code c =
 asm_enc_csel ops =
   enc_csel (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) (asm_reg_num (head (tail (tail ops)))) (asm_cond_code (head (tail (tail (tail ops)))))
 
--- fcvt dD, sN (single->double) or fcvt sD, dN (double->single)
+-- fcvt dD, sN (single->double), fcvt sD, dN (double->single), fcvt dD, hN and fcvt sD, hN (half, 2026-11-05)
 -- fmadd sD, sN, sM, sA (single) or fmadd dD, dN, dM, dA (double): D = A + N*M
 asm_enc_fmadd ops =
   let d = head ops
@@ -725,7 +732,10 @@ asm_enc_fmadd ops =
 asm_enc_fcvt ops =
   let dst = head ops
   let src = head (tail ops)
-  if (head (chars dst)) == "d" then enc_fcvt_d_s (asm_dreg_num dst) (asm_sreg_num src)
+  if (head (chars src)) == "h" then
+    (if (head (chars dst)) == "d" then enc_fcvt_d_h (asm_dreg_num dst) (asm_hreg_num src)
+     else enc_fcvt_s_h (asm_sreg_num dst) (asm_hreg_num src))
+  else if (head (chars dst)) == "d" then enc_fcvt_d_s (asm_dreg_num dst) (asm_sreg_num src)
   else enc_fcvt_s_d (asm_sreg_num dst) (asm_dreg_num src)
 
 -- cset xD, <cond>

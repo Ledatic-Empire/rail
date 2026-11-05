@@ -457,6 +457,11 @@ enc_fcvt_s_d dst src = bit_or 509755392 (bit_or (shl src 5) dst)
 
 -- fcvt dD, sS    single -> double   Base: 0x1E22C000 | (S<<5) | D
 enc_fcvt_d_s dst src = bit_or 505593856 (bit_or (shl src 5) dst)
+-- fcvt dD, hN (half->double)   Base: 0x1EE2C000 = 518176768 (clang: fcvt d0, h26 = 1ee2c340; lowbit L6's 1-bit kernels
+-- read f16 scales, 2026-11-05; the first draft carried the base mis-converted from hex, and the verifier said so)
+enc_fcvt_d_h dst src = bit_or 518176768 (bit_or (shl src 5) dst)
+-- fcvt sD, hN (half->single)   Base: 0x1EE24000
+enc_fcvt_s_h dst src = bit_or 518144000 (bit_or (shl src 5) dst)
 
 -- fmadd sD, sN, sM, sA   single fused multiply-add, D = A + N*M   Base: 0x1F000000 | M<<16 | A<<10 | N<<5 | D
 -- (the `fma32` builtin, 2026-10-29; checked against clang: fmadd s0,s0,s1,s2 = 1f010800, s3,s4,s5,s6 = 1f051883)

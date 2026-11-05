@@ -35,6 +35,12 @@ All notable changes to Rail are documented here.
   (`write_file_fopen_fails`). Suite 257.
 
 ### Added
+- **`fcvt dD, hN` and `fcvt sD, hN`** (2026-11-05): the assembler widens a half-precision register
+  (bases 0x1EE2C000 and 0x1EE24000, held to clang over every register in each field: 128 lines in
+  `tools/verify/neon_enc.cases`, 3,565 in all); lowbit L6's 1-bit kernels read Bonsai's f16 scales
+  with it. t279 (`tools/test/link_f16.s`: 0x3E00 widens to 1.5, 0xC500 to -5.0). Suite 263. The
+  first draft's base words were mis-converted from hex and the verifier and t279 both said so
+  before anything shipped.
 - **`link "path.s"` carries assembly into a program** (2026-11-04). The keyword was parsed and
   dropped since it was reserved; now the file is found like a quoted import (the current
   directory, then beside the compiler), its text is placed after the program's functions and

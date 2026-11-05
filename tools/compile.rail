@@ -6570,9 +6570,12 @@ run_tests _ =
   -- immediate was dropped in silence and the word was the zero-offset load, so a loop read the
   -- same double each pass: 1.5 + 2.5 + 4.0 summed as 1.5 * 3 = 4 before the fix, 8 after.
   let t278 = run_test "link_fp_postidx" "link \"tools/test/link_fp_postidx.s\"\nforeign sum_f64 src dst n -> int\nmain =\n  let src = float_arr_new 3 0.0\n  let dst = float_arr_new 3 0.0\n  let _ = float_arr_set src 0 1.5\n  let _ = float_arr_set src 1 2.5\n  let _ = float_arr_set src 2 4.0\n  let _ = print (show (sum_f64 src dst 3))\n  let _ = print (show (to_int (float_arr_get dst 1)))\n  0" "8\n4"
-  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0)
+  -- t279: fcvt dD, hN widens a half (2026-11-05, lowbit L6's 1-bit kernels read f16 scales): 0x3E00 is 1.5,
+  -- 0xC500 is -5.0; before the form existed the assembler refused the mnemonic's operand
+  let t279 = run_test "link_f16" "link \"tools/test/link_f16.s\"\nforeign widen_f16 fa bits\nmain =\n  let fa = float_arr_new 1 0.0\n  let _ = widen_f16 fa 15872\n  let _ = print (show (to_int ((float_arr_get fa 0) *. 2.0)))\n  let _ = widen_f16 fa 50432\n  let _ = print (show (to_int (float_arr_get fa 0)))\n  0" "3\n-5"
+  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd + s_lnk
-  let _ = print (cat [show total, "/262 tests passed"])
+  let _ = print (cat [show total, "/263 tests passed"])
   if total == 262 then 0 else 1
 
 -- ===========================================================================
