@@ -41,7 +41,9 @@ _rail_argv:
 .bss
 .p2align 3
 _rail_heap:
-    .space 268435456    # 256MB bump allocator
+    .space 4294967296   # a 4 GB bump arena: zero pages until touched; arena_mark and arena_reset
+                        # let a program reuse it (lowbit's 4B token spent 256 MB and spilled to
+                        # malloc, which nothing frees, 2026-11-05)
 
 .text
 
@@ -54,7 +56,8 @@ main:
     lea rax, [rip+_rail_heap]
     lea rcx, [rip+_rail_heap_ptr]
     mov [rcx], rax
-    lea rdx, [rax+268435456]
+    mov rdx, 4294967296
+    add rdx, rax
     lea rcx, [rip+_rail_heap_end]
     mov [rcx], rdx
     # Call user main with argc, argv

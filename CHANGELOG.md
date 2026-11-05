@@ -31,6 +31,8 @@ All notable changes to Rail are documented here.
   memset, so the first boxed double past the arena was garbage (lowbit's attention test on the
   runner: 1 score of 13,120 differed from the kernel and from arm64). The fallback now saves and
   restores them (`x86_alloc_fallback`: forty 8 MB arrays, then a sum across the boundary).
+  The x86-64 bump arena grows from 256 MB to 4 GB of zero-fill pages (touched only as used):
+  lowbit's 4B token spent the 256 MB and the rest went to `malloc`, which nothing frees.
   Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
   rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
 - **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six
