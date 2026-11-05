@@ -1494,6 +1494,7 @@ _rail_free_list_clear:
 _rail_rc_alloc:
     push rbp
     mov rbp, rsp
+    sar rdi, 1                # the size arrives tagged (compile.rail rc_alloc, 2026-11-05)
     add rdi, 8
     call _rail_alloc
     pop rbp
@@ -1971,6 +1972,27 @@ _fneg:
     pxor xmm1, xmm1
     subsd xmm1, xmm0
     movsd [rbp-16], xmm1
+    mov rdi, 16
+    call _rail_alloc
+    mov qword ptr [rax], 6
+    movsd xmm0, qword ptr [rbp-16]
+    movsd [rax+8], xmm0
+    leave
+    ret
+
+# ── _round32 : boxed double → boxed double rounded to binary32 and back ──────
+# The ARM64 builtin is fcvt s0,d0; fcvt d0,s0 (nearest, ties to even); cvtsd2ss and cvtss2sd
+# under the default MXCSR are the same two roundings. rdi = boxed float. Until 2026-11-05 the
+# backend emitted `call _round32` and nothing defined it (known/x86_round32).
+.global _round32
+_round32:
+    push rbp
+    mov rbp, rsp
+    sub rsp, 16
+    movsd xmm0, qword ptr [rdi+8]
+    cvtsd2ss xmm0, xmm0
+    cvtss2sd xmm0, xmm0
+    movsd [rbp-16], xmm0
     mov rdi, 16
     call _rail_alloc
     mov qword ptr [rax], 6

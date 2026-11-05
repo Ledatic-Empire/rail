@@ -164,6 +164,12 @@ jobs:
               tools/verify/numerics_vs_c/probe64_x86.s
               tools/verify/numerics_vs_c/records/c_arm64_ci.txt
               tools/verify/numerics_vs_c/records/rail_arm64_ci.txt
+        - name: Emit the x86-64 known cases (tools/fuzz/known/x86_cases.json) for the Linux job
+          run: python3 tools/fuzz/x86_known.py emit tools/fuzz/known/x86_emit
+        - uses: actions/upload-artifact@v4
+          with:
+            name: x86-known
+            path: tools/fuzz/known/x86_emit
     numerics-x86:
       # The same probe on an x86-64 Linux runner: C through gcc, Rail through the assembly the
       # seed emitted in the job above. An open defect would be a line in known_live.txt, printed
@@ -182,3 +188,9 @@ jobs:
           run: uname -m; grep -m1 'model name' /proc/cpuinfo; gcc --version | head -1; getconf GNU_LIBC_VERSION
         - name: C through gcc and Rail through its x86-64 assembly, judged
           run: bash tools/verify/numerics_vs_c/run_ci.sh x86
+        - uses: actions/download-artifact@v4
+          with:
+            name: x86-known
+            path: tools/fuzz/known/x86_emit
+        - name: The x86-64 known cases, assembled, linked and run on this chip
+          run: python3 tools/fuzz/x86_known.py run tools/fuzz/known/x86_emit

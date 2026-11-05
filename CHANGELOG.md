@@ -5,6 +5,22 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Fixed
+- **The x86-64 backend's three defects of 2026-11-05**, each found by lowbit's Qwen3 engine on
+  its way to a GitHub x86 runner, each a case in `tools/fuzz/known/x86_cases.json` (now six), and
+  the cases now run: `tools/fuzz/x86_known.py` emits them on CI's macOS job and assembles, links
+  and runs them on the Linux `numerics-x86` job (until now `x86_cases.json` was a record nobody
+  executed). (1) A `foreign` call with seven or more arguments popped every argument past the
+  sixth into `rax`, one over the other; the six register arguments are now loaded from their push
+  slots and the rest copied down, untagged, into a 16-aligned block of System V 8-byte slots, with
+  `al` zero for a variadic callee (`x86_stack_extra_args`; `x86_foreign_stack_args`: an
+  eight-argument `printf` and a seven-argument `snprintf`). (2) `rc_alloc` went down the generic
+  path as `call _rc_alloc`, a symbol no runtime defines: a link error on any program with a raw
+  buffer; the emit now calls `_rail_rc_alloc`, which untags the size (`x86_rc_alloc`).
+  (3) `round32` was emitted as `call _round32` with nothing behind it; `_round32` in
+  `tools/x86_rt.s` is `cvtsd2ss` then `cvtss2sd` on the boxed double (`x86_round32`: 0.1, 1/3
+  and 2.5 give `3fb99999a0000000`, `3fd5555560000000`, `4004000000000000`, arm64's values).
+  Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
+  rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
 - **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six
   backends in one heading, about 9,700 compiler lines (7,949 in `tools/compile.rail`), a runtime
   embedded in the compiler (source files under `runtime/arm64/` since Tier 3 step 1), the JIT
