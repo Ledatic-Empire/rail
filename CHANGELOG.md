@@ -4,6 +4,16 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Changed
+- **The fleet witness looks the beacon up once per 5 minutes and reads a pulse with one python3**
+  (2026-11-01, `tools/fleet/witness.sh`, `witness_push.sh`). Both polled through a fresh DNS lookup
+  every time, and the witness started python3 five times a poll: on a Pi Zero 2 W that was 69% of
+  every query its DNS sinkhole served and 36% of a core. The host's address is now pinned with
+  `curl --resolve`, refreshed every `RESOLVE_SEC` (300) and forgotten after any failed fetch or PUT;
+  a failed lookup leaves curl to resolve the name itself, as before. Measured on the Pi: lookups 564
+  to 4 per 10 minutes, witness CPU 36.4% to 24.6% of a core while witnessing 37% more pulses (per
+  record 1.37 s to 0.68 s); records identical to the old witness on every shared pulse id.
+
 ### Fixed
 - **`rail_native test` exited 1 with every test passing** (2026-11-05). The runner compared the
   total to a literal 262 while printing a literal 264 (t279 and t280 raised the count without the
