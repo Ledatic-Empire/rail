@@ -1,0 +1,14 @@
+-- x86 runtime: the first allocation past the 256 MB arena falls back to malloc, whose first call
+-- clobbers xmm0 (glibc's tcache memset); _rail_add had its result in xmm0 across the allocator call,
+-- so one boxed double came back as garbage (lowbit's attention test, 2026-11-05: 1 score of 13,120,
+-- the Rail loop against the kernel). Here forty 8 MB float arrays spend the arena, then a sum of
+-- doubles runs across the boundary; arm64's value is the expected text.
+import "stdlib/float_hex.rail"
+spend i = if i >= 40 then 0 else let _ = float_arr_new 1000000 0.0 in spend (i + 1)
+add_go i n acc = if i >= n then acc else add_go (i + 1) n (acc +. 1.25)
+main =
+  let _ = spend 0
+  let s = add_go 0 100000 0.0
+  let _ = print (show_float_hex s)
+  let _ = print (show_float_hex (s *. 0.5))
+  0

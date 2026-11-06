@@ -13,5 +13,35 @@
   "fixed",
   "91\n105\n210",
   "x86 backend: a user fn with 14 or more parameters reads some of them wrong (f14 gives 104, f16 132, f20 194; up to 13 right); measured 2026-10-29 on Modal x86-64 (raillane R3, the engine's 23-parameter step fn crashed); arm64 is right. Fixed 2026-10-29: the stack-arg block is reversed in place and shifted (x86_rev_stack_args, x86_shift_stack_args), no target overwrites an unread source; measured right on a Modal x86-64 box"
+ ],
+ "x86_foreign_stack_args": [
+  "fixed",
+  "1 2 3 4 5 6 7\n10 20 30 40",
+  "x86 backend: a foreign call with seven or more arguments popped every argument past the sixth into rax, one over the other (an eight-argument printf printed its last argument twice); found 2026-11-05 by lowbit's eight-argument matvec kernel. Fixed 2026-11-05: the six register arguments are loaded from their push slots and the rest copied down, untagged, into a 16-aligned block of System V 8-byte slots, al = 0 (x86_stack_extra_args in tools/compile.rail); measured on a GitHub x86-64 runner"
+ ],
+ "x86_rc_alloc": [
+  "fixed",
+  "131",
+  "x86 backend: rc_alloc fell through to the generic path as `call _rc_alloc`, which no runtime defines (a link error on any program with a raw buffer); found 2026-11-05 by lowbit's engine. Fixed 2026-11-05: the x86 emit calls _rail_rc_alloc, which untags the size; measured on a GitHub x86-64 runner"
+ ],
+ "x86_round32": [
+  "fixed",
+  "3fb99999a0000000\n3fd5555560000000\n4004000000000000",
+  "x86 backend: round32 was emitted as `call _round32` with no runtime piece behind it (a link error); found 2026-11-05 by lowbit's engine. Fixed 2026-11-05: _round32 in tools/x86_rt.s (cvtsd2ss, cvtss2sd on a boxed double, boxed back); measured on a GitHub x86-64 runner"
+ ],
+ "x86_float_arr_layout": [
+  "fixed",
+  "3 0 0 0 0 0 0 0 0 0 0 0 0 0 248 63",
+  "x86 runtime: a float array was a tag word, the length, then the doubles from +16; arm64's is the length, then the doubles from +8 (runtime/arm64/float.s). Unobservable from Rail, observable by any foreign kernel given the array's address: lowbit's engine wrote its doubles over the length and every attention score differed on the x86 runner, 2026-11-05. Fixed 2026-11-05: tools/x86_rt.s _float_arr_new/get/set/len and the two f32 file transfers use arm64's layout; the first sixteen bytes of float_arr_new 3 1.5 are the length 3 then 1.5 (0x3FF8000000000000, little-endian)"
+ ],
+ "x86_alloc_fallback": [
+  "fixed",
+  "40fe848000000000\n40ee848000000000",
+  "x86 runtime: _rail_alloc's malloc fallback (past the 256 MB arena) clobbered the xmm registers and rsi, rdx, r11 that the arena path leaves alone and callers rely on (_rail_add keeps its result in xmm0 across the call); glibc's first malloc runs a vector memset, so the first boxed double past the arena was garbage (lowbit's attention test on the runner, 2026-11-05: 1 score of 13,120). Fixed 2026-11-05: the fallback saves and restores them around malloc. The case spends the arena with forty 8 MB arrays, then sums 1.25 a hundred thousand times across the boundary: 125000 = 40fe848000000000, half of it 40ee848000000000"
+ ],
+ "x86_foreign_null_str": [
+  "fixed",
+  "empty\n[]",
+  "x86 backend: a str-returning foreign fn that returns NULL (getenv of an unset name) handed the NULL on as the string; the next strcmp or strtol died (lowbit's engine reading LOWBIT_EOS unset on the runner, 2026-11-05); arm64's FFI gives the empty string (ptr_fixup). Fixed 2026-11-05: the x86 emit tests the return and substitutes _rail_empty_str"
  ]
 }

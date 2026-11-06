@@ -1,0 +1,8 @@
+-- x86 backend: rc_alloc went down the generic builtin path as `call _rc_alloc`, a symbol no
+-- runtime defines, so any program with a raw buffer failed to link on x86-64 (2026-11-05).
+main =
+  let p = rc_alloc 16
+  let _ = byte_set p 0 65
+  let _ = byte_set p 15 66
+  let _ = print (show (byte_at p 0 + byte_at p 15))
+  0

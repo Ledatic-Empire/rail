@@ -4,7 +4,7 @@ One Rail compiler, three targets. All driven from the same `rail_native` binary.
 
 | Backend | Verb | Output | Toolchain needed | Status (local-verified) |
 |---|---|---|---|---|
-| macOS ARM64 (Mach-O) | _(default)_ / `run` | `/tmp/rail_out` | none (host `as`+`ld`) | runs end-to-end |
+| macOS ARM64 (Mach-O) | _(default)_ / `run` | `/tmp/rail_out` | none (Rail assembles, links and signs in process) | runs end-to-end |
 | Linux ARM64 (ELF) | `linux` | `/tmp/rail_linux` | `aarch64-elf-as`, `aarch64-elf-ld` | needs cross-binutils |
 | Linux x86_64 (ELF, source-only) | `x86` | `/tmp/rail_x86.s` | remote `gcc` (or Docker `linux/amd64`) | emits `.s`, 71/79 conformance via Docker harness |
 

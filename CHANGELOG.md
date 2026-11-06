@@ -15,6 +15,63 @@ All notable changes to Rail are documented here.
   record 1.37 s to 0.68 s); records identical to the old witness on every shared pulse id.
 
 ### Fixed
+- **`rail_native test` exited 1 with every test passing** (2026-11-05). The runner compared the
+  total to a literal 262 while printing a literal 264 (t279 and t280 raised the count without the
+  check), so any script that trusted the exit code saw a failure on green; CI reads the n/n line and
+  never noticed. The one `/264 tests passed` literal now feeds both the line and the check (exit 0
+  on 264/264; `tour_check` still reads that literal). Seed rebuilt (gen3 == gen4), `docs/STATUS.md` regenerated.
+- **The x86-64 backend's three defects of 2026-11-05**, each found by lowbit's Qwen3 engine on
+  its way to a GitHub x86 runner, each a case in `tools/fuzz/known/x86_cases.json` (now six), and
+  the cases now run: `tools/fuzz/x86_known.py` emits them on CI's macOS job and assembles, links
+  and runs them on the Linux `numerics-x86` job (until now `x86_cases.json` was a record nobody
+  executed). (1) A `foreign` call with seven or more arguments popped every argument past the
+  sixth into `rax`, one over the other; the six register arguments are now loaded from their push
+  slots and the rest copied down, untagged, into a 16-aligned block of System V 8-byte slots, with
+  `al` zero for a variadic callee (`x86_stack_extra_args`; `x86_foreign_stack_args`: an
+  eight-argument `printf` and a seven-argument `snprintf`). (2) `rc_alloc` went down the generic
+  path as `call _rc_alloc`, a symbol no runtime defines: a link error on any program with a raw
+  buffer; the emit now calls `_rail_rc_alloc`, which untags the size (`x86_rc_alloc`).
+  (3) `round32` was emitted as `call _round32` with nothing behind it; `_round32` in
+  `tools/x86_rt.s` is `cvtsd2ss` then `cvtss2sd` on the boxed double (`x86_round32`: 0.1, 1/3
+  and 2.5 give `3fb99999a0000000`, `3fd5555560000000`, `4004000000000000`, arm64's values).
+  (4) The x86 runtime laid a float array out as a tag word, the length, then the doubles from +16;
+  arm64's is the length, then the doubles from +8 (`runtime/arm64/float.s`). No Rail program could
+  tell, every foreign kernel given the array's address could (lowbit's engine wrote its doubles
+  over the length and every attention score differed on the runner). `_float_arr_new`, `_get`,
+  `_set`, `_len` and the two f32 file transfers in `tools/x86_rt.s` now use arm64's layout
+  (`x86_float_arr_layout`: the first sixteen bytes of `float_arr_new 3 1.5` are 3, then 1.5).
+  (5) `_rail_alloc`'s malloc fallback, taken once the 256 MB arena is spent, clobbered the xmm
+  registers and `rsi`, `rdx`, `r11` that the arena path leaves alone and callers rely on
+  (`_rail_add` keeps its result in `xmm0` across the call); glibc's first `malloc` runs a vector
+  memset, so the first boxed double past the arena was garbage (lowbit's attention test on the
+  runner: 1 score of 13,120 differed from the kernel and from arm64). The fallback now saves and
+  restores them (`x86_alloc_fallback`: forty 8 MB arrays, then a sum across the boundary).
+  (6) A str-returning `foreign` fn that returns NULL (`getenv` of an unset name) handed the NULL on
+  as the string on x86-64 and the next `strcmp` or `strtol` died; arm64's FFI gives the empty string
+  there. The x86 emit now tests the return and substitutes `_rail_empty_str`
+  (`x86_foreign_null_str`). The x86-64 bump arena grows from 256 MB to 4 GB of zero-fill pages (touched only as used):
+  lowbit's 4B token spent the 256 MB and the rest went to `malloc`, which nothing frees.
+  Float arguments past the sixth and `fma32`, `f32_bits` on x86-64 remain unimplemented. Seed
+  rebuilt (gen2 == gen3), `docs/STATUS.md` regenerated.
+- **A float post-index load or store dropped its immediate** (2026-11-04). `ldr d1, [x0], #8` and
+  `str d0, [x1], #8` (and the `s` forms) assembled as the zero-offset access with no writeback, in
+  silence, so a loop over doubles read the same one every pass. They now encode the post-index
+  word (imm9), held to clang over every register and six immediates (768 new lines in
+  `tools/verify/neon_enc.cases`). t278 links a running-sum loop. Found by lowbit's L4 attention
+  kernel, which summed 128 copies of one product.
+- **A one-operand branch with a trailing comment branched to itself** (2026-11-04). `b.le .Ldone
+  // why` kept the blanks before `//` on the label, the lookup missed, and the word was emitted
+  with offset 0 (the external-symbol path): a linked kernel hung with nothing said. Comments are
+  now stripped with their trailing blanks, and a local label (`.L...`) that no line defines is a
+  refused line at link, like an immediate with no encoding. t277 links a counting loop whose
+  branches all carry comments. Found by lowbit's L3 engine (its argmax helper).
+- **`docs/site/` no longer describes what the cut removed** (2026-11-03). `index.md` said six
+  backends in one heading, about 9,700 compiler lines (7,949 in `tools/compile.rail`), a runtime
+  embedded in the compiler (source files under `runtime/arm64/` since Tier 3 step 1), the JIT
+  trampoline and the Metal host as optional helpers, and the training loop as Rail-built;
+  `backends.md` named the host `as` and `ld` for macOS (Rail links in process since Tier 3
+  step 6). ledatic.org's `/rail/docs/` is built from these files and still served the cut JIT and
+  WebAssembly pages.
 - **`write_file` says so and returns 1 when it cannot open the file** (2026-10-30,
   `_rail_write_file` in `runtime/arm64/io.s`). Until now a failed `fopen` (a missing directory, no
   permission) went on to `fwrite(NULL)` and `fclose(NULL)` and returned 0 exactly as on success: a
@@ -26,6 +83,56 @@ All notable changes to Rail are documented here.
   (`write_file_fopen_fails`). Suite 257.
 
 ### Added
+- **`add` and `sub` with a shifted register, `xD, xN, xM, <lsl|lsr|asr> #n`** (2026-11-05): the kind
+  was read as `lsl` whatever the text said (`add x16, x16, x14, lsr #3` added `x14 << 3`), and `sub`
+  ignored a fourth operand in silence; lowbit L6's quantizer indexed its bit planes with the lsr form
+  and the engine's first matvec was wrong where clang's assembly of the same file was right. Both
+  forms encode the kind now (192 clang cases, 3,757 in all), t280 (`tools/test/link_shift.s`).
+  Suite 264.
+- **`fcvt dD, hN` and `fcvt sD, hN`** (2026-11-05): the assembler widens a half-precision register
+  (bases 0x1EE2C000 and 0x1EE24000, held to clang over every register in each field: 128 lines in
+  `tools/verify/neon_enc.cases`, 3,565 in all); lowbit L6's 1-bit kernels read Bonsai's f16 scales
+  with it. t279 (`tools/test/link_f16.s`: 0x3E00 widens to 1.5, 0xC500 to -5.0). Suite 263. The
+  first draft's base words were mis-converted from hex and the verifier and t279 both said so
+  before anything shipped.
+- **`link "path.s"` carries assembly into a program** (2026-11-04). The keyword was parsed and
+  dropped since it was reserved; now the file is found like a quoted import (the current
+  directory, then beside the compiler), its text is placed after the program's functions and
+  before the runtime, Rail's assembler assembles it with the rest, and `foreign` calls its labels
+  (`tools/test/link_add3.s`, t274: `add3 1 2 3` prints 6). A link no directory has is a compile
+  error naming the path (t275); `link "-l..."` is still ignored; the x86-64 backend ignores every
+  link. Comments in a linked file are `;`, the assembler's own. This is the door for kernels that
+  live outside the compiler (lowbit's dot products, rail-lab) instead of inside every binary.
+  A linked file's comments are `;` or `//` (the runtime files' form, which the generator
+  stripped before the assembler saw it; now the assembler skips a `//` line and cuts a trailing
+  `//` itself). Suite 259.
+- **The assembler encodes the scalar forms lowbit's matrix kernels need** (2026-11-04,
+  `tools/v5/arm64.rail`, `tools/v5/asm.rail`): `ldrh wD, [xN], #imm` and `ldrh wD, [xN, #imm]`
+  (a bf16 scale in), `fmov sD, wN`, `fcvtas xD, dN` (nearest, ties away: the blk8 rounding),
+  `scvtf dD, wN` (the 32-bit source form) and `lsl wD, wN, #imm` (the 32-bit `ubfm`). The last
+  two were accepted before and mis-encoded in silence: `scvtf dD, wN` was emitted as the x form
+  (a lane sum of -3, zero-extended in w, became 2e13) and `lsl w` carried 64-bit shift fields with
+  N=1. `tools/verify/neon_enc.cases` grows to 2,669 lines (2,006 scalar lines from rail-lab's
+  `lowbit/l2/scalar_cases.py`, every register in every field, Apple clang the oracle) and holds
+  every scalar form the two kernels use (`fdiv`, `csel`, `cset`, `movz`/`movk` with `lsl`, the
+  logical immediates, `strb` post-index among them); a planted wrong word fails it (1708/1709,
+  FAIL, exit 1). Test t276 (`tools/test/link_bf16_forms.s`): two bf16 values and a 32-bit -3 whose
+  upper half is garbage give -9. Seed rebuilt; the second and third self-compiles are
+  byte-identical. Suite 260.
+- **The assembler encodes nine Advanced SIMD forms** (2026-11-04, `tools/v5/arm64.rail`,
+  `tools/v5/asm.rail`): `ldr qT, [xN], #imm` and `ldr qT, [xN, #imm]`, `movi vD.16b, #imm8` and
+  `movi vD.2d, #0`, `and vD.16b`, `ushr vD.16b, #n`, `sdot vD.4s, vN.16b, vM.16b` (FEAT_DotProd),
+  `add vD.4s`, `addv sD, vN.4s`, `fmov wD, sN` and `sxtw xD, wN` (the 32-bit sum signed into
+  the register Rail retags): the forms an exact 4-bit by int8 group dot product needs (lowbit,
+  rail-lab). Operands `vN.<arr>` and `qN` parse; the arrangement after the
+  dot is not read, each mnemonic here having one. `tools/verify/neon_enc.rail` (CI job `neon`)
+  encodes the 663 lines of `tools/verify/neon_enc.cases` and compares each with the word Apple
+  clang `-march=armv8.2-a+dotprod` emitted for it; seven of the ten base constants were first
+  typed wrong by hand and the table caught every one (292/601 before, 601/601 after; `sxtw`'s
+  base was typed wrong too and caught the same way). A planted wrong word fails it (600/601,
+  FAIL, exit 1). No compiled program changes: nothing emits these
+  yet. The seed `rail_native` is rebuilt (1,057,768 to 1,057,816 bytes: the encoder code itself);
+  the second and third self-compiles are byte-identical. Suite 257.
 - **`tools/verify/stdlib_alone.rail`: every stdlib module compiles when imported alone** (2026-10-30,
   CI job `stdlib`). For each `stdlib/<m>.rail` it compiles `import "stdlib/<m>.rail"` with `main = 0`
   and prints the compiler's first error line for any module refused; PASS or FAIL last, exit 0 iff

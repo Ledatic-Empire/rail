@@ -1,0 +1,13 @@
+-- x86 backend: a foreign call with seven or more arguments. System V passes the seventh and
+-- later on the stack; until 2026-11-05 the backend popped them all into rax, one over the other,
+-- so printf printed the last argument twice and garbage after it. Eight arguments leave two on
+-- the stack, seven leave one (both parities of the 16-byte alignment).
+foreign printf fmt a b c d e f g -> int
+foreign snprintf buf n fmt a b c d -> int
+foreign strdup p -> str
+main =
+  let _ = printf "%ld %ld %ld %ld %ld %ld %ld\n" 1 2 3 4 5 6 7
+  let buf = rc_alloc 64
+  let _ = snprintf buf 64 "%ld %ld %ld %ld" 10 20 30 40
+  let _ = print (strdup buf)
+  0

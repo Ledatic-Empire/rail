@@ -814,10 +814,17 @@ pprog_ast ts =
         else import_merge imp_decls (pprog_ast r2)
       else pprog_ast r
     else if cv ts2 == "link" then
-      -- skip link pragmas for now
+      -- link "path.s": the program carries that assembly (2026-11-04). The file is read like a
+      -- quoted import (the current directory, then beside the compiler), assembled by Rail's own
+      -- assembler with the program, and its labels are callable through `foreign`. A string
+      -- starting with "-" (link "-lsqlite3") stays what it was: parsed, not acted on.
       let r = ad ts2
-      let (_, r2) = xp "str" r
-      pprog_ast r2
+      let (path0, r2) = xp "str" r
+      if str_starts_with "-" path0 then pprog_ast r2
+      else
+        let path = resolve_quoted_import path0
+        if str_starts_with "_NOT_FOUND" path then cons (DErr (cat ["cannot open link \"", path0, "\" (looked in the current directory and beside the compiler)"]) (show (length r2))) (pprog_ast r2)
+        else cons (DLink path) (pprog_ast r2)
     else
       let (d, r) = pdcl ts2
       if ast_is_err d then cons d (pprog_ast (sks ts2))
@@ -5392,8 +5399,18 @@ compile_checked decls0 =
   let hdr = ".section __TEXT,__text\n.global _main\n.p2align 2\n\n"
   let (funcs, gc_descs, _) = compile_funcs td ar 0
   let rt = runtime_asm
+  let linked = linked_asm td
   let gc_desc_block = cat ["\n.section __DATA,__data\n.p2align 3\n.global _gc_desc_table_start\n_gc_desc_table_start:\n", gc_descs, ".global _gc_desc_table_end\n_gc_desc_table_end:\n"]
-  cat [hdr, funcs, rt, rt_data, ctor_tables_asm td, gc_desc_block]
+  cat [hdr, funcs, linked, rt, rt_data, ctor_tables_asm td, gc_desc_block]
+
+-- The text of every `link "path.s"` the program names, in order, each on its own lines.
+-- Appended after the program's functions and before the runtime (arm64 only; the x86-64
+-- backend ignores link declarations).
+linked_asm decls =
+  if decls == [] then ""
+  else match head decls
+    | DLink p -> cat ["\n; link ", p, "\n", read_file p, "\n", linked_asm (tail decls)]
+    | _ -> linked_asm (tail decls)
 
 -- ── Arity check (2026-09-07) ─────────────────────────────────────────────
 -- Rail has no currying and no arity error at runtime: a call with too few
@@ -6466,6 +6483,20 @@ run_tests _ =
   -- t273: write_file names the path on stderr and returns 1 when its fopen fails (it returned 0
   -- and sent the bytes to fwrite(NULL) until 2026-10-30); a write that succeeds still returns 0.
   let t273 = run_test "write_file_fopen_fails" "main =\n  let a = write_file \"/nonexistent_dir_rail_t273/x.txt\" \"hello\"\n  let _ = print a\n  let p = \"/tmp/rail_t273_ok.txt\"\n  let b = write_file p \"fine\"\n  let _ = print b\n  let _ = print (read_file p)\n  let _ = shell \"rm -f /tmp/rail_t273_ok.txt\"\n  0" "rail: write_file: cannot open /nonexistent_dir_rail_t273/x.txt\n1\n0\nfine"
+  -- t274: `link "path.s"` carries that assembly into the program and `foreign` calls its label
+  -- (link pragmas were parsed and dropped until 2026-11-04); a link no directory has is refused
+  -- naming the path, and a "-l" link is still ignored
+  let t274 = run_test "link_asm_foreign" "link \"tools/test/link_add3.s\"\nlink \"-lm\"\nforeign add3 a b c\nmain =\n  let _ = print (show (add3 1 2 3))\n  let _ = print (show (add3 (0 - 7) 100 (add3 1 1 1)))\n  0" "6\n96"
+  let t275 = driver_expect_error "link_missing" "asm" "link \"tools/test/no_such.s\"\nmain = 0\n" "cannot open link \"tools/test/no_such.s\""
+  -- t276: the scalar forms lowbit's kernels read a bf16 scale and round with (2026-11-04): ldrh
+  -- post-index, lsl w #imm, fmov s<-w, fcvt d<-s, scvtf d<-w (the w form; the x form read a
+  -- zero-extended negative as 2e13), each held to clang in tools/verify/neon_enc.cases
+  let t276 = run_test "link_bf16_forms" "link \"tools/test/link_bf16_forms.s\"\nforeign bf16_forms p n\nmain =\n  let p = join \"\" [char_from_int 128, char_from_int 63, char_from_int 64, char_from_int 64]\n  let _ = print (show (bf16_forms p 0))\n  0" "-9"
+  -- t277: a one-operand branch (`b.le .Ldone    // why`) keeps its label when a comment follows
+  -- (2026-11-04: the blanks before `//` stayed on the label, the lookup missed, and the branch
+  -- was emitted to itself; the linked argmax helper of lowbit's engine hung with nothing said).
+  -- Also, a local label no line defines is now refused at link instead of becoming a self-branch.
+  let t277 = run_test "link_branch_comment" "link \"tools/test/link_branch_comment.s\"\nforeign count_le_first p n -> int\nmain =\n  let p = rc_alloc 32\n  let _ = byte_set p 0 5\n  let _ = byte_set p 8 9\n  let _ = byte_set p 16 5\n  let _ = byte_set p 24 1\n  let _ = print (show (count_le_first p 4))\n  0" "3"
   -- t235: the streaming SHA-256 state (a ShaSt since 2026-09-23; code signing hashes every page
   -- through it) gives the known digests and, fed in chunks that cross block boundaries, the
   -- digest `shasum -a 256` gives and the one-shot digest of the same message
@@ -6535,9 +6566,23 @@ run_tests _ =
   -- lies below the arena, so a fiber frame scanned nothing and the list was swept: rc=139.
   let t256 = run_stressed "fiber_frames_walked" "3" "build i n acc = if i >= n then acc else build (i + 1) n (cons (i, i * 2) acc)\nchurn i n = if i >= n then 0 else\n  let _ = cons (i, i) []\n  churn (i + 1) n\nsumt xs acc = if xs == [] then acc else\n  let (a, b) = head xs\n  sumt (tail xs) (acc + a + b)\ninner xs =\n  let _ = churn 0 3000\n  sumt xs 0\nwork x =\n  let xs = build 0 3000 []\n  let _ = churn 0 30000\n  let g = spawn (\\y -> inner xs)\n  let s = fiber_await g\n  s + sumt xs 0\nmain =\n  let f = spawn (\\x -> work 1)\n  let r = fiber_await f\n  let _ = print (show r)\n  0\n" "26991000\nrc=0"
   let s_drv = (if t185 then 1 else 0) + (if t191 then 1 else 0) + (if t192 then 1 else 0) + (if t193 then 1 else 0) + (if t194 then 1 else 0) + (if t195 then 1 else 0) + (if t196 then 1 else 0) + (if t197 then 1 else 0) + (if t205 then 1 else 0) + (if t206 then 1 else 0) + (if t207 then 1 else 0) + (if t208 then 1 else 0) + (if t209 then 1 else 0) + (if t210 then 1 else 0) + (if t211 then 1 else 0) + (if t212 then 1 else 0) + (if t213 then 1 else 0) + (if t214 then 1 else 0) + (if t215 then 1 else 0) + (if t216 then 1 else 0) + (if t217 then 1 else 0) + (if t218 then 1 else 0) + (if t219 then 1 else 0) + (if t220 then 1 else 0) + (if t221 then 1 else 0) + (if t222 then 1 else 0) + (if t223 then 1 else 0) + (if t224 then 1 else 0) + (if t225 then 1 else 0) + (if t226 then 1 else 0) + (if t227 then 1 else 0) + (if t230 then 1 else 0) + (if t231 then 1 else 0) + (if t232 then 1 else 0) + (if t233 then 1 else 0) + (if t235 then 1 else 0) + (if t237 then 1 else 0) + (if t238 then 1 else 0) + (if t239 then 1 else 0) + (if t240 then 1 else 0) + (if t241 then 1 else 0) + (if t242 then 1 else 0) + (if t243 then 1 else 0) + (if t244 then 1 else 0) + (if t245 then 1 else 0) + (if t246 then 1 else 0) + (if t247 then 1 else 0) + (if t248 then 1 else 0) + (if t249 then 1 else 0) + (if t250 then 1 else 0) + (if t251 then 1 else 0) + (if t252 then 1 else 0) + (if t254 then 1 else 0) + (if t255 then 1 else 0) + (if t256 then 1 else 0) + (if t269 then 1 else 0) + (if t270 then 1 else 0) + (if t271 then 1 else 0) + (if t272 then 1 else 0) + (if t273 then 1 else 0)
-  let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd
-  let _ = print (cat [show total, "/257 tests passed"])
-  if total == 257 then 0 else 1
+  -- t278: float post-index loads and stores (`ldr d1, [x0], #8`) write back (2026-11-04). The
+  -- immediate was dropped in silence and the word was the zero-offset load, so a loop read the
+  -- same double each pass: 1.5 + 2.5 + 4.0 summed as 1.5 * 3 = 4 before the fix, 8 after.
+  let t278 = run_test "link_fp_postidx" "link \"tools/test/link_fp_postidx.s\"\nforeign sum_f64 src dst n -> int\nmain =\n  let src = float_arr_new 3 0.0\n  let dst = float_arr_new 3 0.0\n  let _ = float_arr_set src 0 1.5\n  let _ = float_arr_set src 1 2.5\n  let _ = float_arr_set src 2 4.0\n  let _ = print (show (sum_f64 src dst 3))\n  let _ = print (show (to_int (float_arr_get dst 1)))\n  0" "8\n4"
+  -- t279: fcvt dD, hN widens a half (2026-11-05, lowbit L6's 1-bit kernels read f16 scales): 0x3E00 is 1.5,
+  -- 0xC500 is -5.0; before the form existed the assembler refused the mnemonic's operand
+  let t279 = run_test "link_f16" "link \"tools/test/link_f16.s\"\nforeign widen_f16 fa bits\nmain =\n  let fa = float_arr_new 1 0.0\n  let _ = widen_f16 fa 15872\n  let _ = print (show (to_int ((float_arr_get fa 0) *. 2.0)))\n  let _ = widen_f16 fa 50432\n  let _ = print (show (to_int (float_arr_get fa 0)))\n  0" "3\n-5"
+  -- t280: add/sub xD, xN, xM, <lsl|lsr|asr> #n (2026-11-05, lowbit L6's quantizer): the kind was read as lsl
+  -- whatever the text said, so `add x16, x16, x14, lsr #3` added x14 << 3; sub ignored a fourth operand
+  let t280 = run_test "link_shift" "link \"tools/test/link_shift.s\"\nforeign shr3add a b -> int\nforeign sub2shl a b -> int\nforeign asradd a b -> int\nmain =\n  let _ = print (show (shr3add 5 40))\n  let _ = print (show (sub2shl 100 3))\n  let _ = print (show (asradd 10 (0 - 8)))\n  0" "10\n88\n6"
+  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0) + (if t280 then 1 else 0)
+  let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd + s_lnk
+  -- one literal carries the count: the printed line and the exit check both read it (2026-11-05: the
+  -- check said 262 while the line said 264, and `test` exited 1 on green)
+  let summary = cat [show total, "/264 tests passed"]
+  let _ = print summary
+  if summary == cat [show total, "/", show total, " tests passed"] then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE
@@ -7221,6 +7266,18 @@ x86_untag_args n i =
     let r = x86_arg_reg i
     cat ["    mov r10, ", r, "\n    sar r10, 1\n    test ", r, ", 1\n    cmovnz ", r, ", r10\n", x86_untag_args n (i + 1)]
 
+-- A foreign call's arguments past the sixth (System V: 8-byte stack slots, the 7th at [rsp] when
+-- the call is made). The push slots are 16 bytes each, argument j at [rsp + area + 16 (n-1-j)]
+-- once `area` bytes have been taken below them; each is copied down into its slot, untagged.
+-- Until 2026-11-05 every argument past the sixth was popped into rax, one over the other
+-- (known/x86_foreign_stack_args: an eight-argument printf).
+x86_stack_extra_args n j area =
+  if j >= n then ""
+  else
+    let src = area + 16 * (n - 1 - j)
+    let dst = 8 * (j - 6)
+    cat ["    mov r10, [rsp+", show src, "]\n    mov r11, r10\n    sar r11, 1\n    test r10, 1\n    cmovnz r10, r11\n    mov [rsp+", show dst, "], r10\n", x86_stack_extra_args n (j + 1) area]
+
 -- The i-th argument register into xmm_i as a double: a boxed float (header 6, the double at
 -- +8) is loaded, a tagged int is untagged and converted. Labels lc+2i and the next.
 x86_float_args n i lc =
@@ -7441,6 +7498,11 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
   else if fname == "err_msg" then
     let (aa, lc1, sl1) = x86_cg (head args) env ar lc sl false fs
     (cat [aa, "    mov rax, [rax+8]\n"], lc1, sl1)
+  else if fname == "rc_alloc" then
+    -- the raw buffer (x86_rt.s _rail_rc_alloc untags the size). Until 2026-11-05 the generic path
+    -- emitted `call _rc_alloc`, a symbol no runtime defines (known/x86_rc_alloc)
+    let (aa, lc1, sl1) = x86_cg (head args) env ar lc sl false fs
+    (cat [aa, "    mov rdi, rax\n    call _rail_rc_alloc\n"], lc1, sl1)
   else if fname == "arena_mark" then
     ("    lea rax, [rip+_rail_heap_ptr]\n    mov rax, [rax]\n", lc, sl)
   else if fname == "arena_reset" then
@@ -7478,9 +7540,21 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
       -- 4150184800000000).
       let untag = if is_float_ret then x86_float_args (length args) 0 lc1 else x86_untag_args (length args) 0
       let setal = if is_float_ret then cat ["    mov eax, ", show (length args), "\n"] else ""
-      let retag = if no_retag then "" else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
-      let lc2 = if is_float_ret then lc1 + 2 * length args else lc1
-      (cat [pa, pop, untag, setal, "    call ", fname, "@PLT\n", retag], lc2, sl1)
+      -- a str-returning foreign fn that returns NULL (getenv of an unset name) yields the empty
+      -- string, as the arm64 FFI's ptr_fixup does; until 2026-11-05 the NULL went on as the string
+      -- and the next strcmp or strtol died (known/x86_foreign_null_str)
+      let nullfix = if is_str_ret then cat ["    test rax, rax\n    jnz .Lx_ffi_nn_", show lc1, "\n    lea rax, [rip+_rail_empty_str]\n.Lx_ffi_nn_", show lc1, ":\n"] else ""
+      let retag = if no_retag then nullfix else if is_float_ret then x86_box_xmm0 0 else "    lea rax, [rax*2+1]\n"
+      let lc2 = (if is_float_ret then lc1 + 2 * length args else lc1) + 1
+      let n = length args
+      if n <= 6 || is_float_ret then
+        (cat [pa, pop, untag, setal, "    call ", fname, "@PLT\n", retag], lc2, sl1)
+      else
+        -- seven or more integer arguments: six in registers from their push slots, the rest copied
+        -- down into a 16-aligned block of 8-byte slots (x86_stack_extra_args), al = 0 for a variadic
+        -- callee, and the block and every push slot dropped after the call
+        let area = (((n - 6) * 8 + 15) / 16) * 16
+        (cat [pa, x86_load_arg_regs n 0, "    sub rsp, ", show area, "\n", x86_stack_extra_args n 6 area, x86_untag_args 6 0, "    xor eax, eax\n    call ", fname, "@PLT\n    add rsp, ", show (area + 16 * n), "\n", retag], lc2, sl1)
     else
     let voff = efind fname env
     if voff != (0 - 1) then

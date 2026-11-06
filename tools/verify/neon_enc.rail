@@ -1,0 +1,38 @@
+-- tools/verify/neon_enc.rail: the assembler's Advanced SIMD encodings held to Apple clang.
+--
+-- tools/verify/neon_enc.cases has one line per case, `WORD ASM`: the 32-bit word Apple clang
+-- (-march=armv8.2-a+dotprod) emitted for that line, over every register in every field and the
+-- immediates lowbit's kernels use (601 lines, rail-lab/lowbit/l2/neon_ref.py, 2026-11-04, 62
+-- `sxtw` lines after them, 2,006 scalar lines from l2/scalar_cases.py for the qmatvec4 and quant_blk8
+-- kernels, and 768 float post-index lines from l4/attn_cases.py, 2026-11-04). Each
+-- line is encoded by asm_encode_insn and compared. Every mismatch is printed; the last line is
+-- PASS or FAIL, exit 0 iff PASS. Run from the repo root:
+--   ./rail_native run tools/verify/neon_enc.rail [cases_file]
+import "tools/v5/asm.rail"
+
+ne_cat parts = join "" parts
+ne_nonempty xs = if xs == [] then [] else if head xs == "" then ne_nonempty (tail xs) else cons (head xs) (ne_nonempty (tail xs))
+
+-- one line: 0 when the word equals clang's, 1 (and a printed line) otherwise
+ne_check line =
+  let want = asm_hex_int (chars (str_sub line 0 8)) 0
+  let text = str_sub line 9 (length line - 9)
+  let parts = asm_split_mn_ops text
+  let got = asm_encode_insn (head parts) (head (tail parts)) 0 []
+  if got == want then 0
+  else
+    let _ = print (ne_cat ["MISMATCH ", text, ": ours ", show got, ", clang ", show want])
+    1
+
+ne_walk ls bad n =
+  if ls == [] then (bad, n)
+  else ne_walk (tail ls) (bad + ne_check (head ls)) (n + 1)
+
+main =
+  let a = args
+  let path = if length a > 1 then head (tail a) else "tools/verify/neon_enc.cases"
+  let ls = ne_nonempty (str_split "\n" (read_file path))
+  let (bad, n) = ne_walk ls 0 0
+  let _ = print (ne_cat [show (n - bad), "/", show n, " encodings equal to Apple clang (", path, ")"])
+  let _ = print (if bad == 0 then "PASS" else "FAIL")
+  if bad == 0 then 0 else 1

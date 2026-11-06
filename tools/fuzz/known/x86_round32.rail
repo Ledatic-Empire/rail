@@ -1,0 +1,9 @@
+-- x86 backend: round32 was emitted as `call _round32` with no runtime piece behind it, so a
+-- program using binary32 rounding failed to link on x86-64 (2026-11-05). The bits are the
+-- double nearest the binary32 nearest each value (arm64's fcvt s, fcvt d).
+import "stdlib/float_hex.rail"
+main =
+  let _ = print (show_float_hex (round32 0.1))
+  let _ = print (show_float_hex (round32 (1.0 /. 3.0)))
+  let _ = print (show_float_hex (round32 2.5))
+  0
