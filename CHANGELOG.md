@@ -4,7 +4,19 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Added
+- **The vector forms lowbit's batched 4-bit kernel uses** (2026-11-08): `ldp qA, qB`, `str q` (offset
+  and post-index), `fadd`/`fmul vD.2d`, `dup vD.2d, vN.d[0]`, `umov xD, vN.d[i]`, `addp .4s`, `sxtl`
+  and `sxtl2 .2d`, `scvtf vD.2d`, `ld2 {vA.2d, vB.2d}, [xN], #32`. One form each (the arrangement the
+  kernel uses), every register in every field held to Apple clang (949 new lines, 4,706 in all in
+  `tools/verify/neon_enc.cases`, from rail-lab `lowbit/l2/blk_cases.py`); t281 links
+  `tools/test/link_vec.s`, which runs them all. Suite 265. Seed rebuilt to its fixed point.
+
 ### Fixed
+- **`rail_native test` exited 1 on a passing suite** (2026-11-08). The exit test compared the count
+  against 262, frozen when the suite was 262, while the printed denominator grew to 263, 264 and 265:
+  every passing run since exited 1 and nothing watched. The printed count and the exit test now share
+  one number (`want`), so they cannot part again. Found rebuilding the seed for t281.
 - **A float post-index load or store dropped its immediate** (2026-11-04). `ldr d1, [x0], #8` and
   `str d0, [x1], #8` (and the `s` forms) assembled as the zero-offset access with no writeback, in
   silence, so a loop over doubles read the same one every pass. They now encode the post-index

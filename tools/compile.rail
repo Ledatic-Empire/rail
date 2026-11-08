@@ -6576,10 +6576,16 @@ run_tests _ =
   -- t280: add/sub xD, xN, xM, <lsl|lsr|asr> #n (2026-11-05, lowbit L6's quantizer): the kind was read as lsl
   -- whatever the text said, so `add x16, x16, x14, lsr #3` added x14 << 3; sub ignored a fourth operand
   let t280 = run_test "link_shift" "link \"tools/test/link_shift.s\"\nforeign shr3add a b -> int\nforeign sub2shl a b -> int\nforeign asradd a b -> int\nmain =\n  let _ = print (show (shr3add 5 40))\n  let _ = print (show (sub2shl 100 3))\n  let _ = print (show (asradd 10 (0 - 8)))\n  0" "10\n88\n6"
-  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0) + (if t280 then 1 else 0)
+  -- t281: the vector forms of lowbit's batched 4-bit kernel (2026-11-08): ldp q, fadd/fmul .2d, dup .2d, umov
+  -- from a lane, str q, addp .4s, sxtl/sxtl2, scvtf .2d, ld2; each held to clang in neon_enc.cases, here run
+  let t281 = run_test "link_vec" "link \"tools/test/link_vec.s\"\nforeign vecforms fa out\nfill fa i v = if i >= 5 then 0 else let _ = float_arr_set fa i v in fill fa (i + 1) (v +. 1.0)\nmain =\n  let a = float_arr_new 5 0.0\n  let _ = fill a 0 1.0\n  let o = float_arr_new 8 0.0\n  let _ = vecforms a o\n  let _ = print (cat [show (to_int (float_arr_get o 0)), \" \", show (to_int (float_arr_get o 1)), \" \", show (to_int (float_arr_get o 2)), \" \", show (to_int (float_arr_get o 4)), \" \", show (to_int (float_arr_get o 5)), \" \", show (to_int (float_arr_get o 6)), \" \", show (to_int (float_arr_get o 7))])\n  0" "13 25 5 5 25 8 20"
+  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0) + (if t280 then 1 else 0) + (if t281 then 1 else 0)
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd + s_lnk
-  let _ = print (cat [show total, "/264 tests passed"])
-  if total == 262 then 0 else 1
+  -- the count the suite reports and the one its exit code demands are one number (2026-11-08: the exit
+  -- test had stayed at 262 through three rebuilds, so 263, 264 and 265 of 265 all exited 1)
+  let want = 265
+  let _ = print (cat [show total, "/", show want, " tests passed"])
+  if total == want then 0 else 1
 
 -- ===========================================================================
 -- SELF-COMPILE

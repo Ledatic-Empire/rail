@@ -405,12 +405,12 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "strb" then asm_enc_byte_ldst ops 0
   else if mnemonic == "ldp"  then asm_enc_pair ops 1
   else if mnemonic == "stp"  then asm_enc_pair ops 0
-  else if mnemonic == "fadd" then asm_enc_3dreg ops enc_fadd
+  else if mnemonic == "fadd" then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_fadd_2d else asm_enc_3dreg ops enc_fadd)
   else if mnemonic == "fsub" then asm_enc_3dreg ops enc_fsub
-  else if mnemonic == "fmul" then asm_enc_3dreg ops enc_fmul
+  else if mnemonic == "fmul" then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_fmul_2d else asm_enc_3dreg ops enc_fmul)
   else if mnemonic == "fdiv" then asm_enc_3dreg ops enc_fdiv
   else if mnemonic == "fcmp" then asm_enc_fcmp ops
-  else if mnemonic == "scvtf" then asm_enc_scvtf ops
+  else if mnemonic == "scvtf" then (if asm_is_vec (head ops) == 1 then enc_scvtf_2d (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) else asm_enc_scvtf ops)
   else if mnemonic == "fcvtzs" then asm_enc_fcvtzs ops
   else if mnemonic == "fcvtas" then enc_fcvtas (asm_reg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else if mnemonic == "fmov" then asm_enc_fmov ops
@@ -430,6 +430,12 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "ushr" then enc_ushr_16b (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_imm (head (tail (tail ops))))
   else if mnemonic == "sdot" then asm_enc_3vreg ops enc_sdot_4s
   else if mnemonic == "addv" then enc_addv_4s (asm_sreg_num (head ops)) (asm_vreg_num (head (tail ops)))
+  else if mnemonic == "addp" then asm_enc_3vreg ops enc_addp_4s
+  else if mnemonic == "sxtl" then enc_sxtl_2d (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops)))
+  else if mnemonic == "sxtl2" then enc_sxtl2_2d (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops)))
+  else if mnemonic == "ld2" then asm_enc_ld2 ops
+  else if mnemonic == "dup" then (if asm_lane_idx (head (tail ops)) == 0 then enc_dup_2d_d0 (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) else 0 - 1)
+  else if mnemonic == "umov" then (if asm_lane_idx (head (tail ops)) < 0 || asm_lane_idx (head (tail ops)) > 1 then 0 - 1 else enc_umov_x_d (asm_reg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_lane_idx (head (tail ops))))
   else if mnemonic == "sxtw" then enc_sxtw (asm_reg_num (head ops)) (asm_reg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
 
@@ -716,13 +722,27 @@ asm_enc_movi ops =
   if asm_last_is dst "d" then (if imm == 0 then enc_movi_2d_zero (asm_vreg_num dst) else 0 - 1)
   else enc_movi_16b (asm_vreg_num dst) imm
 
--- ldr qT, [xN], #imm  (post-index)  |  ldr qT, [xN]  |  ldr qT, [xN, #imm]  (stores are not needed yet)
+-- ldr/str qT, [xN], #imm  (post-index)  |  qT, [xN]  |  qT, [xN, #imm]   (str since 2026-11-08, the batched kernel's pack)
 asm_enc_q_mem dst_s base_s rest base is_ldr =
   let t = asm_vreg_num dst_s
-  if is_ldr == 0 then 0 - 1
-  else if asm_last_is base_s "]" then
-    (if rest == [] then enc_ldr_q_imm t base 0 else enc_ldr_q_post t base (asm_imm (head rest)))
-  else enc_ldr_q_imm t base (asm_imm_from_brk (if rest == [] then "0]" else head rest))
+  if asm_last_is base_s "]" then
+    (if rest == [] then (if is_ldr == 1 then enc_ldr_q_imm t base 0 else enc_str_q_imm t base 0)
+     else if is_ldr == 1 then enc_ldr_q_post t base (asm_imm (head rest)) else enc_str_q_post t base (asm_imm (head rest)))
+  else
+    let imm = asm_imm_from_brk (if rest == [] then "0]" else head rest)
+    if is_ldr == 1 then enc_ldr_q_imm t base imm else enc_str_q_imm t base imm
+
+-- ld2 {vA.2d, vB.2d}, [xN], #32: the one form the batched kernel uses (B must be A + 1)
+asm_enc_ld2 ops =
+  let a = asm_vreg_num (str_sub (head ops) 1 ((length (chars (head ops))) - 1))
+  let b = asm_vreg_num (head (tail ops))
+  let base = asm_reg_after_bracket (head (tail (tail ops)))
+  let rest = tail (tail (tail ops))
+  if b != a + 1 || rest == [] || (asm_imm (head rest)) != 32 then 0 - 1 else enc_ld2_2d_post a base
+
+-- the lane index in an operand such as "v16.d[1]": the digit after "[", or -1
+asm_lane_idx s = asm_lane_go (chars s)
+asm_lane_go cs = if cs == [] then 0 - 1 else if (head cs) == "[" then asm_parse_int_chars (tail cs) 0 else asm_lane_go (tail cs)
 
 -- ARM condition name -> 4-bit code.
 asm_cond_code c =
@@ -888,7 +908,20 @@ asm_imm_brk_loop cs acc =
 --   post-index  stp x1,x2,[xN], #imm    base token "[xN]" (ends with "]")
 asm_enc_pair ops is_ldp =
   if (head (chars (head ops))) == "d" then asm_enc_pair_fp ops is_ldp
+  else if (head (chars (head ops))) == "q" then asm_enc_pair_q ops is_ldp
   else asm_enc_pair_x ops is_ldp
+
+-- ldp qA, qB, [xN] | [xN, #imm] | [xN], #imm  (loads only; the batched kernel streams its packed activations)
+asm_enc_pair_q ops is_ldp =
+  let a = asm_vreg_num (head ops)
+  let b = asm_vreg_num (head (tail ops))
+  let base_s = head (tail (tail ops))
+  let rest = tail (tail (tail ops))
+  let base = asm_reg_after_bracket base_s
+  if is_ldp == 0 then 0 - 1
+  else if asm_last_is base_s "]" then
+    (if rest == [] then enc_ldp_q 2906652672 a b base 0 else enc_ldp_q 2898264064 a b base (asm_imm (head rest)))
+  else enc_ldp_q 2906652672 a b base (asm_imm_from_brk (head rest))
 
 -- FP register pair (dA, dB) — offset form (the only FP-pair form the compiler emits).
 -- Bases: stp_d 0x6D000000 (1828716544), ldp_d 0x6D400000 (1832910848). imm scaled by 8.

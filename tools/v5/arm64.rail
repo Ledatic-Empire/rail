@@ -734,3 +734,27 @@ enc_lsl_imm_w d n shift =
 -- sxtw xD, wN                   (sbfm xD, xN, #0, #31: a 32-bit result, a lane sum, signed into x)
 -- Base: 0x93407C00 | (N << 5) | D
 enc_sxtw d n = bit_or 2470476800 (bit_or (shl n 5) d)
+
+-- ---- lowbit speed B2 (2026-11-08): the batched 4-bit kernel's vector forms (l2/qmatvecb.s), each
+-- held to Apple clang in tools/verify/neon_enc.cases (rail-lab lowbit/l2/blk_cases.py) ----
+-- addp vD.4s, vN.4s, vM.4s     Base: 0x4EA0BC00 | (M << 16) | (N << 5) | D
+enc_addp_4s d n m = bit_or 1319156736 (bit_or (shl m 16) (bit_or (shl n 5) d))
+-- sxtl vD.2d, vN.2s (sshll #0)  Base: 0x0F20A400 | (N << 5) | D;  sxtl2 vD.2d, vN.4s  Base: 0x4F20A400
+enc_sxtl_2d d n = bit_or 253797376 (bit_or (shl n 5) d)
+enc_sxtl2_2d d n = bit_or 1327539200 (bit_or (shl n 5) d)
+-- scvtf vD.2d, vN.2d           Base: 0x4E61D800 | (N << 5) | D
+enc_scvtf_2d d n = bit_or 1315035136 (bit_or (shl n 5) d)
+-- ld2 {vA.2d, vB.2d}, [xN], #32  (B = A + 1)   Base: 0x4CDF8C00 | (N << 5) | A
+enc_ld2_2d_post a n = bit_or 1289718784 (bit_or (shl n 5) a)
+-- dup vD.2d, vN.d[0]           Base: 0x4E080400 | (N << 5) | D
+enc_dup_2d_d0 d n = bit_or 1309148160 (bit_or (shl n 5) d)
+-- fmul vD.2d, vN.2d, vM.2d     Base: 0x6E60DC00;  fadd vD.2d, vN.2d, vM.2d   Base: 0x4E60D400
+enc_fmul_2d d n m = bit_or 1851841536 (bit_or (shl m 16) (bit_or (shl n 5) d))
+enc_fadd_2d d n m = bit_or 1314968576 (bit_or (shl m 16) (bit_or (shl n 5) d))
+-- umov xD, vN.d[i]             Base: 0x4E083C00 (i 0) | 0x4E183C00 (i 1) | (N << 5) | D
+enc_umov_x_d d n i = bit_or (if i == 0 then 1309162496 else 1310211072) (bit_or (shl n 5) d)
+-- str qT, [xN], #imm9          Base: 0x3C800400;  str qT, [xN, #imm]  Base: 0x3D800000 (imm / 16 << 10)
+enc_str_q_post t n imm = bit_or 1015022592 (bit_or (shl (bit_and imm 511) 12) (bit_or (shl n 5) t))
+enc_str_q_imm t n imm = bit_or 1031798784 (bit_or (shl (shr imm 4) 10) (bit_or (shl n 5) t))
+-- ldp qA, qB, [xN, #imm] (imm / 16, 7-bit signed)  Base: 0xAD400000;  post-index  Base: 0xACC00000
+enc_ldp_q base a b n imm = bit_or base (bit_or (shl (bit_and (imm / 16) 127) 15) (bit_or (shl b 10) (bit_or (shl n 5) a)))

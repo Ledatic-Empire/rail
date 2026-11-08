@@ -3755,3 +3755,952 @@ cb81087e sub x30, x3, x1, asr #2
 cb02337f sub x31, x27, x2, lsl #12
 cb42ff7f sub x31, x27, x2, lsr #63
 cb820b7f sub x31, x27, x2, asr #2
+4ebcbe80 addp v0.4s, v20.4s, v28.4s
+4ebcbc14 addp v20.4s, v0.4s, v28.4s
+4ea0bf94 addp v20.4s, v28.4s, v0.4s
+0f20a680 sxtl v0.2d, v20.2s
+0f20a414 sxtl v20.2d, v0.2s
+4f20a680 sxtl2 v0.2d, v20.4s
+4f20a414 sxtl2 v20.2d, v0.4s
+4e61da80 scvtf v0.2d, v20.2d
+4e61d814 scvtf v20.2d, v0.2d
+4e080680 dup v0.2d, v20.d[0]
+4e080414 dup v20.2d, v0.d[0]
+6e7cde80 fmul v0.2d, v20.2d, v28.2d
+6e7cdc14 fmul v20.2d, v0.2d, v28.2d
+6e60df94 fmul v20.2d, v28.2d, v0.2d
+4e7cd680 fadd v0.2d, v20.2d, v28.2d
+4e7cd414 fadd v20.2d, v0.2d, v28.2d
+4e60d794 fadd v20.2d, v28.2d, v0.2d
+4e083c00 umov x0, v0.d[0]
+4e183c00 umov x0, v0.d[1]
+4e183e9c umov x28, v20.d[1]
+3c810400 str q0, [x0], #16
+3c810794 str q20, [x28], #16
+3d800800 str q0, [x0, #32]
+3d800394 str q20, [x28]
+ad402000 ldp q0, q8, [x0]
+acc10388 ldp q8, q0, [x28], #32
+ad412000 ldp q0, q8, [x0, #32]
+4cdf8c00 ld2 {v0.2d, v1.2d}, [x0], #32
+4cdf8f80 ld2 {v0.2d, v1.2d}, [x28], #32
+4eb8be61 addp v1.4s, v19.4s, v24.4s
+4eb8bc33 addp v19.4s, v1.4s, v24.4s
+4ea1bf13 addp v19.4s, v24.4s, v1.4s
+0f20a661 sxtl v1.2d, v19.2s
+0f20a433 sxtl v19.2d, v1.2s
+4f20a661 sxtl2 v1.2d, v19.4s
+4f20a433 sxtl2 v19.2d, v1.4s
+4e61da61 scvtf v1.2d, v19.2d
+4e61d833 scvtf v19.2d, v1.2d
+4e080661 dup v1.2d, v19.d[0]
+4e080433 dup v19.2d, v1.d[0]
+6e78de61 fmul v1.2d, v19.2d, v24.2d
+6e78dc33 fmul v19.2d, v1.2d, v24.2d
+6e61df13 fmul v19.2d, v24.2d, v1.2d
+4e78d661 fadd v1.2d, v19.2d, v24.2d
+4e78d433 fadd v19.2d, v1.2d, v24.2d
+4e61d713 fadd v19.2d, v24.2d, v1.2d
+4e083c21 umov x1, v1.d[0]
+4e183c21 umov x1, v1.d[1]
+4e183e60 umov x0, v19.d[1]
+3c810421 str q1, [x1], #16
+3c810413 str q19, [x0], #16
+3d800821 str q1, [x1, #32]
+3d800013 str q19, [x0]
+ad404c21 ldp q1, q19, [x1]
+acc10413 ldp q19, q1, [x0], #32
+ad414c21 ldp q1, q19, [x1, #32]
+4cdf8c21 ld2 {v1.2d, v2.2d}, [x1], #32
+4cdf8c01 ld2 {v1.2d, v2.2d}, [x0], #32
+4ea5bf62 addp v2.4s, v27.4s, v5.4s
+4ea5bc5b addp v27.4s, v2.4s, v5.4s
+4ea2bcbb addp v27.4s, v5.4s, v2.4s
+0f20a762 sxtl v2.2d, v27.2s
+0f20a45b sxtl v27.2d, v2.2s
+4f20a762 sxtl2 v2.2d, v27.4s
+4f20a45b sxtl2 v27.2d, v2.4s
+4e61db62 scvtf v2.2d, v27.2d
+4e61d85b scvtf v27.2d, v2.2d
+4e080762 dup v2.2d, v27.d[0]
+4e08045b dup v27.2d, v2.d[0]
+6e65df62 fmul v2.2d, v27.2d, v5.2d
+6e65dc5b fmul v27.2d, v2.2d, v5.2d
+6e62dcbb fmul v27.2d, v5.2d, v2.2d
+4e65d762 fadd v2.2d, v27.2d, v5.2d
+4e65d45b fadd v27.2d, v2.2d, v5.2d
+4e62d4bb fadd v27.2d, v5.2d, v2.2d
+4e083c42 umov x2, v2.d[0]
+4e183c42 umov x2, v2.d[1]
+4e183f6d umov x13, v27.d[1]
+3c810442 str q2, [x2], #16
+3c8105bb str q27, [x13], #16
+3d800842 str q2, [x2, #32]
+3d8001bb str q27, [x13]
+ad407842 ldp q2, q30, [x2]
+acc109be ldp q30, q2, [x13], #32
+ad417842 ldp q2, q30, [x2, #32]
+4cdf8c42 ld2 {v2.2d, v3.2d}, [x2], #32
+4cdf8da2 ld2 {v2.2d, v3.2d}, [x13], #32
+4ea0bcc3 addp v3.4s, v6.4s, v0.4s
+4ea0bc66 addp v6.4s, v3.4s, v0.4s
+4ea3bc06 addp v6.4s, v0.4s, v3.4s
+0f20a4c3 sxtl v3.2d, v6.2s
+0f20a466 sxtl v6.2d, v3.2s
+4f20a4c3 sxtl2 v3.2d, v6.4s
+4f20a466 sxtl2 v6.2d, v3.4s
+4e61d8c3 scvtf v3.2d, v6.2d
+4e61d866 scvtf v6.2d, v3.2d
+4e0804c3 dup v3.2d, v6.d[0]
+4e080466 dup v6.2d, v3.d[0]
+6e60dcc3 fmul v3.2d, v6.2d, v0.2d
+6e60dc66 fmul v6.2d, v3.2d, v0.2d
+6e63dc06 fmul v6.2d, v0.2d, v3.2d
+4e60d4c3 fadd v3.2d, v6.2d, v0.2d
+4e60d466 fadd v6.2d, v3.2d, v0.2d
+4e63d406 fadd v6.2d, v0.2d, v3.2d
+4e083c63 umov x3, v3.d[0]
+4e183c63 umov x3, v3.d[1]
+4e183cc9 umov x9, v6.d[1]
+3c810463 str q3, [x3], #16
+3c810526 str q6, [x9], #16
+3d800863 str q3, [x3, #32]
+3d800126 str q6, [x9]
+ad403c63 ldp q3, q15, [x3]
+acc10d2f ldp q15, q3, [x9], #32
+ad413c63 ldp q3, q15, [x3, #32]
+4cdf8c63 ld2 {v3.2d, v4.2d}, [x3], #32
+4cdf8d23 ld2 {v3.2d, v4.2d}, [x9], #32
+4ebdbf24 addp v4.4s, v25.4s, v29.4s
+4ebdbc99 addp v25.4s, v4.4s, v29.4s
+4ea4bfb9 addp v25.4s, v29.4s, v4.4s
+0f20a724 sxtl v4.2d, v25.2s
+0f20a499 sxtl v25.2d, v4.2s
+4f20a724 sxtl2 v4.2d, v25.4s
+4f20a499 sxtl2 v25.2d, v4.4s
+4e61db24 scvtf v4.2d, v25.2d
+4e61d899 scvtf v25.2d, v4.2d
+4e080724 dup v4.2d, v25.d[0]
+4e080499 dup v25.2d, v4.d[0]
+6e7ddf24 fmul v4.2d, v25.2d, v29.2d
+6e7ddc99 fmul v25.2d, v4.2d, v29.2d
+6e64dfb9 fmul v25.2d, v29.2d, v4.2d
+4e7dd724 fadd v4.2d, v25.2d, v29.2d
+4e7dd499 fadd v25.2d, v4.2d, v29.2d
+4e64d7b9 fadd v25.2d, v29.2d, v4.2d
+4e083c84 umov x4, v4.d[0]
+4e183c84 umov x4, v4.d[1]
+4e183f22 umov x2, v25.d[1]
+3c810484 str q4, [x4], #16
+3c810459 str q25, [x2], #16
+3d800884 str q4, [x4, #32]
+3d800059 str q25, [x2]
+ad400484 ldp q4, q1, [x4]
+acc11041 ldp q1, q4, [x2], #32
+ad410484 ldp q4, q1, [x4, #32]
+4cdf8c84 ld2 {v4.2d, v5.2d}, [x4], #32
+4cdf8c44 ld2 {v4.2d, v5.2d}, [x2], #32
+4eb7be05 addp v5.4s, v16.4s, v23.4s
+4eb7bcb0 addp v16.4s, v5.4s, v23.4s
+4ea5bef0 addp v16.4s, v23.4s, v5.4s
+0f20a605 sxtl v5.2d, v16.2s
+0f20a4b0 sxtl v16.2d, v5.2s
+4f20a605 sxtl2 v5.2d, v16.4s
+4f20a4b0 sxtl2 v16.2d, v5.4s
+4e61da05 scvtf v5.2d, v16.2d
+4e61d8b0 scvtf v16.2d, v5.2d
+4e080605 dup v5.2d, v16.d[0]
+4e0804b0 dup v16.2d, v5.d[0]
+6e77de05 fmul v5.2d, v16.2d, v23.2d
+6e77dcb0 fmul v16.2d, v5.2d, v23.2d
+6e65def0 fmul v16.2d, v23.2d, v5.2d
+4e77d605 fadd v5.2d, v16.2d, v23.2d
+4e77d4b0 fadd v16.2d, v5.2d, v23.2d
+4e65d6f0 fadd v16.2d, v23.2d, v5.2d
+4e083ca5 umov x5, v5.d[0]
+4e183ca5 umov x5, v5.d[1]
+4e183e16 umov x22, v16.d[1]
+3c8104a5 str q5, [x5], #16
+3c8106d0 str q16, [x22], #16
+3d8008a5 str q5, [x5, #32]
+3d8002d0 str q16, [x22]
+ad4000a5 ldp q5, q0, [x5]
+acc116c0 ldp q0, q5, [x22], #32
+ad4100a5 ldp q5, q0, [x5, #32]
+4cdf8ca5 ld2 {v5.2d, v6.2d}, [x5], #32
+4cdf8ec5 ld2 {v5.2d, v6.2d}, [x22], #32
+4ea0bf66 addp v6.4s, v27.4s, v0.4s
+4ea0bcdb addp v27.4s, v6.4s, v0.4s
+4ea6bc1b addp v27.4s, v0.4s, v6.4s
+0f20a766 sxtl v6.2d, v27.2s
+0f20a4db sxtl v27.2d, v6.2s
+4f20a766 sxtl2 v6.2d, v27.4s
+4f20a4db sxtl2 v27.2d, v6.4s
+4e61db66 scvtf v6.2d, v27.2d
+4e61d8db scvtf v27.2d, v6.2d
+4e080766 dup v6.2d, v27.d[0]
+4e0804db dup v27.2d, v6.d[0]
+6e60df66 fmul v6.2d, v27.2d, v0.2d
+6e60dcdb fmul v27.2d, v6.2d, v0.2d
+6e66dc1b fmul v27.2d, v0.2d, v6.2d
+4e60d766 fadd v6.2d, v27.2d, v0.2d
+4e60d4db fadd v27.2d, v6.2d, v0.2d
+4e66d41b fadd v27.2d, v0.2d, v6.2d
+4e083cc6 umov x6, v6.d[0]
+4e183cc6 umov x6, v6.d[1]
+4e183f7d umov x29, v27.d[1]
+3c8104c6 str q6, [x6], #16
+3c8107bb str q27, [x29], #16
+3d8008c6 str q6, [x6, #32]
+3d8003bb str q27, [x29]
+ad4050c6 ldp q6, q20, [x6]
+acc11bb4 ldp q20, q6, [x29], #32
+ad4150c6 ldp q6, q20, [x6, #32]
+4cdf8cc6 ld2 {v6.2d, v7.2d}, [x6], #32
+4cdf8fa6 ld2 {v6.2d, v7.2d}, [x29], #32
+4eacbea7 addp v7.4s, v21.4s, v12.4s
+4eacbcf5 addp v21.4s, v7.4s, v12.4s
+4ea7bd95 addp v21.4s, v12.4s, v7.4s
+0f20a6a7 sxtl v7.2d, v21.2s
+0f20a4f5 sxtl v21.2d, v7.2s
+4f20a6a7 sxtl2 v7.2d, v21.4s
+4f20a4f5 sxtl2 v21.2d, v7.4s
+4e61daa7 scvtf v7.2d, v21.2d
+4e61d8f5 scvtf v21.2d, v7.2d
+4e0806a7 dup v7.2d, v21.d[0]
+4e0804f5 dup v21.2d, v7.d[0]
+6e6cdea7 fmul v7.2d, v21.2d, v12.2d
+6e6cdcf5 fmul v21.2d, v7.2d, v12.2d
+6e67dd95 fmul v21.2d, v12.2d, v7.2d
+4e6cd6a7 fadd v7.2d, v21.2d, v12.2d
+4e6cd4f5 fadd v21.2d, v7.2d, v12.2d
+4e67d595 fadd v21.2d, v12.2d, v7.2d
+4e083ce7 umov x7, v7.d[0]
+4e183ce7 umov x7, v7.d[1]
+4e183eac umov x12, v21.d[1]
+3c8104e7 str q7, [x7], #16
+3c810595 str q21, [x12], #16
+3d8008e7 str q7, [x7, #32]
+3d800195 str q21, [x12]
+ad4054e7 ldp q7, q21, [x7]
+acc11d95 ldp q21, q7, [x12], #32
+ad4154e7 ldp q7, q21, [x7, #32]
+4cdf8ce7 ld2 {v7.2d, v8.2d}, [x7], #32
+4cdf8d87 ld2 {v7.2d, v8.2d}, [x12], #32
+4eabbfe8 addp v8.4s, v31.4s, v11.4s
+4eabbd1f addp v31.4s, v8.4s, v11.4s
+4ea8bd7f addp v31.4s, v11.4s, v8.4s
+0f20a7e8 sxtl v8.2d, v31.2s
+0f20a51f sxtl v31.2d, v8.2s
+4f20a7e8 sxtl2 v8.2d, v31.4s
+4f20a51f sxtl2 v31.2d, v8.4s
+4e61dbe8 scvtf v8.2d, v31.2d
+4e61d91f scvtf v31.2d, v8.2d
+4e0807e8 dup v8.2d, v31.d[0]
+4e08051f dup v31.2d, v8.d[0]
+6e6bdfe8 fmul v8.2d, v31.2d, v11.2d
+6e6bdd1f fmul v31.2d, v8.2d, v11.2d
+6e68dd7f fmul v31.2d, v11.2d, v8.2d
+4e6bd7e8 fadd v8.2d, v31.2d, v11.2d
+4e6bd51f fadd v31.2d, v8.2d, v11.2d
+4e68d57f fadd v31.2d, v11.2d, v8.2d
+4e083d08 umov x8, v8.d[0]
+4e183d08 umov x8, v8.d[1]
+4e183ff8 umov x24, v31.d[1]
+3c810508 str q8, [x8], #16
+3c81071f str q31, [x24], #16
+3d800908 str q8, [x8, #32]
+3d80031f str q31, [x24]
+ad402508 ldp q8, q9, [x8]
+acc12309 ldp q9, q8, [x24], #32
+ad412508 ldp q8, q9, [x8, #32]
+4cdf8d08 ld2 {v8.2d, v9.2d}, [x8], #32
+4cdf8f08 ld2 {v8.2d, v9.2d}, [x24], #32
+4ebfbf29 addp v9.4s, v25.4s, v31.4s
+4ebfbd39 addp v25.4s, v9.4s, v31.4s
+4ea9bff9 addp v25.4s, v31.4s, v9.4s
+0f20a729 sxtl v9.2d, v25.2s
+0f20a539 sxtl v25.2d, v9.2s
+4f20a729 sxtl2 v9.2d, v25.4s
+4f20a539 sxtl2 v25.2d, v9.4s
+4e61db29 scvtf v9.2d, v25.2d
+4e61d939 scvtf v25.2d, v9.2d
+4e080729 dup v9.2d, v25.d[0]
+4e080539 dup v25.2d, v9.d[0]
+6e7fdf29 fmul v9.2d, v25.2d, v31.2d
+6e7fdd39 fmul v25.2d, v9.2d, v31.2d
+6e69dff9 fmul v25.2d, v31.2d, v9.2d
+4e7fd729 fadd v9.2d, v25.2d, v31.2d
+4e7fd539 fadd v25.2d, v9.2d, v31.2d
+4e69d7f9 fadd v25.2d, v31.2d, v9.2d
+4e083d29 umov x9, v9.d[0]
+4e183d29 umov x9, v9.d[1]
+4e183f23 umov x3, v25.d[1]
+3c810529 str q9, [x9], #16
+3c810479 str q25, [x3], #16
+3d800929 str q9, [x9, #32]
+3d800079 str q25, [x3]
+ad407d29 ldp q9, q31, [x9]
+acc1247f ldp q31, q9, [x3], #32
+ad417d29 ldp q9, q31, [x9, #32]
+4cdf8d29 ld2 {v9.2d, v10.2d}, [x9], #32
+4cdf8c69 ld2 {v9.2d, v10.2d}, [x3], #32
+4ebdbf8a addp v10.4s, v28.4s, v29.4s
+4ebdbd5c addp v28.4s, v10.4s, v29.4s
+4eaabfbc addp v28.4s, v29.4s, v10.4s
+0f20a78a sxtl v10.2d, v28.2s
+0f20a55c sxtl v28.2d, v10.2s
+4f20a78a sxtl2 v10.2d, v28.4s
+4f20a55c sxtl2 v28.2d, v10.4s
+4e61db8a scvtf v10.2d, v28.2d
+4e61d95c scvtf v28.2d, v10.2d
+4e08078a dup v10.2d, v28.d[0]
+4e08055c dup v28.2d, v10.d[0]
+6e7ddf8a fmul v10.2d, v28.2d, v29.2d
+6e7ddd5c fmul v28.2d, v10.2d, v29.2d
+6e6adfbc fmul v28.2d, v29.2d, v10.2d
+4e7dd78a fadd v10.2d, v28.2d, v29.2d
+4e7dd55c fadd v28.2d, v10.2d, v29.2d
+4e6ad7bc fadd v28.2d, v29.2d, v10.2d
+4e083d4a umov x10, v10.d[0]
+4e183d4a umov x10, v10.d[1]
+4e183f96 umov x22, v28.d[1]
+3c81054a str q10, [x10], #16
+3c8106dc str q28, [x22], #16
+3d80094a str q10, [x10, #32]
+3d8002dc str q28, [x22]
+ad40154a ldp q10, q5, [x10]
+acc12ac5 ldp q5, q10, [x22], #32
+ad41154a ldp q10, q5, [x10, #32]
+4cdf8d4a ld2 {v10.2d, v11.2d}, [x10], #32
+4cdf8eca ld2 {v10.2d, v11.2d}, [x22], #32
+4ea4bfeb addp v11.4s, v31.4s, v4.4s
+4ea4bd7f addp v31.4s, v11.4s, v4.4s
+4eabbc9f addp v31.4s, v4.4s, v11.4s
+0f20a7eb sxtl v11.2d, v31.2s
+0f20a57f sxtl v31.2d, v11.2s
+4f20a7eb sxtl2 v11.2d, v31.4s
+4f20a57f sxtl2 v31.2d, v11.4s
+4e61dbeb scvtf v11.2d, v31.2d
+4e61d97f scvtf v31.2d, v11.2d
+4e0807eb dup v11.2d, v31.d[0]
+4e08057f dup v31.2d, v11.d[0]
+6e64dfeb fmul v11.2d, v31.2d, v4.2d
+6e64dd7f fmul v31.2d, v11.2d, v4.2d
+6e6bdc9f fmul v31.2d, v4.2d, v11.2d
+4e64d7eb fadd v11.2d, v31.2d, v4.2d
+4e64d57f fadd v31.2d, v11.2d, v4.2d
+4e6bd49f fadd v31.2d, v4.2d, v11.2d
+4e083d6b umov x11, v11.d[0]
+4e183d6b umov x11, v11.d[1]
+4e183ff1 umov x17, v31.d[1]
+3c81056b str q11, [x11], #16
+3c81063f str q31, [x17], #16
+3d80096b str q11, [x11, #32]
+3d80023f str q31, [x17]
+ad40156b ldp q11, q5, [x11]
+acc12e25 ldp q5, q11, [x17], #32
+ad41156b ldp q11, q5, [x11, #32]
+4cdf8d6b ld2 {v11.2d, v12.2d}, [x11], #32
+4cdf8e2b ld2 {v11.2d, v12.2d}, [x17], #32
+4ea5bf0c addp v12.4s, v24.4s, v5.4s
+4ea5bd98 addp v24.4s, v12.4s, v5.4s
+4eacbcb8 addp v24.4s, v5.4s, v12.4s
+0f20a70c sxtl v12.2d, v24.2s
+0f20a598 sxtl v24.2d, v12.2s
+4f20a70c sxtl2 v12.2d, v24.4s
+4f20a598 sxtl2 v24.2d, v12.4s
+4e61db0c scvtf v12.2d, v24.2d
+4e61d998 scvtf v24.2d, v12.2d
+4e08070c dup v12.2d, v24.d[0]
+4e080598 dup v24.2d, v12.d[0]
+6e65df0c fmul v12.2d, v24.2d, v5.2d
+6e65dd98 fmul v24.2d, v12.2d, v5.2d
+6e6cdcb8 fmul v24.2d, v5.2d, v12.2d
+4e65d70c fadd v12.2d, v24.2d, v5.2d
+4e65d598 fadd v24.2d, v12.2d, v5.2d
+4e6cd4b8 fadd v24.2d, v5.2d, v12.2d
+4e083d8c umov x12, v12.d[0]
+4e183d8c umov x12, v12.d[1]
+4e183f02 umov x2, v24.d[1]
+3c81058c str q12, [x12], #16
+3c810458 str q24, [x2], #16
+3d80098c str q12, [x12, #32]
+3d800058 str q24, [x2]
+ad40198c ldp q12, q6, [x12]
+acc13046 ldp q6, q12, [x2], #32
+ad41198c ldp q12, q6, [x12, #32]
+4cdf8d8c ld2 {v12.2d, v13.2d}, [x12], #32
+4cdf8c4c ld2 {v12.2d, v13.2d}, [x2], #32
+4ea3becd addp v13.4s, v22.4s, v3.4s
+4ea3bdb6 addp v22.4s, v13.4s, v3.4s
+4eadbc76 addp v22.4s, v3.4s, v13.4s
+0f20a6cd sxtl v13.2d, v22.2s
+0f20a5b6 sxtl v22.2d, v13.2s
+4f20a6cd sxtl2 v13.2d, v22.4s
+4f20a5b6 sxtl2 v22.2d, v13.4s
+4e61dacd scvtf v13.2d, v22.2d
+4e61d9b6 scvtf v22.2d, v13.2d
+4e0806cd dup v13.2d, v22.d[0]
+4e0805b6 dup v22.2d, v13.d[0]
+6e63decd fmul v13.2d, v22.2d, v3.2d
+6e63ddb6 fmul v22.2d, v13.2d, v3.2d
+6e6ddc76 fmul v22.2d, v3.2d, v13.2d
+4e63d6cd fadd v13.2d, v22.2d, v3.2d
+4e63d5b6 fadd v22.2d, v13.2d, v3.2d
+4e6dd476 fadd v22.2d, v3.2d, v13.2d
+4e083dad umov x13, v13.d[0]
+4e183dad umov x13, v13.d[1]
+4e183ecf umov x15, v22.d[1]
+3c8105ad str q13, [x13], #16
+3c8105f6 str q22, [x15], #16
+3d8009ad str q13, [x13, #32]
+3d8001f6 str q22, [x15]
+ad4059ad ldp q13, q22, [x13]
+acc135f6 ldp q22, q13, [x15], #32
+ad4159ad ldp q13, q22, [x13, #32]
+4cdf8dad ld2 {v13.2d, v14.2d}, [x13], #32
+4cdf8ded ld2 {v13.2d, v14.2d}, [x15], #32
+4ea0bd2e addp v14.4s, v9.4s, v0.4s
+4ea0bdc9 addp v9.4s, v14.4s, v0.4s
+4eaebc09 addp v9.4s, v0.4s, v14.4s
+0f20a52e sxtl v14.2d, v9.2s
+0f20a5c9 sxtl v9.2d, v14.2s
+4f20a52e sxtl2 v14.2d, v9.4s
+4f20a5c9 sxtl2 v9.2d, v14.4s
+4e61d92e scvtf v14.2d, v9.2d
+4e61d9c9 scvtf v9.2d, v14.2d
+4e08052e dup v14.2d, v9.d[0]
+4e0805c9 dup v9.2d, v14.d[0]
+6e60dd2e fmul v14.2d, v9.2d, v0.2d
+6e60ddc9 fmul v9.2d, v14.2d, v0.2d
+6e6edc09 fmul v9.2d, v0.2d, v14.2d
+4e60d52e fadd v14.2d, v9.2d, v0.2d
+4e60d5c9 fadd v9.2d, v14.2d, v0.2d
+4e6ed409 fadd v9.2d, v0.2d, v14.2d
+4e083dce umov x14, v14.d[0]
+4e183dce umov x14, v14.d[1]
+4e183d3e umov x30, v9.d[1]
+3c8105ce str q14, [x14], #16
+3c8107c9 str q9, [x30], #16
+3d8009ce str q14, [x14, #32]
+3d8003c9 str q9, [x30]
+ad405dce ldp q14, q23, [x14]
+acc13bd7 ldp q23, q14, [x30], #32
+ad415dce ldp q14, q23, [x14, #32]
+4cdf8dce ld2 {v14.2d, v15.2d}, [x14], #32
+4cdf8fce ld2 {v14.2d, v15.2d}, [x30], #32
+4ea6bf2f addp v15.4s, v25.4s, v6.4s
+4ea6bdf9 addp v25.4s, v15.4s, v6.4s
+4eafbcd9 addp v25.4s, v6.4s, v15.4s
+0f20a72f sxtl v15.2d, v25.2s
+0f20a5f9 sxtl v25.2d, v15.2s
+4f20a72f sxtl2 v15.2d, v25.4s
+4f20a5f9 sxtl2 v25.2d, v15.4s
+4e61db2f scvtf v15.2d, v25.2d
+4e61d9f9 scvtf v25.2d, v15.2d
+4e08072f dup v15.2d, v25.d[0]
+4e0805f9 dup v25.2d, v15.d[0]
+6e66df2f fmul v15.2d, v25.2d, v6.2d
+6e66ddf9 fmul v25.2d, v15.2d, v6.2d
+6e6fdcd9 fmul v25.2d, v6.2d, v15.2d
+4e66d72f fadd v15.2d, v25.2d, v6.2d
+4e66d5f9 fadd v25.2d, v15.2d, v6.2d
+4e6fd4d9 fadd v25.2d, v6.2d, v15.2d
+4e083def umov x15, v15.d[0]
+4e183def umov x15, v15.d[1]
+4e183f39 umov x25, v25.d[1]
+3c8105ef str q15, [x15], #16
+3c810739 str q25, [x25], #16
+3d8009ef str q15, [x15, #32]
+3d800339 str q25, [x25]
+ad4061ef ldp q15, q24, [x15]
+acc13f38 ldp q24, q15, [x25], #32
+ad4161ef ldp q15, q24, [x15, #32]
+4cdf8def ld2 {v15.2d, v16.2d}, [x15], #32
+4cdf8f2f ld2 {v15.2d, v16.2d}, [x25], #32
+4eadbf30 addp v16.4s, v25.4s, v13.4s
+4eadbe19 addp v25.4s, v16.4s, v13.4s
+4eb0bdb9 addp v25.4s, v13.4s, v16.4s
+0f20a730 sxtl v16.2d, v25.2s
+0f20a619 sxtl v25.2d, v16.2s
+4f20a730 sxtl2 v16.2d, v25.4s
+4f20a619 sxtl2 v25.2d, v16.4s
+4e61db30 scvtf v16.2d, v25.2d
+4e61da19 scvtf v25.2d, v16.2d
+4e080730 dup v16.2d, v25.d[0]
+4e080619 dup v25.2d, v16.d[0]
+6e6ddf30 fmul v16.2d, v25.2d, v13.2d
+6e6dde19 fmul v25.2d, v16.2d, v13.2d
+6e70ddb9 fmul v25.2d, v13.2d, v16.2d
+4e6dd730 fadd v16.2d, v25.2d, v13.2d
+4e6dd619 fadd v25.2d, v16.2d, v13.2d
+4e70d5b9 fadd v25.2d, v13.2d, v16.2d
+4e083e10 umov x16, v16.d[0]
+4e183e10 umov x16, v16.d[1]
+4e183f3e umov x30, v25.d[1]
+3c810610 str q16, [x16], #16
+3c8107d9 str q25, [x30], #16
+3d800a10 str q16, [x16, #32]
+3d8003d9 str q25, [x30]
+ad404a10 ldp q16, q18, [x16]
+acc143d2 ldp q18, q16, [x30], #32
+ad414a10 ldp q16, q18, [x16, #32]
+4cdf8e10 ld2 {v16.2d, v17.2d}, [x16], #32
+4cdf8fd0 ld2 {v16.2d, v17.2d}, [x30], #32
+4eb7bc11 addp v17.4s, v0.4s, v23.4s
+4eb7be20 addp v0.4s, v17.4s, v23.4s
+4eb1bee0 addp v0.4s, v23.4s, v17.4s
+0f20a411 sxtl v17.2d, v0.2s
+0f20a620 sxtl v0.2d, v17.2s
+4f20a411 sxtl2 v17.2d, v0.4s
+4f20a620 sxtl2 v0.2d, v17.4s
+4e61d811 scvtf v17.2d, v0.2d
+4e61da20 scvtf v0.2d, v17.2d
+4e080411 dup v17.2d, v0.d[0]
+4e080620 dup v0.2d, v17.d[0]
+6e77dc11 fmul v17.2d, v0.2d, v23.2d
+6e77de20 fmul v0.2d, v17.2d, v23.2d
+6e71dee0 fmul v0.2d, v23.2d, v17.2d
+4e77d411 fadd v17.2d, v0.2d, v23.2d
+4e77d620 fadd v0.2d, v17.2d, v23.2d
+4e71d6e0 fadd v0.2d, v23.2d, v17.2d
+4e083e31 umov x17, v17.d[0]
+4e183e31 umov x17, v17.d[1]
+4e183c03 umov x3, v0.d[1]
+3c810631 str q17, [x17], #16
+3c810460 str q0, [x3], #16
+3d800a31 str q17, [x17, #32]
+3d800060 str q0, [x3]
+ad402e31 ldp q17, q11, [x17]
+acc1446b ldp q11, q17, [x3], #32
+ad412e31 ldp q17, q11, [x17, #32]
+4cdf8e31 ld2 {v17.2d, v18.2d}, [x17], #32
+4cdf8c71 ld2 {v17.2d, v18.2d}, [x3], #32
+4eb3bd32 addp v18.4s, v9.4s, v19.4s
+4eb3be49 addp v9.4s, v18.4s, v19.4s
+4eb2be69 addp v9.4s, v19.4s, v18.4s
+0f20a532 sxtl v18.2d, v9.2s
+0f20a649 sxtl v9.2d, v18.2s
+4f20a532 sxtl2 v18.2d, v9.4s
+4f20a649 sxtl2 v9.2d, v18.4s
+4e61d932 scvtf v18.2d, v9.2d
+4e61da49 scvtf v9.2d, v18.2d
+4e080532 dup v18.2d, v9.d[0]
+4e080649 dup v9.2d, v18.d[0]
+6e73dd32 fmul v18.2d, v9.2d, v19.2d
+6e73de49 fmul v9.2d, v18.2d, v19.2d
+6e72de69 fmul v9.2d, v19.2d, v18.2d
+4e73d532 fadd v18.2d, v9.2d, v19.2d
+4e73d649 fadd v9.2d, v18.2d, v19.2d
+4e72d669 fadd v9.2d, v19.2d, v18.2d
+4e083e52 umov x18, v18.d[0]
+4e183e52 umov x18, v18.d[1]
+4e183d2a umov x10, v9.d[1]
+3c810652 str q18, [x18], #16
+3c810549 str q9, [x10], #16
+3d800a52 str q18, [x18, #32]
+3d800149 str q9, [x10]
+ad400a52 ldp q18, q2, [x18]
+acc14942 ldp q2, q18, [x10], #32
+ad410a52 ldp q18, q2, [x18, #32]
+4cdf8e52 ld2 {v18.2d, v19.2d}, [x18], #32
+4cdf8d52 ld2 {v18.2d, v19.2d}, [x10], #32
+4ebdbd13 addp v19.4s, v8.4s, v29.4s
+4ebdbe68 addp v8.4s, v19.4s, v29.4s
+4eb3bfa8 addp v8.4s, v29.4s, v19.4s
+0f20a513 sxtl v19.2d, v8.2s
+0f20a668 sxtl v8.2d, v19.2s
+4f20a513 sxtl2 v19.2d, v8.4s
+4f20a668 sxtl2 v8.2d, v19.4s
+4e61d913 scvtf v19.2d, v8.2d
+4e61da68 scvtf v8.2d, v19.2d
+4e080513 dup v19.2d, v8.d[0]
+4e080668 dup v8.2d, v19.d[0]
+6e7ddd13 fmul v19.2d, v8.2d, v29.2d
+6e7dde68 fmul v8.2d, v19.2d, v29.2d
+6e73dfa8 fmul v8.2d, v29.2d, v19.2d
+4e7dd513 fadd v19.2d, v8.2d, v29.2d
+4e7dd668 fadd v8.2d, v19.2d, v29.2d
+4e73d7a8 fadd v8.2d, v29.2d, v19.2d
+4e083e73 umov x19, v19.d[0]
+4e183e73 umov x19, v19.d[1]
+4e183d03 umov x3, v8.d[1]
+3c810673 str q19, [x19], #16
+3c810468 str q8, [x3], #16
+3d800a73 str q19, [x19, #32]
+3d800068 str q8, [x3]
+ad407e73 ldp q19, q31, [x19]
+acc14c7f ldp q31, q19, [x3], #32
+ad417e73 ldp q19, q31, [x19, #32]
+4cdf8e73 ld2 {v19.2d, v20.2d}, [x19], #32
+4cdf8c73 ld2 {v19.2d, v20.2d}, [x3], #32
+4eb8bfb4 addp v20.4s, v29.4s, v24.4s
+4eb8be9d addp v29.4s, v20.4s, v24.4s
+4eb4bf1d addp v29.4s, v24.4s, v20.4s
+0f20a7b4 sxtl v20.2d, v29.2s
+0f20a69d sxtl v29.2d, v20.2s
+4f20a7b4 sxtl2 v20.2d, v29.4s
+4f20a69d sxtl2 v29.2d, v20.4s
+4e61dbb4 scvtf v20.2d, v29.2d
+4e61da9d scvtf v29.2d, v20.2d
+4e0807b4 dup v20.2d, v29.d[0]
+4e08069d dup v29.2d, v20.d[0]
+6e78dfb4 fmul v20.2d, v29.2d, v24.2d
+6e78de9d fmul v29.2d, v20.2d, v24.2d
+6e74df1d fmul v29.2d, v24.2d, v20.2d
+4e78d7b4 fadd v20.2d, v29.2d, v24.2d
+4e78d69d fadd v29.2d, v20.2d, v24.2d
+4e74d71d fadd v29.2d, v24.2d, v20.2d
+4e083e94 umov x20, v20.d[0]
+4e183e94 umov x20, v20.d[1]
+4e183fa0 umov x0, v29.d[1]
+3c810694 str q20, [x20], #16
+3c81041d str q29, [x0], #16
+3d800a94 str q20, [x20, #32]
+3d80001d str q29, [x0]
+ad404694 ldp q20, q17, [x20]
+acc15011 ldp q17, q20, [x0], #32
+ad414694 ldp q20, q17, [x20, #32]
+4cdf8e94 ld2 {v20.2d, v21.2d}, [x20], #32
+4cdf8c14 ld2 {v20.2d, v21.2d}, [x0], #32
+4eadbdf5 addp v21.4s, v15.4s, v13.4s
+4eadbeaf addp v15.4s, v21.4s, v13.4s
+4eb5bdaf addp v15.4s, v13.4s, v21.4s
+0f20a5f5 sxtl v21.2d, v15.2s
+0f20a6af sxtl v15.2d, v21.2s
+4f20a5f5 sxtl2 v21.2d, v15.4s
+4f20a6af sxtl2 v15.2d, v21.4s
+4e61d9f5 scvtf v21.2d, v15.2d
+4e61daaf scvtf v15.2d, v21.2d
+4e0805f5 dup v21.2d, v15.d[0]
+4e0806af dup v15.2d, v21.d[0]
+6e6dddf5 fmul v21.2d, v15.2d, v13.2d
+6e6ddeaf fmul v15.2d, v21.2d, v13.2d
+6e75ddaf fmul v15.2d, v13.2d, v21.2d
+4e6dd5f5 fadd v21.2d, v15.2d, v13.2d
+4e6dd6af fadd v15.2d, v21.2d, v13.2d
+4e75d5af fadd v15.2d, v13.2d, v21.2d
+4e083eb5 umov x21, v21.d[0]
+4e183eb5 umov x21, v21.d[1]
+4e183df5 umov x21, v15.d[1]
+3c8106b5 str q21, [x21], #16
+3c8106af str q15, [x21], #16
+3d800ab5 str q21, [x21, #32]
+3d8002af str q15, [x21]
+ad4076b5 ldp q21, q29, [x21]
+acc156bd ldp q29, q21, [x21], #32
+ad4176b5 ldp q21, q29, [x21, #32]
+4cdf8eb5 ld2 {v21.2d, v22.2d}, [x21], #32
+4cdf8eb5 ld2 {v21.2d, v22.2d}, [x21], #32
+4eb4bfd6 addp v22.4s, v30.4s, v20.4s
+4eb4bede addp v30.4s, v22.4s, v20.4s
+4eb6be9e addp v30.4s, v20.4s, v22.4s
+0f20a7d6 sxtl v22.2d, v30.2s
+0f20a6de sxtl v30.2d, v22.2s
+4f20a7d6 sxtl2 v22.2d, v30.4s
+4f20a6de sxtl2 v30.2d, v22.4s
+4e61dbd6 scvtf v22.2d, v30.2d
+4e61dade scvtf v30.2d, v22.2d
+4e0807d6 dup v22.2d, v30.d[0]
+4e0806de dup v30.2d, v22.d[0]
+6e74dfd6 fmul v22.2d, v30.2d, v20.2d
+6e74dede fmul v30.2d, v22.2d, v20.2d
+6e76de9e fmul v30.2d, v20.2d, v22.2d
+4e74d7d6 fadd v22.2d, v30.2d, v20.2d
+4e74d6de fadd v30.2d, v22.2d, v20.2d
+4e76d69e fadd v30.2d, v20.2d, v22.2d
+4e083ed6 umov x22, v22.d[0]
+4e183ed6 umov x22, v22.d[1]
+4e183fcb umov x11, v30.d[1]
+3c8106d6 str q22, [x22], #16
+3c81057e str q30, [x11], #16
+3d800ad6 str q22, [x22, #32]
+3d80017e str q30, [x11]
+ad4016d6 ldp q22, q5, [x22]
+acc15965 ldp q5, q22, [x11], #32
+ad4116d6 ldp q22, q5, [x22, #32]
+4cdf8ed6 ld2 {v22.2d, v23.2d}, [x22], #32
+4cdf8d76 ld2 {v22.2d, v23.2d}, [x11], #32
+4eacbc97 addp v23.4s, v4.4s, v12.4s
+4eacbee4 addp v4.4s, v23.4s, v12.4s
+4eb7bd84 addp v4.4s, v12.4s, v23.4s
+0f20a497 sxtl v23.2d, v4.2s
+0f20a6e4 sxtl v4.2d, v23.2s
+4f20a497 sxtl2 v23.2d, v4.4s
+4f20a6e4 sxtl2 v4.2d, v23.4s
+4e61d897 scvtf v23.2d, v4.2d
+4e61dae4 scvtf v4.2d, v23.2d
+4e080497 dup v23.2d, v4.d[0]
+4e0806e4 dup v4.2d, v23.d[0]
+6e6cdc97 fmul v23.2d, v4.2d, v12.2d
+6e6cdee4 fmul v4.2d, v23.2d, v12.2d
+6e77dd84 fmul v4.2d, v12.2d, v23.2d
+4e6cd497 fadd v23.2d, v4.2d, v12.2d
+4e6cd6e4 fadd v4.2d, v23.2d, v12.2d
+4e77d584 fadd v4.2d, v12.2d, v23.2d
+4e083ef7 umov x23, v23.d[0]
+4e183ef7 umov x23, v23.d[1]
+4e183c88 umov x8, v4.d[1]
+3c8106f7 str q23, [x23], #16
+3c810504 str q4, [x8], #16
+3d800af7 str q23, [x23, #32]
+3d800104 str q4, [x8]
+ad406af7 ldp q23, q26, [x23]
+acc15d1a ldp q26, q23, [x8], #32
+ad416af7 ldp q23, q26, [x23, #32]
+4cdf8ef7 ld2 {v23.2d, v24.2d}, [x23], #32
+4cdf8d17 ld2 {v23.2d, v24.2d}, [x8], #32
+4eb4bfb8 addp v24.4s, v29.4s, v20.4s
+4eb4bf1d addp v29.4s, v24.4s, v20.4s
+4eb8be9d addp v29.4s, v20.4s, v24.4s
+0f20a7b8 sxtl v24.2d, v29.2s
+0f20a71d sxtl v29.2d, v24.2s
+4f20a7b8 sxtl2 v24.2d, v29.4s
+4f20a71d sxtl2 v29.2d, v24.4s
+4e61dbb8 scvtf v24.2d, v29.2d
+4e61db1d scvtf v29.2d, v24.2d
+4e0807b8 dup v24.2d, v29.d[0]
+4e08071d dup v29.2d, v24.d[0]
+6e74dfb8 fmul v24.2d, v29.2d, v20.2d
+6e74df1d fmul v29.2d, v24.2d, v20.2d
+6e78de9d fmul v29.2d, v20.2d, v24.2d
+4e74d7b8 fadd v24.2d, v29.2d, v20.2d
+4e74d71d fadd v29.2d, v24.2d, v20.2d
+4e78d69d fadd v29.2d, v20.2d, v24.2d
+4e083f18 umov x24, v24.d[0]
+4e183f18 umov x24, v24.d[1]
+4e183fae umov x14, v29.d[1]
+3c810718 str q24, [x24], #16
+3c8105dd str q29, [x14], #16
+3d800b18 str q24, [x24, #32]
+3d8001dd str q29, [x14]
+ad403f18 ldp q24, q15, [x24]
+acc161cf ldp q15, q24, [x14], #32
+ad413f18 ldp q24, q15, [x24, #32]
+4cdf8f18 ld2 {v24.2d, v25.2d}, [x24], #32
+4cdf8dd8 ld2 {v24.2d, v25.2d}, [x14], #32
+4ea1be59 addp v25.4s, v18.4s, v1.4s
+4ea1bf32 addp v18.4s, v25.4s, v1.4s
+4eb9bc32 addp v18.4s, v1.4s, v25.4s
+0f20a659 sxtl v25.2d, v18.2s
+0f20a732 sxtl v18.2d, v25.2s
+4f20a659 sxtl2 v25.2d, v18.4s
+4f20a732 sxtl2 v18.2d, v25.4s
+4e61da59 scvtf v25.2d, v18.2d
+4e61db32 scvtf v18.2d, v25.2d
+4e080659 dup v25.2d, v18.d[0]
+4e080732 dup v18.2d, v25.d[0]
+6e61de59 fmul v25.2d, v18.2d, v1.2d
+6e61df32 fmul v18.2d, v25.2d, v1.2d
+6e79dc32 fmul v18.2d, v1.2d, v25.2d
+4e61d659 fadd v25.2d, v18.2d, v1.2d
+4e61d732 fadd v18.2d, v25.2d, v1.2d
+4e79d432 fadd v18.2d, v1.2d, v25.2d
+4e083f39 umov x25, v25.d[0]
+4e183f39 umov x25, v25.d[1]
+4e183e51 umov x17, v18.d[1]
+3c810739 str q25, [x25], #16
+3c810632 str q18, [x17], #16
+3d800b39 str q25, [x25, #32]
+3d800232 str q18, [x17]
+ad400339 ldp q25, q0, [x25]
+acc16620 ldp q0, q25, [x17], #32
+ad410339 ldp q25, q0, [x25, #32]
+4cdf8f39 ld2 {v25.2d, v26.2d}, [x25], #32
+4cdf8e39 ld2 {v25.2d, v26.2d}, [x17], #32
+4ea5bdda addp v26.4s, v14.4s, v5.4s
+4ea5bf4e addp v14.4s, v26.4s, v5.4s
+4ebabcae addp v14.4s, v5.4s, v26.4s
+0f20a5da sxtl v26.2d, v14.2s
+0f20a74e sxtl v14.2d, v26.2s
+4f20a5da sxtl2 v26.2d, v14.4s
+4f20a74e sxtl2 v14.2d, v26.4s
+4e61d9da scvtf v26.2d, v14.2d
+4e61db4e scvtf v14.2d, v26.2d
+4e0805da dup v26.2d, v14.d[0]
+4e08074e dup v14.2d, v26.d[0]
+6e65ddda fmul v26.2d, v14.2d, v5.2d
+6e65df4e fmul v14.2d, v26.2d, v5.2d
+6e7adcae fmul v14.2d, v5.2d, v26.2d
+4e65d5da fadd v26.2d, v14.2d, v5.2d
+4e65d74e fadd v14.2d, v26.2d, v5.2d
+4e7ad4ae fadd v14.2d, v5.2d, v26.2d
+4e083f5a umov x26, v26.d[0]
+4e183f5a umov x26, v26.d[1]
+4e183dd5 umov x21, v14.d[1]
+3c81075a str q26, [x26], #16
+3c8106ae str q14, [x21], #16
+3d800b5a str q26, [x26, #32]
+3d8002ae str q14, [x21]
+ad404b5a ldp q26, q18, [x26]
+acc16ab2 ldp q18, q26, [x21], #32
+ad414b5a ldp q26, q18, [x26, #32]
+4cdf8f5a ld2 {v26.2d, v27.2d}, [x26], #32
+4cdf8eba ld2 {v26.2d, v27.2d}, [x21], #32
+4eaebddb addp v27.4s, v14.4s, v14.4s
+4eaebf6e addp v14.4s, v27.4s, v14.4s
+4ebbbdce addp v14.4s, v14.4s, v27.4s
+0f20a5db sxtl v27.2d, v14.2s
+0f20a76e sxtl v14.2d, v27.2s
+4f20a5db sxtl2 v27.2d, v14.4s
+4f20a76e sxtl2 v14.2d, v27.4s
+4e61d9db scvtf v27.2d, v14.2d
+4e61db6e scvtf v14.2d, v27.2d
+4e0805db dup v27.2d, v14.d[0]
+4e08076e dup v14.2d, v27.d[0]
+6e6edddb fmul v27.2d, v14.2d, v14.2d
+6e6edf6e fmul v14.2d, v27.2d, v14.2d
+6e7bddce fmul v14.2d, v14.2d, v27.2d
+4e6ed5db fadd v27.2d, v14.2d, v14.2d
+4e6ed76e fadd v14.2d, v27.2d, v14.2d
+4e7bd5ce fadd v14.2d, v14.2d, v27.2d
+4e083f7b umov x27, v27.d[0]
+4e183f7b umov x27, v27.d[1]
+4e183dc0 umov x0, v14.d[1]
+3c81077b str q27, [x27], #16
+3c81040e str q14, [x0], #16
+3d800b7b str q27, [x27, #32]
+3d80000e str q14, [x0]
+ad40277b ldp q27, q9, [x27]
+acc16c09 ldp q9, q27, [x0], #32
+ad41277b ldp q27, q9, [x27, #32]
+4cdf8f7b ld2 {v27.2d, v28.2d}, [x27], #32
+4cdf8c1b ld2 {v27.2d, v28.2d}, [x0], #32
+4ea4bf5c addp v28.4s, v26.4s, v4.4s
+4ea4bf9a addp v26.4s, v28.4s, v4.4s
+4ebcbc9a addp v26.4s, v4.4s, v28.4s
+0f20a75c sxtl v28.2d, v26.2s
+0f20a79a sxtl v26.2d, v28.2s
+4f20a75c sxtl2 v28.2d, v26.4s
+4f20a79a sxtl2 v26.2d, v28.4s
+4e61db5c scvtf v28.2d, v26.2d
+4e61db9a scvtf v26.2d, v28.2d
+4e08075c dup v28.2d, v26.d[0]
+4e08079a dup v26.2d, v28.d[0]
+6e64df5c fmul v28.2d, v26.2d, v4.2d
+6e64df9a fmul v26.2d, v28.2d, v4.2d
+6e7cdc9a fmul v26.2d, v4.2d, v28.2d
+4e64d75c fadd v28.2d, v26.2d, v4.2d
+4e64d79a fadd v26.2d, v28.2d, v4.2d
+4e7cd49a fadd v26.2d, v4.2d, v28.2d
+4e083f9c umov x28, v28.d[0]
+4e183f9c umov x28, v28.d[1]
+4e183f40 umov x0, v26.d[1]
+3c81079c str q28, [x28], #16
+3c81041a str q26, [x0], #16
+3d800b9c str q28, [x28, #32]
+3d80001a str q26, [x0]
+ad40279c ldp q28, q9, [x28]
+acc17009 ldp q9, q28, [x0], #32
+ad41279c ldp q28, q9, [x28, #32]
+4cdf8f9c ld2 {v28.2d, v29.2d}, [x28], #32
+4cdf8c1c ld2 {v28.2d, v29.2d}, [x0], #32
+4eafbc3d addp v29.4s, v1.4s, v15.4s
+4eafbfa1 addp v1.4s, v29.4s, v15.4s
+4ebdbde1 addp v1.4s, v15.4s, v29.4s
+0f20a43d sxtl v29.2d, v1.2s
+0f20a7a1 sxtl v1.2d, v29.2s
+4f20a43d sxtl2 v29.2d, v1.4s
+4f20a7a1 sxtl2 v1.2d, v29.4s
+4e61d83d scvtf v29.2d, v1.2d
+4e61dba1 scvtf v1.2d, v29.2d
+4e08043d dup v29.2d, v1.d[0]
+4e0807a1 dup v1.2d, v29.d[0]
+6e6fdc3d fmul v29.2d, v1.2d, v15.2d
+6e6fdfa1 fmul v1.2d, v29.2d, v15.2d
+6e7ddde1 fmul v1.2d, v15.2d, v29.2d
+4e6fd43d fadd v29.2d, v1.2d, v15.2d
+4e6fd7a1 fadd v1.2d, v29.2d, v15.2d
+4e7dd5e1 fadd v1.2d, v15.2d, v29.2d
+4e083fbd umov x29, v29.d[0]
+4e183fbd umov x29, v29.d[1]
+4e183c2a umov x10, v1.d[1]
+3c8107bd str q29, [x29], #16
+3c810541 str q1, [x10], #16
+3d800bbd str q29, [x29, #32]
+3d800141 str q1, [x10]
+ad4027bd ldp q29, q9, [x29]
+acc17549 ldp q9, q29, [x10], #32
+ad4127bd ldp q29, q9, [x29, #32]
+4cdf8fbd ld2 {v29.2d, v30.2d}, [x29], #32
+4cdf8d5d ld2 {v29.2d, v30.2d}, [x10], #32
+4eb4bdbe addp v30.4s, v13.4s, v20.4s
+4eb4bfcd addp v13.4s, v30.4s, v20.4s
+4ebebe8d addp v13.4s, v20.4s, v30.4s
+0f20a5be sxtl v30.2d, v13.2s
+0f20a7cd sxtl v13.2d, v30.2s
+4f20a5be sxtl2 v30.2d, v13.4s
+4f20a7cd sxtl2 v13.2d, v30.4s
+4e61d9be scvtf v30.2d, v13.2d
+4e61dbcd scvtf v13.2d, v30.2d
+4e0805be dup v30.2d, v13.d[0]
+4e0807cd dup v13.2d, v30.d[0]
+6e74ddbe fmul v30.2d, v13.2d, v20.2d
+6e74dfcd fmul v13.2d, v30.2d, v20.2d
+6e7ede8d fmul v13.2d, v20.2d, v30.2d
+4e74d5be fadd v30.2d, v13.2d, v20.2d
+4e74d7cd fadd v13.2d, v30.2d, v20.2d
+4e7ed68d fadd v13.2d, v20.2d, v30.2d
+4e083fde umov x30, v30.d[0]
+4e183fde umov x30, v30.d[1]
+4e183da6 umov x6, v13.d[1]
+3c8107de str q30, [x30], #16
+3c8104cd str q13, [x6], #16
+3d800bde str q30, [x30, #32]
+3d8000cd str q13, [x6]
+ad4037de ldp q30, q13, [x30]
+acc178cd ldp q13, q30, [x6], #32
+ad4137de ldp q30, q13, [x30, #32]
+4cdf8fde ld2 {v30.2d, v31.2d}, [x30], #32
+4cdf8cde ld2 {v30.2d, v31.2d}, [x6], #32
+4ebabdff addp v31.4s, v15.4s, v26.4s
+4ebabfef addp v15.4s, v31.4s, v26.4s
+4ebfbf4f addp v15.4s, v26.4s, v31.4s
+0f20a5ff sxtl v31.2d, v15.2s
+0f20a7ef sxtl v15.2d, v31.2s
+4f20a5ff sxtl2 v31.2d, v15.4s
+4f20a7ef sxtl2 v15.2d, v31.4s
+4e61d9ff scvtf v31.2d, v15.2d
+4e61dbef scvtf v15.2d, v31.2d
+4e0805ff dup v31.2d, v15.d[0]
+4e0807ef dup v15.2d, v31.d[0]
+6e7addff fmul v31.2d, v15.2d, v26.2d
+6e7adfef fmul v15.2d, v31.2d, v26.2d
+6e7fdf4f fmul v15.2d, v26.2d, v31.2d
+4e7ad5ff fadd v31.2d, v15.2d, v26.2d
+4e7ad7ef fadd v15.2d, v31.2d, v26.2d
+4e7fd74f fadd v15.2d, v26.2d, v31.2d
+4e083ffe umov x30, v31.d[0]
+4e183ffe umov x30, v31.d[1]
+4e183de1 umov x1, v15.d[1]
+3c8107df str q31, [x30], #16
+3c81042f str q15, [x1], #16
+3d800bdf str q31, [x30, #32]
+3d80002f str q15, [x1]
+ad401bdf ldp q31, q6, [x30]
+acc17c26 ldp q6, q31, [x1], #32
+ad411bdf ldp q31, q6, [x30, #32]
+3c9004a3 str q3, [x5], #-256
+3c9e04a3 str q3, [x5], #-32
+3c8004a3 str q3, [x5], #0
+3c8104a3 str q3, [x5], #16
+3c8404a3 str q3, [x5], #64
+3c8ff4a3 str q3, [x5], #255
+3d8000a3 str q3, [x5, #0]
+3d8004a3 str q3, [x5, #16]
+3d8010a3 str q3, [x5, #64]
+3d8100a3 str q3, [x5, #1024]
+3d83fca3 str q3, [x5, #4080]
+ad6010a3 ldp q3, q4, [x5, #-1024]
+ace010a3 ldp q3, q4, [x5], #-1024
+ad7f10a3 ldp q3, q4, [x5, #-32]
+acff10a3 ldp q3, q4, [x5], #-32
+ad4010a3 ldp q3, q4, [x5, #0]
+acc010a3 ldp q3, q4, [x5], #0
+ad4110a3 ldp q3, q4, [x5, #32]
+acc110a3 ldp q3, q4, [x5], #32
+ad5010a3 ldp q3, q4, [x5, #512]
+acd010a3 ldp q3, q4, [x5], #512
+ad5f90a3 ldp q3, q4, [x5, #1008]
+acdf90a3 ldp q3, q4, [x5], #1008
