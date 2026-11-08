@@ -4704,3 +4704,355 @@ ad5010a3 ldp q3, q4, [x5, #512]
 acd010a3 ldp q3, q4, [x5], #512
 ad5f90a3 ldp q3, q4, [x5, #1008]
 acdf90a3 ldp q3, q4, [x5], #1008
+4edc2a80 trn1 v0.2d, v20.2d, v28.2d
+4edc2814 trn1 v20.2d, v0.2d, v28.2d
+4ec02b94 trn1 v20.2d, v28.2d, v0.2d
+4edc6a80 trn2 v0.2d, v20.2d, v28.2d
+4edc6814 trn2 v20.2d, v0.2d, v28.2d
+4ec06b94 trn2 v20.2d, v28.2d, v0.2d
+4e180680 dup v0.2d, v20.d[1]
+4e180414 dup v20.2d, v0.d[1]
+6e7cfe80 fdiv v0.2d, v20.2d, v28.2d
+6e7cfc14 fdiv v20.2d, v0.2d, v28.2d
+6e60ff94 fdiv v20.2d, v28.2d, v0.2d
+4ed82a61 trn1 v1.2d, v19.2d, v24.2d
+4ed82833 trn1 v19.2d, v1.2d, v24.2d
+4ec12b13 trn1 v19.2d, v24.2d, v1.2d
+4ed86a61 trn2 v1.2d, v19.2d, v24.2d
+4ed86833 trn2 v19.2d, v1.2d, v24.2d
+4ec16b13 trn2 v19.2d, v24.2d, v1.2d
+4e180661 dup v1.2d, v19.d[1]
+4e180433 dup v19.2d, v1.d[1]
+6e78fe61 fdiv v1.2d, v19.2d, v24.2d
+6e78fc33 fdiv v19.2d, v1.2d, v24.2d
+6e61ff13 fdiv v19.2d, v24.2d, v1.2d
+4ec52b62 trn1 v2.2d, v27.2d, v5.2d
+4ec5285b trn1 v27.2d, v2.2d, v5.2d
+4ec228bb trn1 v27.2d, v5.2d, v2.2d
+4ec56b62 trn2 v2.2d, v27.2d, v5.2d
+4ec5685b trn2 v27.2d, v2.2d, v5.2d
+4ec268bb trn2 v27.2d, v5.2d, v2.2d
+4e180762 dup v2.2d, v27.d[1]
+4e18045b dup v27.2d, v2.d[1]
+6e65ff62 fdiv v2.2d, v27.2d, v5.2d
+6e65fc5b fdiv v27.2d, v2.2d, v5.2d
+6e62fcbb fdiv v27.2d, v5.2d, v2.2d
+4ec028c3 trn1 v3.2d, v6.2d, v0.2d
+4ec02866 trn1 v6.2d, v3.2d, v0.2d
+4ec32806 trn1 v6.2d, v0.2d, v3.2d
+4ec068c3 trn2 v3.2d, v6.2d, v0.2d
+4ec06866 trn2 v6.2d, v3.2d, v0.2d
+4ec36806 trn2 v6.2d, v0.2d, v3.2d
+4e1804c3 dup v3.2d, v6.d[1]
+4e180466 dup v6.2d, v3.d[1]
+6e60fcc3 fdiv v3.2d, v6.2d, v0.2d
+6e60fc66 fdiv v6.2d, v3.2d, v0.2d
+6e63fc06 fdiv v6.2d, v0.2d, v3.2d
+4edd2b24 trn1 v4.2d, v25.2d, v29.2d
+4edd2899 trn1 v25.2d, v4.2d, v29.2d
+4ec42bb9 trn1 v25.2d, v29.2d, v4.2d
+4edd6b24 trn2 v4.2d, v25.2d, v29.2d
+4edd6899 trn2 v25.2d, v4.2d, v29.2d
+4ec46bb9 trn2 v25.2d, v29.2d, v4.2d
+4e180724 dup v4.2d, v25.d[1]
+4e180499 dup v25.2d, v4.d[1]
+6e7dff24 fdiv v4.2d, v25.2d, v29.2d
+6e7dfc99 fdiv v25.2d, v4.2d, v29.2d
+6e64ffb9 fdiv v25.2d, v29.2d, v4.2d
+4ed72a05 trn1 v5.2d, v16.2d, v23.2d
+4ed728b0 trn1 v16.2d, v5.2d, v23.2d
+4ec52af0 trn1 v16.2d, v23.2d, v5.2d
+4ed76a05 trn2 v5.2d, v16.2d, v23.2d
+4ed768b0 trn2 v16.2d, v5.2d, v23.2d
+4ec56af0 trn2 v16.2d, v23.2d, v5.2d
+4e180605 dup v5.2d, v16.d[1]
+4e1804b0 dup v16.2d, v5.d[1]
+6e77fe05 fdiv v5.2d, v16.2d, v23.2d
+6e77fcb0 fdiv v16.2d, v5.2d, v23.2d
+6e65fef0 fdiv v16.2d, v23.2d, v5.2d
+4ec02b66 trn1 v6.2d, v27.2d, v0.2d
+4ec028db trn1 v27.2d, v6.2d, v0.2d
+4ec6281b trn1 v27.2d, v0.2d, v6.2d
+4ec06b66 trn2 v6.2d, v27.2d, v0.2d
+4ec068db trn2 v27.2d, v6.2d, v0.2d
+4ec6681b trn2 v27.2d, v0.2d, v6.2d
+4e180766 dup v6.2d, v27.d[1]
+4e1804db dup v27.2d, v6.d[1]
+6e60ff66 fdiv v6.2d, v27.2d, v0.2d
+6e60fcdb fdiv v27.2d, v6.2d, v0.2d
+6e66fc1b fdiv v27.2d, v0.2d, v6.2d
+4ecc2aa7 trn1 v7.2d, v21.2d, v12.2d
+4ecc28f5 trn1 v21.2d, v7.2d, v12.2d
+4ec72995 trn1 v21.2d, v12.2d, v7.2d
+4ecc6aa7 trn2 v7.2d, v21.2d, v12.2d
+4ecc68f5 trn2 v21.2d, v7.2d, v12.2d
+4ec76995 trn2 v21.2d, v12.2d, v7.2d
+4e1806a7 dup v7.2d, v21.d[1]
+4e1804f5 dup v21.2d, v7.d[1]
+6e6cfea7 fdiv v7.2d, v21.2d, v12.2d
+6e6cfcf5 fdiv v21.2d, v7.2d, v12.2d
+6e67fd95 fdiv v21.2d, v12.2d, v7.2d
+4ecb2be8 trn1 v8.2d, v31.2d, v11.2d
+4ecb291f trn1 v31.2d, v8.2d, v11.2d
+4ec8297f trn1 v31.2d, v11.2d, v8.2d
+4ecb6be8 trn2 v8.2d, v31.2d, v11.2d
+4ecb691f trn2 v31.2d, v8.2d, v11.2d
+4ec8697f trn2 v31.2d, v11.2d, v8.2d
+4e1807e8 dup v8.2d, v31.d[1]
+4e18051f dup v31.2d, v8.d[1]
+6e6bffe8 fdiv v8.2d, v31.2d, v11.2d
+6e6bfd1f fdiv v31.2d, v8.2d, v11.2d
+6e68fd7f fdiv v31.2d, v11.2d, v8.2d
+4edf2b29 trn1 v9.2d, v25.2d, v31.2d
+4edf2939 trn1 v25.2d, v9.2d, v31.2d
+4ec92bf9 trn1 v25.2d, v31.2d, v9.2d
+4edf6b29 trn2 v9.2d, v25.2d, v31.2d
+4edf6939 trn2 v25.2d, v9.2d, v31.2d
+4ec96bf9 trn2 v25.2d, v31.2d, v9.2d
+4e180729 dup v9.2d, v25.d[1]
+4e180539 dup v25.2d, v9.d[1]
+6e7fff29 fdiv v9.2d, v25.2d, v31.2d
+6e7ffd39 fdiv v25.2d, v9.2d, v31.2d
+6e69fff9 fdiv v25.2d, v31.2d, v9.2d
+4edd2b8a trn1 v10.2d, v28.2d, v29.2d
+4edd295c trn1 v28.2d, v10.2d, v29.2d
+4eca2bbc trn1 v28.2d, v29.2d, v10.2d
+4edd6b8a trn2 v10.2d, v28.2d, v29.2d
+4edd695c trn2 v28.2d, v10.2d, v29.2d
+4eca6bbc trn2 v28.2d, v29.2d, v10.2d
+4e18078a dup v10.2d, v28.d[1]
+4e18055c dup v28.2d, v10.d[1]
+6e7dff8a fdiv v10.2d, v28.2d, v29.2d
+6e7dfd5c fdiv v28.2d, v10.2d, v29.2d
+6e6affbc fdiv v28.2d, v29.2d, v10.2d
+4ec42beb trn1 v11.2d, v31.2d, v4.2d
+4ec4297f trn1 v31.2d, v11.2d, v4.2d
+4ecb289f trn1 v31.2d, v4.2d, v11.2d
+4ec46beb trn2 v11.2d, v31.2d, v4.2d
+4ec4697f trn2 v31.2d, v11.2d, v4.2d
+4ecb689f trn2 v31.2d, v4.2d, v11.2d
+4e1807eb dup v11.2d, v31.d[1]
+4e18057f dup v31.2d, v11.d[1]
+6e64ffeb fdiv v11.2d, v31.2d, v4.2d
+6e64fd7f fdiv v31.2d, v11.2d, v4.2d
+6e6bfc9f fdiv v31.2d, v4.2d, v11.2d
+4ec52b0c trn1 v12.2d, v24.2d, v5.2d
+4ec52998 trn1 v24.2d, v12.2d, v5.2d
+4ecc28b8 trn1 v24.2d, v5.2d, v12.2d
+4ec56b0c trn2 v12.2d, v24.2d, v5.2d
+4ec56998 trn2 v24.2d, v12.2d, v5.2d
+4ecc68b8 trn2 v24.2d, v5.2d, v12.2d
+4e18070c dup v12.2d, v24.d[1]
+4e180598 dup v24.2d, v12.d[1]
+6e65ff0c fdiv v12.2d, v24.2d, v5.2d
+6e65fd98 fdiv v24.2d, v12.2d, v5.2d
+6e6cfcb8 fdiv v24.2d, v5.2d, v12.2d
+4ec32acd trn1 v13.2d, v22.2d, v3.2d
+4ec329b6 trn1 v22.2d, v13.2d, v3.2d
+4ecd2876 trn1 v22.2d, v3.2d, v13.2d
+4ec36acd trn2 v13.2d, v22.2d, v3.2d
+4ec369b6 trn2 v22.2d, v13.2d, v3.2d
+4ecd6876 trn2 v22.2d, v3.2d, v13.2d
+4e1806cd dup v13.2d, v22.d[1]
+4e1805b6 dup v22.2d, v13.d[1]
+6e63fecd fdiv v13.2d, v22.2d, v3.2d
+6e63fdb6 fdiv v22.2d, v13.2d, v3.2d
+6e6dfc76 fdiv v22.2d, v3.2d, v13.2d
+4ec0292e trn1 v14.2d, v9.2d, v0.2d
+4ec029c9 trn1 v9.2d, v14.2d, v0.2d
+4ece2809 trn1 v9.2d, v0.2d, v14.2d
+4ec0692e trn2 v14.2d, v9.2d, v0.2d
+4ec069c9 trn2 v9.2d, v14.2d, v0.2d
+4ece6809 trn2 v9.2d, v0.2d, v14.2d
+4e18052e dup v14.2d, v9.d[1]
+4e1805c9 dup v9.2d, v14.d[1]
+6e60fd2e fdiv v14.2d, v9.2d, v0.2d
+6e60fdc9 fdiv v9.2d, v14.2d, v0.2d
+6e6efc09 fdiv v9.2d, v0.2d, v14.2d
+4ec62b2f trn1 v15.2d, v25.2d, v6.2d
+4ec629f9 trn1 v25.2d, v15.2d, v6.2d
+4ecf28d9 trn1 v25.2d, v6.2d, v15.2d
+4ec66b2f trn2 v15.2d, v25.2d, v6.2d
+4ec669f9 trn2 v25.2d, v15.2d, v6.2d
+4ecf68d9 trn2 v25.2d, v6.2d, v15.2d
+4e18072f dup v15.2d, v25.d[1]
+4e1805f9 dup v25.2d, v15.d[1]
+6e66ff2f fdiv v15.2d, v25.2d, v6.2d
+6e66fdf9 fdiv v25.2d, v15.2d, v6.2d
+6e6ffcd9 fdiv v25.2d, v6.2d, v15.2d
+4ecd2b30 trn1 v16.2d, v25.2d, v13.2d
+4ecd2a19 trn1 v25.2d, v16.2d, v13.2d
+4ed029b9 trn1 v25.2d, v13.2d, v16.2d
+4ecd6b30 trn2 v16.2d, v25.2d, v13.2d
+4ecd6a19 trn2 v25.2d, v16.2d, v13.2d
+4ed069b9 trn2 v25.2d, v13.2d, v16.2d
+4e180730 dup v16.2d, v25.d[1]
+4e180619 dup v25.2d, v16.d[1]
+6e6dff30 fdiv v16.2d, v25.2d, v13.2d
+6e6dfe19 fdiv v25.2d, v16.2d, v13.2d
+6e70fdb9 fdiv v25.2d, v13.2d, v16.2d
+4ed72811 trn1 v17.2d, v0.2d, v23.2d
+4ed72a20 trn1 v0.2d, v17.2d, v23.2d
+4ed12ae0 trn1 v0.2d, v23.2d, v17.2d
+4ed76811 trn2 v17.2d, v0.2d, v23.2d
+4ed76a20 trn2 v0.2d, v17.2d, v23.2d
+4ed16ae0 trn2 v0.2d, v23.2d, v17.2d
+4e180411 dup v17.2d, v0.d[1]
+4e180620 dup v0.2d, v17.d[1]
+6e77fc11 fdiv v17.2d, v0.2d, v23.2d
+6e77fe20 fdiv v0.2d, v17.2d, v23.2d
+6e71fee0 fdiv v0.2d, v23.2d, v17.2d
+4ed32932 trn1 v18.2d, v9.2d, v19.2d
+4ed32a49 trn1 v9.2d, v18.2d, v19.2d
+4ed22a69 trn1 v9.2d, v19.2d, v18.2d
+4ed36932 trn2 v18.2d, v9.2d, v19.2d
+4ed36a49 trn2 v9.2d, v18.2d, v19.2d
+4ed26a69 trn2 v9.2d, v19.2d, v18.2d
+4e180532 dup v18.2d, v9.d[1]
+4e180649 dup v9.2d, v18.d[1]
+6e73fd32 fdiv v18.2d, v9.2d, v19.2d
+6e73fe49 fdiv v9.2d, v18.2d, v19.2d
+6e72fe69 fdiv v9.2d, v19.2d, v18.2d
+4edd2913 trn1 v19.2d, v8.2d, v29.2d
+4edd2a68 trn1 v8.2d, v19.2d, v29.2d
+4ed32ba8 trn1 v8.2d, v29.2d, v19.2d
+4edd6913 trn2 v19.2d, v8.2d, v29.2d
+4edd6a68 trn2 v8.2d, v19.2d, v29.2d
+4ed36ba8 trn2 v8.2d, v29.2d, v19.2d
+4e180513 dup v19.2d, v8.d[1]
+4e180668 dup v8.2d, v19.d[1]
+6e7dfd13 fdiv v19.2d, v8.2d, v29.2d
+6e7dfe68 fdiv v8.2d, v19.2d, v29.2d
+6e73ffa8 fdiv v8.2d, v29.2d, v19.2d
+4ed82bb4 trn1 v20.2d, v29.2d, v24.2d
+4ed82a9d trn1 v29.2d, v20.2d, v24.2d
+4ed42b1d trn1 v29.2d, v24.2d, v20.2d
+4ed86bb4 trn2 v20.2d, v29.2d, v24.2d
+4ed86a9d trn2 v29.2d, v20.2d, v24.2d
+4ed46b1d trn2 v29.2d, v24.2d, v20.2d
+4e1807b4 dup v20.2d, v29.d[1]
+4e18069d dup v29.2d, v20.d[1]
+6e78ffb4 fdiv v20.2d, v29.2d, v24.2d
+6e78fe9d fdiv v29.2d, v20.2d, v24.2d
+6e74ff1d fdiv v29.2d, v24.2d, v20.2d
+4ecd29f5 trn1 v21.2d, v15.2d, v13.2d
+4ecd2aaf trn1 v15.2d, v21.2d, v13.2d
+4ed529af trn1 v15.2d, v13.2d, v21.2d
+4ecd69f5 trn2 v21.2d, v15.2d, v13.2d
+4ecd6aaf trn2 v15.2d, v21.2d, v13.2d
+4ed569af trn2 v15.2d, v13.2d, v21.2d
+4e1805f5 dup v21.2d, v15.d[1]
+4e1806af dup v15.2d, v21.d[1]
+6e6dfdf5 fdiv v21.2d, v15.2d, v13.2d
+6e6dfeaf fdiv v15.2d, v21.2d, v13.2d
+6e75fdaf fdiv v15.2d, v13.2d, v21.2d
+4ed42bd6 trn1 v22.2d, v30.2d, v20.2d
+4ed42ade trn1 v30.2d, v22.2d, v20.2d
+4ed62a9e trn1 v30.2d, v20.2d, v22.2d
+4ed46bd6 trn2 v22.2d, v30.2d, v20.2d
+4ed46ade trn2 v30.2d, v22.2d, v20.2d
+4ed66a9e trn2 v30.2d, v20.2d, v22.2d
+4e1807d6 dup v22.2d, v30.d[1]
+4e1806de dup v30.2d, v22.d[1]
+6e74ffd6 fdiv v22.2d, v30.2d, v20.2d
+6e74fede fdiv v30.2d, v22.2d, v20.2d
+6e76fe9e fdiv v30.2d, v20.2d, v22.2d
+4ecc2897 trn1 v23.2d, v4.2d, v12.2d
+4ecc2ae4 trn1 v4.2d, v23.2d, v12.2d
+4ed72984 trn1 v4.2d, v12.2d, v23.2d
+4ecc6897 trn2 v23.2d, v4.2d, v12.2d
+4ecc6ae4 trn2 v4.2d, v23.2d, v12.2d
+4ed76984 trn2 v4.2d, v12.2d, v23.2d
+4e180497 dup v23.2d, v4.d[1]
+4e1806e4 dup v4.2d, v23.d[1]
+6e6cfc97 fdiv v23.2d, v4.2d, v12.2d
+6e6cfee4 fdiv v4.2d, v23.2d, v12.2d
+6e77fd84 fdiv v4.2d, v12.2d, v23.2d
+4ed42bb8 trn1 v24.2d, v29.2d, v20.2d
+4ed42b1d trn1 v29.2d, v24.2d, v20.2d
+4ed82a9d trn1 v29.2d, v20.2d, v24.2d
+4ed46bb8 trn2 v24.2d, v29.2d, v20.2d
+4ed46b1d trn2 v29.2d, v24.2d, v20.2d
+4ed86a9d trn2 v29.2d, v20.2d, v24.2d
+4e1807b8 dup v24.2d, v29.d[1]
+4e18071d dup v29.2d, v24.d[1]
+6e74ffb8 fdiv v24.2d, v29.2d, v20.2d
+6e74ff1d fdiv v29.2d, v24.2d, v20.2d
+6e78fe9d fdiv v29.2d, v20.2d, v24.2d
+4ec12a59 trn1 v25.2d, v18.2d, v1.2d
+4ec12b32 trn1 v18.2d, v25.2d, v1.2d
+4ed92832 trn1 v18.2d, v1.2d, v25.2d
+4ec16a59 trn2 v25.2d, v18.2d, v1.2d
+4ec16b32 trn2 v18.2d, v25.2d, v1.2d
+4ed96832 trn2 v18.2d, v1.2d, v25.2d
+4e180659 dup v25.2d, v18.d[1]
+4e180732 dup v18.2d, v25.d[1]
+6e61fe59 fdiv v25.2d, v18.2d, v1.2d
+6e61ff32 fdiv v18.2d, v25.2d, v1.2d
+6e79fc32 fdiv v18.2d, v1.2d, v25.2d
+4ec529da trn1 v26.2d, v14.2d, v5.2d
+4ec52b4e trn1 v14.2d, v26.2d, v5.2d
+4eda28ae trn1 v14.2d, v5.2d, v26.2d
+4ec569da trn2 v26.2d, v14.2d, v5.2d
+4ec56b4e trn2 v14.2d, v26.2d, v5.2d
+4eda68ae trn2 v14.2d, v5.2d, v26.2d
+4e1805da dup v26.2d, v14.d[1]
+4e18074e dup v14.2d, v26.d[1]
+6e65fdda fdiv v26.2d, v14.2d, v5.2d
+6e65ff4e fdiv v14.2d, v26.2d, v5.2d
+6e7afcae fdiv v14.2d, v5.2d, v26.2d
+4ece29db trn1 v27.2d, v14.2d, v14.2d
+4ece2b6e trn1 v14.2d, v27.2d, v14.2d
+4edb29ce trn1 v14.2d, v14.2d, v27.2d
+4ece69db trn2 v27.2d, v14.2d, v14.2d
+4ece6b6e trn2 v14.2d, v27.2d, v14.2d
+4edb69ce trn2 v14.2d, v14.2d, v27.2d
+4e1805db dup v27.2d, v14.d[1]
+4e18076e dup v14.2d, v27.d[1]
+6e6efddb fdiv v27.2d, v14.2d, v14.2d
+6e6eff6e fdiv v14.2d, v27.2d, v14.2d
+6e7bfdce fdiv v14.2d, v14.2d, v27.2d
+4ec42b5c trn1 v28.2d, v26.2d, v4.2d
+4ec42b9a trn1 v26.2d, v28.2d, v4.2d
+4edc289a trn1 v26.2d, v4.2d, v28.2d
+4ec46b5c trn2 v28.2d, v26.2d, v4.2d
+4ec46b9a trn2 v26.2d, v28.2d, v4.2d
+4edc689a trn2 v26.2d, v4.2d, v28.2d
+4e18075c dup v28.2d, v26.d[1]
+4e18079a dup v26.2d, v28.d[1]
+6e64ff5c fdiv v28.2d, v26.2d, v4.2d
+6e64ff9a fdiv v26.2d, v28.2d, v4.2d
+6e7cfc9a fdiv v26.2d, v4.2d, v28.2d
+4ecf283d trn1 v29.2d, v1.2d, v15.2d
+4ecf2ba1 trn1 v1.2d, v29.2d, v15.2d
+4edd29e1 trn1 v1.2d, v15.2d, v29.2d
+4ecf683d trn2 v29.2d, v1.2d, v15.2d
+4ecf6ba1 trn2 v1.2d, v29.2d, v15.2d
+4edd69e1 trn2 v1.2d, v15.2d, v29.2d
+4e18043d dup v29.2d, v1.d[1]
+4e1807a1 dup v1.2d, v29.d[1]
+6e6ffc3d fdiv v29.2d, v1.2d, v15.2d
+6e6fffa1 fdiv v1.2d, v29.2d, v15.2d
+6e7dfde1 fdiv v1.2d, v15.2d, v29.2d
+4ed429be trn1 v30.2d, v13.2d, v20.2d
+4ed42bcd trn1 v13.2d, v30.2d, v20.2d
+4ede2a8d trn1 v13.2d, v20.2d, v30.2d
+4ed469be trn2 v30.2d, v13.2d, v20.2d
+4ed46bcd trn2 v13.2d, v30.2d, v20.2d
+4ede6a8d trn2 v13.2d, v20.2d, v30.2d
+4e1805be dup v30.2d, v13.d[1]
+4e1807cd dup v13.2d, v30.d[1]
+6e74fdbe fdiv v30.2d, v13.2d, v20.2d
+6e74ffcd fdiv v13.2d, v30.2d, v20.2d
+6e7efe8d fdiv v13.2d, v20.2d, v30.2d
+4eda29ff trn1 v31.2d, v15.2d, v26.2d
+4eda2bef trn1 v15.2d, v31.2d, v26.2d
+4edf2b4f trn1 v15.2d, v26.2d, v31.2d
+4eda69ff trn2 v31.2d, v15.2d, v26.2d
+4eda6bef trn2 v15.2d, v31.2d, v26.2d
+4edf6b4f trn2 v15.2d, v26.2d, v31.2d
+4e1805ff dup v31.2d, v15.d[1]
+4e1807ef dup v15.2d, v31.d[1]
+6e7afdff fdiv v31.2d, v15.2d, v26.2d
+6e7affef fdiv v15.2d, v31.2d, v26.2d
+6e7fff4f fdiv v15.2d, v26.2d, v31.2d

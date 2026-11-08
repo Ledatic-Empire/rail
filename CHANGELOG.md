@@ -10,7 +10,9 @@ All notable changes to Rail are documented here.
   and `sxtl2 .2d`, `scvtf vD.2d`, `ld2 {vA.2d, vB.2d}, [xN], #32`. One form each (the arrangement the
   kernel uses), every register in every field held to Apple clang (949 new lines, 4,706 in all in
   `tools/verify/neon_enc.cases`, from rail-lab `lowbit/l2/blk_cases.py`); t281 links
-  `tools/test/link_vec.s`, which runs them all. Suite 265. Seed rebuilt to its fixed point.
+  `tools/test/link_vec.s`, which runs them all. Suite 265. Seed rebuilt to its fixed point. The same
+  day, for the attention kernels: `trn1`/`trn2 .2d`, `dup vD.2d, vN.d[1]`, `fdiv .2d` (352 more lines,
+  5,058 in all; t281 runs them too).
 
 ### Fixed
 - **`rail_native test` exited 1 on a passing suite** (2026-11-08). The exit test compared the count

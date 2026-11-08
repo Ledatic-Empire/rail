@@ -758,3 +758,11 @@ enc_str_q_post t n imm = bit_or 1015022592 (bit_or (shl (bit_and imm 511) 12) (b
 enc_str_q_imm t n imm = bit_or 1031798784 (bit_or (shl (shr imm 4) 10) (bit_or (shl n 5) t))
 -- ldp qA, qB, [xN, #imm] (imm / 16, 7-bit signed)  Base: 0xAD400000;  post-index  Base: 0xACC00000
 enc_ldp_q base a b n imm = bit_or base (bit_or (shl (bit_and (imm / 16) 127) 15) (bit_or (shl b 10) (bit_or (shl n 5) a)))
+-- ---- lowbit speed B3 (2026-11-08): the attention kernels' forms (l4/attn.s) ----
+-- trn1 vD.2d, vN.2d, vM.2d  Base: 0x4EC02800;  trn2  Base: 0x4EC06800  (| M << 16 | N << 5 | D)
+enc_trn1_2d d n m = bit_or 1321216000 (bit_or (shl m 16) (bit_or (shl n 5) d))
+enc_trn2_2d d n m = bit_or 1321232384 (bit_or (shl m 16) (bit_or (shl n 5) d))
+-- dup vD.2d, vN.d[1]        Base: 0x4E180400
+enc_dup_2d_d1 d n = bit_or 1310196736 (bit_or (shl n 5) d)
+-- fdiv vD.2d, vN.2d, vM.2d  Base: 0x6E60FC00
+enc_fdiv_2d d n m = bit_or 1851849728 (bit_or (shl m 16) (bit_or (shl n 5) d))

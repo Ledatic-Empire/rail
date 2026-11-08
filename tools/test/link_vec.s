@@ -1,8 +1,9 @@
-// link_vec.s: the vector forms lowbit's batched 4-bit kernel uses (t281, 2026-11-08): ldp q, fadd/fmul .2d,
-// dup .2d, umov x from a lane, str q (offset and post-index), fcvtzs, addp .4s, sxtl/sxtl2, scvtf .2d, ld2.
+// link_vec.s: the vector forms lowbit's batched 4-bit kernel and attention kernels use (t281, 2026-11-08): ldp q,
+// fadd/fmul/fdiv .2d, dup .2d (lanes 0 and 1), umov x from a lane, str q (offset and post-index), fcvtzs,
+// addp .4s, sxtl/sxtl2, scvtf .2d, ld2, trn1/trn2 .2d.
 //   vecforms(in, out): in a Rail float array of 5 doubles, out one of 8 (both offset 8, the array's doubles).
 //   out0 = (in0 + in2) * in2 + in0   out1 = (in1 + in3) * in3 + in0   out2 = in4
-//   out4 = in4 (through ld2 of out0..3 and a lane move)   out5 = out1
+//   out4 = in4 (through ld2 of out0..3 and a lane move)   out5 = out1 (through trn1, dup lane 1, fdiv by in0 = 1, trn2)
 //   out6 = 2 * (int in0 + int in2)   out7 = 2 * (int in4 + int in4)   (int32 lanes through addp, sxtl, scvtf; d1 is q1's low lane, in2)
 .text
 .globl _vecforms
@@ -39,7 +40,11 @@ _vecforms:
     str q7, [x7], #16
     ld2 {v17.2d, v18.2d}, [x1], #32
     umov x3, v17.d[1]
-    umov x4, v18.d[0]
+    trn1 v19.2d, v17.2d, v18.2d
+    dup v20.2d, v19.d[1]
+    fdiv v20.2d, v20.2d, v3.2d
+    trn2 v21.2d, v20.2d, v20.2d
+    umov x4, v21.d[0]
     str x3, [x1]
     str x4, [x1, #8]
     ret

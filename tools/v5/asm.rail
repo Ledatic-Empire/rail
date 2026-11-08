@@ -408,7 +408,7 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "fadd" then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_fadd_2d else asm_enc_3dreg ops enc_fadd)
   else if mnemonic == "fsub" then asm_enc_3dreg ops enc_fsub
   else if mnemonic == "fmul" then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_fmul_2d else asm_enc_3dreg ops enc_fmul)
-  else if mnemonic == "fdiv" then asm_enc_3dreg ops enc_fdiv
+  else if mnemonic == "fdiv" then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_fdiv_2d else asm_enc_3dreg ops enc_fdiv)
   else if mnemonic == "fcmp" then asm_enc_fcmp ops
   else if mnemonic == "scvtf" then (if asm_is_vec (head ops) == 1 then enc_scvtf_2d (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) else asm_enc_scvtf ops)
   else if mnemonic == "fcvtzs" then asm_enc_fcvtzs ops
@@ -434,7 +434,9 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "sxtl" then enc_sxtl_2d (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops)))
   else if mnemonic == "sxtl2" then enc_sxtl2_2d (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops)))
   else if mnemonic == "ld2" then asm_enc_ld2 ops
-  else if mnemonic == "dup" then (if asm_lane_idx (head (tail ops)) == 0 then enc_dup_2d_d0 (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) else 0 - 1)
+  else if mnemonic == "dup" then (if asm_lane_idx (head (tail ops)) == 0 then enc_dup_2d_d0 (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) else if asm_lane_idx (head (tail ops)) == 1 then enc_dup_2d_d1 (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) else 0 - 1)
+  else if mnemonic == "trn1" then asm_enc_3vreg ops enc_trn1_2d
+  else if mnemonic == "trn2" then asm_enc_3vreg ops enc_trn2_2d
   else if mnemonic == "umov" then (if asm_lane_idx (head (tail ops)) < 0 || asm_lane_idx (head (tail ops)) > 1 then 0 - 1 else enc_umov_x_d (asm_reg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_lane_idx (head (tail ops))))
   else if mnemonic == "sxtw" then enc_sxtw (asm_reg_num (head ops)) (asm_reg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
