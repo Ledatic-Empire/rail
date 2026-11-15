@@ -1,0 +1,7 @@
+-- a two-parameter tail self-call whose second argument reads the first: g b (a % b)
+g a b = if b == 0 then a else g b (a % b)
+main =
+  let _ = print (show (g 1071 462))
+  let _ = print (show (g 48 18))
+  let _ = print (show (g 462 1071))
+  0
