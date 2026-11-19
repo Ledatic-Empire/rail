@@ -108,6 +108,9 @@ def tree_programs():
 EXPECTED_SKIP = {
     'bare_import': 'imports a module file only the suite run writes',
     'bare_import_as': 'imports a module file only the suite run writes',
+    'import': 'imports a module file only the suite run writes',
+    'qual_import': 'imports a module file only the suite run writes',
+    'generate_ct': 'reads /tmp/rail_gen_code.rail, which only the suite run writes',
     'examples/error_test.rail': 'shows a compile error on purpose',
     'tools/fuzz/known/concat_in_let.rail': 'a known case that must not compile',
     'tools/fuzz/known/ctor_typo_in_pattern.rail': 'a known case that must not compile',
@@ -143,7 +146,11 @@ def one(prog, args):
         base = run([str(binary)], 20)
         # A negative code is a signal. 128 to 255 is a program's own exit status (main's value):
         # until 2026-11-19 those were skipped as crashes.
-        if base[0] == 'timeout' or base[0] < 0:
+        # A normal run that does not finish in 20 s is a slow program on this box, not one that
+        # stopped working (CI, 2026-11-19: a hosted runner timed out tools/test/seq_crash_repro.rail).
+        if base[0] == 'timeout':
+            return label, 'slow', 'the normal run did not finish in 20s'
+        if base[0] < 0:
             return label, 'skip', f'normal run rc={base[0]}'
         for n in args.ladder:
             env = dict(os.environ, RAIL_GC_STRESS=str(n), **args.env)

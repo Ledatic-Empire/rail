@@ -84,8 +84,8 @@ All notable changes to Rail are documented here.
   worklist E5). A frame was scanned to fp+2048 only, so the last of 300 let-bound lists were
   swept while live (t327). Each sweep emptied the free lists and could not refill them with
   blocks already free, so a 2 MB working set grew the arena 28 MB (t328).
-  `tools/fuzz/gc_stress.py --jobs 3 --budget 30` under the new collector: 343 ok, 3 slow, the 7
-  named skips (`docs/handoff/2026-11-19.md`).
+  `tools/fuzz/gc_stress.py --jobs 3 --budget 30` under the new collector: 346 ok, 3 slow, the 10
+  named skips.
 - **The in-tree assembler encoded what it could not hold** (worklist E4). `cmp x0, #5000`
   assembled as `cmp x0, #904`, and a branch past its reach was masked into a branch somewhere
   else; both are now errors (t316 to t318; the shifted immediate form still assembles).
@@ -121,8 +121,9 @@ All notable changes to Rail are documented here.
 - **`rail_native x86` refuses a call to a name nothing defines** (worklist E1; t319). It emitted
   the call, assembled and exited 0.
 - **Gates that could not fail** (worklist E7). `gc_stress.py` passed however many programs it
-  skipped: `--max-skip` (default 0) now fails the run, the seven programs that cannot be
-  stressed are named with their reasons, and an exit status of 128 to 255 is a program's own
+  skipped: `--max-skip` (default 0) now fails the run, the ten programs that cannot be
+  stressed are named with their reasons (three more after the first CI run: they import files
+  only a suite run leaves in `/tmp`), a normal run that times out is slow, not skipped, and an exit status of 128 to 255 is a program's own
   status, not a crash (three suite programs were skipped for it). `attest_selfhost.sh` exits
   nonzero when the build is not a fixed point; `drift_audit.sh` reads the current banner.
 - **Every builtin is documented, and a gate keeps it so** (worklist E9; t332 compares
