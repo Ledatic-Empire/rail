@@ -60,6 +60,31 @@ _rail_str_sub:
     ldr x2, [x29, #32]
     asr x2, x2, #1
     str x2, [x29, #32]
+// Clamp start to 0..len and count to 0..len-start (2026-11-18): a start past the end is the
+// empty string, where it used to copy whatever followed the string in memory.
+    ldr x0, [x29, #16]
+    bl _strlen
+    ldr x1, [x29, #24]
+    cmp x1, #0
+    b.ge .Lss_c1
+    mov x1, #0
+.Lss_c1:
+    cmp x1, x0
+    b.le .Lss_c2
+    mov x1, x0
+.Lss_c2:
+    str x1, [x29, #24]
+    sub x0, x0, x1
+    ldr x2, [x29, #32]
+    cmp x2, #0
+    b.ge .Lss_c3
+    mov x2, #0
+.Lss_c3:
+    cmp x2, x0
+    b.le .Lss_c4
+    mov x2, x0
+.Lss_c4:
+    str x2, [x29, #32]
     add x0, x2, #1
     bl _malloc
     str x0, [x29, #40]
@@ -110,14 +135,21 @@ _rail_str_replace:
     ldr x0, [x29, #24]
     bl _strlen
     str x0, [x29, #56]
+// The result is at most len * (newlen + 1) bytes; until 2026-11-18 the buffer was len * 4,
+// which a replacement longer than four times its match overran. An empty `old` matches
+// nowhere (strstr matched it everywhere and the loop never advanced).
     ldr x0, [x29, #40]
-    lsl x0, x0, #2
+    ldr x1, [x29, #56]
+    add x1, x1, #1
+    mul x0, x0, x1
     add x0, x0, #64
     bl _malloc
     str x0, [x29, #64]
     str xzr, [x29, #72]
     ldr x0, [x29, #32]
     str x0, [x29, #80]
+    ldr x0, [x29, #48]
+    cbz x0, .Lsr_rest
 .Lsr_loop:
     ldr x0, [x29, #80]
     ldr x1, [x29, #16]
@@ -195,6 +227,10 @@ _rail_str_split:
     str x0, [x29, #40]
     ldr x0, [x29, #24]
     str x0, [x29, #48]
+// An empty delimiter splits nowhere: the result is the one-element list (2026-11-18; strstr
+// matched it at every position without advancing, so the loop never ended).
+    ldr x0, [x29, #32]
+    cbz x0, .Lssp_last
 .Lssp_loop:
     ldr x0, [x29, #48]
     ldr x1, [x29, #16]

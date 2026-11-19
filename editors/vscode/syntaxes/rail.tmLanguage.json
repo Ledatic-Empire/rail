@@ -84,7 +84,7 @@
       "patterns": [
         {
           "name": "support.function.builtin.rail",
-          "match": "\\b(print|show|map|filter|fold|head|tail|length|range|append|reverse|sort|zip|cons|enumerate|prompt|prompt_with|prompt_typed|prompt_stream|prompt_model|prompt_json|par_prompt|par_map|par_filter|agent_loop|context_new|context_push|context_prompt|embed|llm_usage|llm_reset|shell|shell_lines|read_file|write_file|read_line|http_get|http_post|json_parse|json_get|env|timestamp|sleep_ms|split|join|trim|chars|contains|starts_with|ends_with|to_upper|to_lower|replace|substring|sqrt|pow|log|sin|cos|tan|pi|abs|max|min|mod|not|int_to_float|floor|ceil|parse_int|parse_float|float_to_str|set_state|get_state|check_reload)\\b"
+          "match": "\\b(alloc_stats_snapshot|append|arena_mark|arena_reset|arr_get|arr_len|arr_new|arr_set|atan2|bit_and|bit_or|bit_xor|byte_at|byte_set|cat|ceil|channel|char_from_int|char_to_int|chars|cons|cos|err_msg|error|exp|f32_bits|fabs|fiber_await|fiber_init|fiber_yield|filter|float_arr_from_f32_file|float_arr_get|float_arr_len|float_arr_new|float_arr_set|float_arr_to_f32_file|float_to_int|floor|fma32|fneg|fold|fsqrt|head|int_to_float|is_error|join|join_thread|length|log|map|mul_shr|mutex_lock|mutex_new|mutex_unlock|not|parse_float|parse_int|pow|print|range|rc_alloc|rc_release|rc_retain|read_file|read_file_bytes|read_line|recv|reverse|rotl|rotr|round32|send|shell|shl|show|show_float|show_float_exact|shr|sin|spawn|spawn_thread|split|sqrt|str_contains|str_find|str_replace|str_split|str_sub|tail|tanh|to_float|to_int|try|write_file)\\b"
         }
       ]
     },

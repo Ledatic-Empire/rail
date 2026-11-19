@@ -316,8 +316,8 @@ bpe_delta_close counts a b nid L R k =
              else c4
     c5
 
--- Detect a match at position i. Guarded: no short-circuit in `&&`, so
--- nested ifs do the bounds-safe check.
+-- Detect a match at position i. The nested ifs do the bounds-safe check (written when
+-- `&&` evaluated both sides).
 bpe_is_match arr n a b i =
   if i + 1 < n then
     if arr_get arr i == a then

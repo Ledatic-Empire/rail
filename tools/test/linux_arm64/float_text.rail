@@ -1,0 +1,54 @@
+pow10 x k = if k == 0 then x else if k > 0 then pow10 (x *. 10.0) (k - 1) else pow10 (x /. 10.0) (k + 1)
+pow2 x k = if k == 0 then x else if k > 0 then pow2 (x *. 2.0) (k - 1) else pow2 (x /. 2.0) (k + 1)
+show2 x =
+  let _ = print (show_float x)
+  let _ = print (show_float_exact x)
+  0
+loop i s =
+  if i == 0 then 0
+  else
+    let s1 = (s * 1103515245 + 12345) % 2147483648
+    let s2 = (s1 * 1103515245 + 12345) % 2147483648
+    let s3 = (s2 * 1103515245 + 12345) % 2147483648
+    let m = int_to_float (s1 * 4194304 + (s2 % 4194304))
+    let k = (s3 % 640) - 320
+    let x = if s3 % 3 == 0 then pow2 m ((s3 % 2040) - 1070) else pow10 m k
+    let y = if s2 % 7 == 0 then fneg x else x
+    let _ = show2 y
+    let _ = show2 (int_to_float (s1 % 100000) /. int_to_float ((s2 % 1000) + 1))
+    loop (i - 1) s3
+edge i = if i > 40 then 0 else
+  let _ = show2 (pow10 1.0 (i - 20))
+  let _ = show2 (pow10 9.5 (i - 20))
+  let _ = show2 (pow10 0.1 (0 - i * 8))
+  let _ = show2 (int_to_float i +. 0.5)
+  edge (i + 1)
+main =
+  let _ = show2 0.1
+  let _ = show2 0.0
+  let _ = show2 (fneg 0.0)
+  let _ = show2 1.0e21
+  let _ = show2 123456789012345678.0
+  let _ = show2 999999999999999.9
+  let _ = show2 9999999999999999.0
+  let _ = show2 0.00001
+  let _ = show2 0.0001
+  let _ = show2 0.000099999999999999999
+  let _ = show2 1.7976931348623157e308
+  let _ = show2 (pow2 1.0 (0 - 1074))
+  let _ = show2 (pow2 1.0 (0 - 1022))
+  let _ = show2 (pow2 3.0 (0 - 1073))
+  let inf = pow10 1.0e308 2
+  let _ = show2 inf
+  let _ = show2 (fneg inf)
+  let _ = show2 (inf -. inf)
+  let _ = show2 2.5
+  let _ = show2 (1.0 /. 3.0)
+  let _ = show2 (2.0 /. 3.0)
+  let _ = show2 0.30000000000000004
+  let _ = show2 4503599627370496.5
+  let _ = show2 1.0e15
+  let _ = show2 1.0e16
+  let _ = show2 1.0e17
+  let _ = edge 0
+  loop 4000 20261119

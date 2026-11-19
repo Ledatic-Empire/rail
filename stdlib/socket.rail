@@ -35,8 +35,7 @@ sockaddr_in_size = 16
 -- destination. Also: through ~2026-04-15 `char_to_int` itself was
 -- broken on runtime strings and this parser silently returned 0 for
 -- every digit; fixed in compile.rail with `bl _str_unwrap`.)
-parse_int s =
-  parse_int_acc (chars s) 0
+-- parse_int is a builtin: a definition here never ran (the builtin answers the call), removed 2026-11-18
 
 parse_int_acc cs acc =
   if length cs == 0 then acc

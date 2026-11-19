@@ -233,13 +233,13 @@ Defined here: `mk_early_ret`, `compute_fn_slot_bits`, `argf_slots`, `slots_int_p
 runtime itself is `runtime/arm64/*.s`: edit the assembly, run `tools/gen_runtime.rail`,
 bootstrap twice (the generator's check mode is a CI step).
 
-The optimizer is small and syntactic. `opt` folds constant arithmetic (`opt_op`), rewrites
-`fold` over a `range` into a counting loop when the lambda has the add shape
-(`opt_fold`, `is_fold_range_app`), and fuses `map` over `map` (`is_map_app`). `uses_var`
-asks whether a name occurs free in a subtree and must see every node kind, because the
-fold rewrite drops a binding it reports unused. `opt_decls` applies it to the program.
+The optimizer is small and syntactic. `opt` folds constant arithmetic (`opt_op`,
+`opt_fold`) and fuses `map` over `map` (`is_map_app`). The rewrites of `fold` over a
+`range` into closed forms were removed on 2026-11-18: they were unsound for a negative
+count, a body that mentions the accumulator twice, and string or float steps. `uses_var`
+asks whether a name occurs free in a subtree. `opt_decls` applies `opt` to the program.
 
-Defined here: `runtime_asm`, `uses_var`, `is_fold_range_app`, `is_map_app`, `opt`, `opt_op`, `opt_fold`, `opt_app`, `opt_decls`.
+Defined here: `runtime_asm`, `uses_var`, `is_map_app`, `opt`, `opt_op`, `opt_fold`, `opt_app`, `opt_decls`.
 
 ## 12. Checks: exhaustiveness, patterns, constructor values, type warnings, parse errors
 

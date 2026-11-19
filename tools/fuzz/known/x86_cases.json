@@ -43,5 +43,25 @@
   "fixed",
   "empty\n[]",
   "x86 backend: a str-returning foreign fn that returns NULL (getenv of an unset name) handed the NULL on as the string; the next strcmp or strtol died (lowbit's engine reading LOWBIT_EOS unset on the runner, 2026-11-05); arm64's FFI gives the empty string (ptr_fixup). Fixed 2026-11-05: the x86 emit tests the return and substitutes _rail_empty_str"
+ ],
+ "x86_arr_bounds": [
+  "fixed",
+  "exit 1: 9\n3",
+  "x86 backend: arr_get past the end read whatever was there; arm64 has refused it since 2026-11-18. Written 2026-11-19 (tools/x86_rt.s _rail_arr_oob and _rail_arr_neg, x86_cg_bi3 in tools/compile.rail) on a Mac that cannot run x86-64: assembled here with x86_64-elf-as, first executed by CI's numerics-x86 job"
+ ],
+ "x86_float_arr_bounds": [
+  "fixed",
+  "exit 1: 3",
+  "x86 backend: float_arr_set at -1 overwrote the length word; arm64 has refused it since 2026-11-18. Written 2026-11-19 (tools/x86_rt.s _rail_arr_oob and _rail_arr_neg, x86_cg_bi3 in tools/compile.rail) on a Mac that cannot run x86-64: assembled here with x86_64-elf-as, first executed by CI's numerics-x86 job"
+ ],
+ "x86_arr_new_negative": [
+  "fixed",
+  "exit 1: before",
+  "x86 backend: arr_new with a negative length looped over memory it did not own; arm64 has refused it since 2026-11-18. Written 2026-11-19 (tools/x86_rt.s _rail_arr_oob and _rail_arr_neg, x86_cg_bi3 in tools/compile.rail) on a Mac that cannot run x86-64: assembled here with x86_64-elf-as, first executed by CI's numerics-x86 job"
+ ],
+ "x86_div_zero": [
+  "fixed",
+  "0\n7\n0\n-7\n3\n1\n-3\n-1",
+  "x86 backend: idiv faults on a zero divisor where ARM64's sdiv answers 0, so `a / 0` and `a % 0` killed the process on x86 and gave 0 and a on ARM64 (worklist E1, read not run). Fixed 2026-11-19 (x86_div_asm, x86_mod_asm in tools/compile.rail; _rail_div, _rail_mod in tools/x86_rt.s): a zero divisor is replaced branch-free. Written 2026-11-19, assembled here with x86_64-elf-as, first executed by CI's numerics-x86 job"
  ]
 }

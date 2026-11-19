@@ -6,7 +6,7 @@ One Rail compiler, three targets. All driven from the same `rail_native` binary.
 |---|---|---|---|---|
 | macOS ARM64 (Mach-O) | _(default)_ / `run` | `/tmp/rail_out` | none (Rail assembles, links and signs in process) | runs end-to-end |
 | Linux ARM64 (ELF) | `linux` | `/tmp/rail_linux` | `aarch64-elf-as`, `aarch64-elf-ld` | needs cross-binutils |
-| Linux x86_64 (ELF, source-only) | `x86` | `/tmp/rail_x86.s` | remote `gcc` (or Docker `linux/amd64`) | emits `.s`, 71/79 conformance via Docker harness |
+| Linux x86_64 (ELF, source-only) | `x86` | `/tmp/rail_x86.s` | remote `gcc` (or Docker `linux/amd64`) | emits `.s`; executed only by CI (`numerics-x86`, the known-case corpus) |
 
 ---
 
@@ -53,6 +53,20 @@ To install on macOS:
 brew install aarch64-elf-binutils
 ```
 
+**What differs from macOS** (measured 2026-11-19 on a Pi Zero 2 W; there is no libc, the
+runtime's C calls are `tools/linux_libc.s`):
+
+- `spawn_thread` is not built: the program prints
+  `rail: spawn_thread is not supported on Linux ARM64` and exits 1. The mutex calls succeed.
+- The heap is a fixed 1 GB reservation; `RAIL_ARENA_MB` does not resize it.
+- `try`, errors, array bounds and the text of floats (`show_float`, `show_float_exact`,
+  `show`) are the same as on macOS. Before 2026-11-19 an error inside `try` ended the program
+  with status 1 and floats printed with six decimals.
+
+**Conformance:** no CI job executes this backend. `tools/test/linux_arm64_check.sh user@host`
+runs the programs in `tools/test/linux_arm64/` on macOS and on an aarch64 Linux host and
+requires the same output and exit status (16,378 float strings among them).
+
 ## Linux x86_64 (source-only)
 
 ```bash
@@ -68,7 +82,7 @@ Compiling examples/hello.rail (244 chars)...
 
 Rail emits the GAS assembly directly; assemble on the target with `gcc -o prog /tmp/rail_x86.s`. This is intentional — the x86_64 backend was bootstrapped for the Razer WSL test fleet rather than for cross-tools-on-mac. The x86 runtime asm lives at `tools/x86_rt.s`.
 
-**Conformance:** `bash tools/test/x86_conformance.sh` (requires Docker + `linux/amd64` image, e.g., Colima/Rosetta) currently passes **71/79** representative tests covering ints, strings, lists, ADTs, closures, floats, FFI, TCO, and arena ops. The 8 remaining failures are 3 ELF-prefix ffi-libc tests and 5 missing str-runtime symbols, all classified in `~/.claude/projects/-Users-user/memory/x86_backend_status.md`.
+**Conformance:** CI's `numerics-x86` job (Linux x86_64) builds and runs the known-case corpus, `python3 tools/fuzz/x86_known.py run` over `tools/fuzz/known/x86_cases.json`; that is the only place this backend executes. `rail_native x86` itself reports an undefined name and a failed assemble with exit 1 (2026-11-19). The Docker script that once reported 71/79 here was removed on 2026-11-19: it copied a stub file that had left the tree, so it could not run.
 
 ## Adding a backend
 

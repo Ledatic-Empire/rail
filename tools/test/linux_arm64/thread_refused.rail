@@ -1,0 +1,7 @@
+add10 v = v + 10
+main =
+  let t = spawn_thread add10 5
+  let _ = print "spawned"
+  let r = join_thread t
+  let _ = print (show r)
+  0

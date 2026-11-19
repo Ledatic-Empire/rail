@@ -72,7 +72,7 @@ of 32767 and their negatives, in tail, comparison, and argument positions.
 
 | Case | Rule |
 |---|---|
-| `and_or_eager` | `&&` and `||` evaluate both sides; no short-circuit |
+| `and_or_short_circuit` | `&&` and `||` short-circuit (since 2026-11-18; both sides ran before) |
 | `div_mod_truncate` | `/` truncates toward zero; `%` takes the dividend's sign |
 | `split_single_char` | `split` uses only the first character of its delimiter |
 | `concat_in_let` | `++` is not an operator anywhere in Rail; strings concatenate with `+` or `join "" [..]`; since 2026-09-07 the parser says exactly that |

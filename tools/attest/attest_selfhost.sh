@@ -116,3 +116,6 @@ print(json.dumps({
   && mv -f "$POINTER_DIR/selfhost_latest.json.tmp" "$POINTER_DIR/selfhost_latest.json"
 echo "latest pointer: $POINTER_DIR/selfhost_latest.json -> $short"
 
+# The record above is written and published either way (a red day attests as red), but the
+# script's own exit code says which it was. Until 2026-11-19 it was 0 for both.
+[ "$fixed_point" = "true" ] || exit 1

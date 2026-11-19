@@ -90,6 +90,11 @@ jobs:
               grep -E "FAIL|^--- " /tmp/test.out | tail -40
               exit 1
             fi
+        - name: The umbrella check fails when it should (its own negative controls)
+          # tools/verify/check.sh must say NO on a test process that dies silently and on a
+          # verifier that prints ok and then crashes. A squash merge on 2026-09-22 put an older
+          # check.sh back and this selftest failed unseen until 2026-11-18, because nothing ran it.
+          run: bash tools/verify/check_selftest.sh
         - name: Self-compile reproduces the committed seed (one link path)
           # Since Tier 3 step 6 every compile assembles, links and signs in process
           # (tools/v5/link_lib.rail); there is no as/ld path for CI to fall back to.

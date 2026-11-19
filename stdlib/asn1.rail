@@ -302,6 +302,17 @@ asn1_parse_ecdsa_sig buf buf_len off len =
         let _ = arr_set out 4 1
         out
 
+-- The same parse, refusing an r or s longer than the curve's scalar (maxlen bytes: 32, 48
+-- or 66). The callers left-pad r and s into a maxlen-byte array, so a longer one wrote at a
+-- negative index: memory before the array until 2026-11-18, a stopped process after
+-- (2026-11-19, worklist E3). No valid signature has one: r and s are below the group order.
+asn1_parse_ecdsa_sig_max buf buf_len off len maxlen =
+  let parsed = asn1_parse_ecdsa_sig buf buf_len off len
+  if arr_get parsed 4 == 0 then parsed
+  else if arr_get parsed 1 > maxlen then asn1_ec_fail 0
+  else if arr_get parsed 3 > maxlen then asn1_ec_fail 0
+  else parsed
+
 asn1_ec_fail _ =
   let r = arr_new 5 0
   let _ = arr_set r 4 0

@@ -41,7 +41,10 @@ There are no block comments.
 
 ### Integers
 
-64-bit signed integers. Internally stored as tagged values (shifted left by 1, low bit set).
+63-bit signed integers (-4611686018427387904 to 4611686018427387903). Internally stored as tagged
+values in a 64-bit word (shifted left by 1, low bit set), which is where the 64th bit goes.
+Overflow wraps silently: `4611686018427387903 + 1` is `-4611686018427387904`, and a literal
+outside the range wraps the same way.
 
 ```rail
 42
@@ -283,15 +286,16 @@ they have the same shape and equal parts (`[1, 2] == [1, 2]`, `Some 1 != Some 2`
 | `\|\|` | Logical OR |
 | `not` | Logical NOT (builtin function) |
 
-**Important**: `&&` and `||` do **not** short-circuit. Both sides are always evaluated. For short-circuit behavior, use nested `if`/`else`:
+`&&` and `||` short-circuit (since 2026-11-18): the right operand is evaluated only when the
+left one does not settle the answer, so a guard can sit on the left:
 
 ```rail
--- This evaluates both sides (no short-circuit):
-x > 0 && y / x > 2
-
--- Use this instead for safety:
-if x > 0 then y / x > 2 else false
+x > 0 && y / x > 2        -- y / x is not evaluated when x is 0
+xs != [] && head xs == 1
 ```
+
+Until that day both sides always ran; code written for the old rule (a nested `if` in place of
+`&&`) still means the same thing.
 
 ### Pipe Operator
 
@@ -459,15 +463,18 @@ Direct application is beta-reduced at compile time:
 ```
 
 Because of the flattening there is no partial application: `\x -> \y -> x + y` is one
-two-parameter closure, and calling it with one argument does not return a function. A
-closure call with the wrong number of arguments is not checked (a direct call to a named
-function is: that is a compile error). To return a function from a lambda, bind it first:
+two-parameter closure, and calling it with one argument does not return a function. A call to
+a name bound by `let` to a lambda is checked against the lambda's parameter count at compile
+time, like a call to a named function (`let g = \a -> \b -> a * b` then `g 6` is refused). A
+closure that arrives as a parameter is not checked. To return a function from a lambda, bind
+it first, and bind the result before calling it (`(adder 5) 10` parses as `adder 5 10`):
 
 ```rail
 let adder = \x ->
   let g = \y -> x + y
   g
-(adder 5) 10    -- 15
+let add5 = adder 5
+add5 10    -- 15
 ```
 
 ### Closures

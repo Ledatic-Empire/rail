@@ -347,9 +347,15 @@ macho_buf_to_hex buf n =
 -- Write the byte buffer to disk via hex+xxd pipeline. The resulting
 -- file is also chmod +x so it's ready to codesign + run.
 -- Returns 0 on success, non-zero on shell failure.
+--
+-- The bytes go to a new file that is then renamed over the path (2026-11-19). Writing into an
+-- existing executable in place keeps its vnode, and macOS judges a signed binary by the
+-- signature it cached for that vnode: after a run of the old file had crashed, every run of
+-- the new one was `Killed: 9` until the cache let go (measured: 10 of 10 runs after a crash).
 macho_write_file path buf n =
   let hex = macho_buf_to_hex buf n
   let hex_path = cat [path, ".hex"]
+  let new_path = cat [path, ".new"]
   let _ = write_file hex_path hex
-  let _ = shell (cat ["xxd -r -p ", hex_path, " > ", path, " && chmod +x ", path, " && rm -f ", hex_path])
+  let _ = shell (cat ["xxd -r -p ", hex_path, " > ", new_path, " && chmod +x ", new_path, " && mv -f ", new_path, " ", path, " && rm -f ", hex_path])
   0

@@ -67,7 +67,11 @@ main =
   let _ = w out "## Known surprising behaviors\n\n"
   let _ = w out "Compilation proves a program is *accepted by the binary you run*, not that it is\n"
   let _ = w out "*correct*. These are defined, but easy to trip over:\n\n"
-  let _ = w out "- `&&` / `||` do not short-circuit - both sides always evaluate\n"
+  let _ = w out "- Integers are 63-bit and wrap silently on overflow\n"
+  let _ = w out "- `error \"msg\"` outside `try` returns an error value and the program goes on; one nobody tests (`is_error`) makes the exit code 1 when `main` returns\n"
+  let _ = w out "- Deep recursion that is not a tail call ends with `rail: stack overflow` and exit 1\n"
+  let _ = w out "- Linux ARM64 has no threads and a fixed 1 GB heap; x86-64 is executed by CI only\n"
+  let _ = w out "- `length` of a string counts bytes, not characters\n"
   let _ = w out "- `split` takes a single-character delimiter (use `str_split` for multi-char)\n\n"
 
   let _ = w out "## What this proves\n\n"

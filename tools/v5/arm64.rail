@@ -49,6 +49,11 @@ enc_fneg_d dst src =
 -- fsqrt dD, dN (the `fsqrt` builtin; the assembler had no encoding for it until Tier 3
 -- step 9, 2026-10-22, so a program that called it was refused at link; t266)
 -- Base: 0x1E61C000 | (N << 5) | D
+-- FABS Dd, Dn. The fabs builtin has emitted it since it was added and nothing encoded it, so
+-- every program calling fabs failed to link (found 2026-11-19 writing the builtin reference).
+enc_fabs_d dst src =
+  bit_or 509657088 (bit_or (shl src 5) dst)
+
 enc_fsqrt_d dst src =
   bit_or 509722624 (bit_or (shl src 5) dst)
 
