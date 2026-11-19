@@ -70,7 +70,7 @@ cv_chain_p384 tbs tbs_len sig sig_len upper upper_len =
 cvp384_verify tbs tbs_len sig sig_len pk =
   let px = arr_get pk 0
   let py = arr_get pk 1
-  let parsed = asn1_parse_ecdsa_sig sig sig_len 0 sig_len
+  let parsed = asn1_parse_ecdsa_sig_max sig sig_len 0 sig_len 48
   if arr_get parsed 4 == 0 then 0
   else cvp384_run tbs tbs_len sig parsed px py
 

@@ -34,8 +34,9 @@ _rail_arr_new:
 // A negative length and an index outside 0..len-1 end the program with a message and exit
 // code 1 (2026-11-18). Before, arr_new of a negative length and arr_get past the end read or
 // wrote whatever was there. arr_get and arr_set are inline in the compiler and call
-// _rail_arr_oob; float arrays are not checked.
+// _rail_arr_oob; the float array routines (float.s) branch here too.
 .Larn_neg:
+_rail_arr_neg:
     adrp x1, _rail_arr_neg_msg@PAGE
     add x1, x1, _rail_arr_neg_msg@PAGEOFF
     mov x2, #31

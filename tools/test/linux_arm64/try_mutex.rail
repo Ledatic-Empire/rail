@@ -1,0 +1,18 @@
+deep n = if n == 0 then error "bottom" else 1 + deep (n - 1)
+main =
+  let r = try (\_ -> error "boom") (\e -> 0 - 1)
+  let _ = print (show r)
+  let q = try (\_ -> 41 + 1) (\e -> 0 - 1)
+  let _ = print (show q)
+  let d = try (\_ -> deep 5000) (\e -> 7)
+  let _ = print (show d)
+  let n = try (\_ -> try (\_ -> error "inner") (\e -> error "outer")) (\e -> 9)
+  let _ = print (show n)
+  let f = try (\_ -> 1.5 +. 2.0) (\e -> 0.0)
+  let _ = print (show f)
+  let m = mutex_new 0
+  let _ = mutex_lock m
+  let _ = mutex_unlock m
+  let _ = print "mutex ok"
+  let e = error "left over"
+  0

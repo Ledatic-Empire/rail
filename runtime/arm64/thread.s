@@ -96,15 +96,17 @@ _rail_join_thread:
     ret
 
 //@ piece
+// Returns the mutex. Until 2026-11-19 it returned pthread_mutex_init's status (0), so the
+// first mutex_lock on the result dereferenced null (found writing the builtin reference; t330).
 _rail_mutex_new:
-    stp x29, x30, [sp, #-16]!
+    stp x29, x30, [sp, #-32]!
     mov x29, sp
     mov x0, #64
     bl _malloc
-    mov x1, x0
-    mov x0, x1
+    str x0, [x29, #16]
     mov x1, #0
     bl _pthread_mutex_init
-    ldp x29, x30, [sp], #16
+    ldr x0, [x29, #16]
+    ldp x29, x30, [sp], #32
     ret
 

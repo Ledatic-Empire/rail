@@ -1,0 +1,14 @@
+-- x86 backend: integer division and remainder by zero answer what ARM64 answers (0 and the
+-- dividend); idiv used to fault. Both the inline path (d, m) and the plain one.
+d a b = a / b
+m a b = a % b
+main =
+  let _ = print (show (d 7 0))
+  let _ = print (show (m 7 0))
+  let _ = print (show (d (0 - 7) 0))
+  let _ = print (show (m (0 - 7) 0))
+  let _ = print (show (d 7 2))
+  let _ = print (show (m 7 2))
+  let _ = print (show (d (0 - 7) 2))
+  let _ = print (show (m (0 - 7) 2))
+  0

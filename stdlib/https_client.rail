@@ -241,6 +241,12 @@ hc_exchange_hello fd ch_msg ch_msg_len priv =
       let _ = sha_copy_bytes sh_wire sh_msg 5 0 sh_msg_len
       let parsed = tls13_parse_server_hello sh_msg sh_msg_len
       if arr_get parsed 3 == 0 then hc_xh_fail 0
+      -- The one suite the ClientHello offers is 0x1303; a server that picks another is refused
+      -- here; so is a session id that is not the one sent, and a share that makes the shared
+      -- secret all zeros (2026-11-19).
+      else if arr_get parsed 1 != 4867 then hc_xh_fail 0
+      else if tls13_sid_echoed ch_msg sh_msg == 0 then hc_xh_fail 0
+      else if tls13_all_zero (x25519 priv (arr_get parsed 2)) 32 == 1 then hc_xh_fail 0
       else
         let server_share = arr_get parsed 2
         let shared = x25519 priv server_share

@@ -505,6 +505,14 @@ _rail_div:
     sar rdi, 1
     sar rsi, 1
     mov rax, rdi
+    # A zero divisor answers 0, as ARM64's sdiv does (idiv would fault): see x86_div_asm.
+    xor r11d, r11d
+    test rsi, rsi
+    sete r11b
+    add rsi, r11
+    neg r11
+    not r11
+    and rax, r11
     cqo
     idiv rsi
     lea rax, [rax*2+1]
@@ -569,8 +577,16 @@ _rail_mod:
     sar rdi, 1
     sar rsi, 1
     mov rax, rdi
+    # a % 0 answers a, as ARM64's sdiv and msub do: see x86_mod_asm.
+    xor r11d, r11d
+    test rsi, rsi
+    sete r11b
+    add rsi, r11
+    neg r11
+    and r11, rax
     cqo
     idiv rsi
+    or rdx, r11
     lea rax, [rdx*2+1]
     pop rbp
     ret
@@ -1500,6 +1516,8 @@ _rail_arr_new:
     mov rbp, rsp
     sub rsp, 32
     sar rdi, 1               # untag size
+    test rdi, rdi
+    js _rail_arr_neg         # a negative length is refused (2026-11-19, as arm64 since 11-18)
     mov [rbp-8], rdi         # save size (untagged)
     mov [rbp-16], rsi        # save init (tagged)
     lea rdi, [rdi*8+16]      # size*8 + 16 header
@@ -2093,6 +2111,8 @@ _float_arr_new:
     mov rbp, rsp
     sub rsp, 32
     sar rdi, 1                # untag size
+    test rdi, rdi
+    js _rail_arr_neg
     mov [rbp-8], rdi          # save size (untagged)
     movsd xmm0, qword ptr [rsi+8]
     movsd [rbp-24], xmm0      # save init double
@@ -2118,12 +2138,50 @@ _float_arr_new:
 # ── _float_arr_get : arr, idx_tagged → boxed float ───────────────────────────
 # rdi = arr pointer, rsi = idx (tagged int)
 # Loads raw double from inline slot, allocates a fresh [6, double] box.
+# ── bounds (2026-11-19) ──────────────────────────────────────────────────────
+# arr_get, arr_set (inline, tools/compile.rail x86_cg_bi3), float_arr_get and float_arr_set
+# compare the index, unsigned, against the stored length and come here when it is outside;
+# arr_new and float_arr_new come to _rail_arr_neg on a negative length. Same words and exit
+# code as runtime/arm64/array.s. stdout is flushed first so what the program printed stays
+# ahead of the message. Written on a Mac that cannot run x86-64: the known cases
+# x86_arr_bounds, x86_float_arr_bounds and x86_arr_new_negative are its first execution (CI).
+.global _rail_arr_oob
+_rail_arr_oob:
+    and rsp, -16
+    xor edi, edi
+    call fflush@PLT
+    mov edi, 2
+    lea rsi, [rip+.Lrail_oob_msg]
+    mov edx, 32
+    call write@PLT
+    mov edi, 1
+    call exit@PLT
+.global _rail_arr_neg
+_rail_arr_neg:
+    and rsp, -16
+    xor edi, edi
+    call fflush@PLT
+    mov edi, 2
+    lea rsi, [rip+.Lrail_neg_msg]
+    mov edx, 31
+    call write@PLT
+    mov edi, 1
+    call exit@PLT
+.section .rodata
+.Lrail_oob_msg:
+    .ascii "rail: array index out of bounds\n"
+.Lrail_neg_msg:
+    .ascii "rail: arr_new: negative length\n"
+.text
+
 .global _float_arr_get
 _float_arr_get:
     push rbp
     mov rbp, rsp
     sub rsp, 16
     sar rsi, 1                # untag idx
+    cmp rsi, [rdi]            # unsigned against the length: a negative index is a huge one
+    jae _rail_arr_oob
     add rsi, 1                # past the length word
     movsd xmm0, qword ptr [rdi+rsi*8]
     movsd [rbp-16], xmm0
@@ -2142,6 +2200,8 @@ _float_arr_get:
 _float_arr_set:
     movsd xmm0, qword ptr [rdx+8]
     sar rsi, 1
+    cmp rsi, [rdi]
+    jae _rail_arr_oob
     add rsi, 1
     movsd qword ptr [rdi+rsi*8], xmm0
     mov rax, 3

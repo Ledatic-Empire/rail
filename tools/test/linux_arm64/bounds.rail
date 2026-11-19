@@ -1,0 +1,5 @@
+main =
+  let a = arr_new 3 0
+  let _ = print "before"
+  let _ = print (show (arr_get a 7))
+  0

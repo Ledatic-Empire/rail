@@ -1,0 +1,9 @@
+-- x86_arr_bounds: arr_get past the end is refused on x86-64 too (2026-11-19).
+main =
+  let xs = arr_new 3 7
+  let _ = arr_set xs 2 9
+  let _ = print (show (arr_get xs 2))
+  let _ = print (show (arr_len xs))
+  let _ = print (show (arr_get xs 3))
+  let _ = print "not reached"
+  0

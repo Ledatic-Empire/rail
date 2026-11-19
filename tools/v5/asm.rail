@@ -356,9 +356,9 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   let ops = asm_split_commas ops_str
   -- Mnemonics dispatched in rough frequency order
   if mnemonic == "mov" then asm_enc_mov ops
-  else if mnemonic == "movz" then asm_enc_movz ops
-  else if mnemonic == "movk" then asm_enc_movk ops
-  else if mnemonic == "movn" then asm_enc_movn ops
+  else if mnemonic == "movz" then asm_enc_wide ops 0
+  else if mnemonic == "movk" then asm_enc_wide ops 1
+  else if mnemonic == "movn" then asm_enc_wide ops 2
   else if mnemonic == "add"  then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_add_4s else asm_enc_add ops)
   else if mnemonic == "sub"  then asm_enc_sub ops
   else if mnemonic == "mul"  then asm_enc_3reg ops enc_mul
@@ -366,32 +366,32 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "cmp"  then asm_enc_cmp ops
   else if mnemonic == "ret"  then enc_ret
   else if mnemonic == "nop"  then inst_nop
-  else if mnemonic == "svc"  then enc_svc (asm_imm (head ops))
+  else if mnemonic == "svc"  then (if asm_rng 0 65535 (asm_imm (head ops)) then enc_svc (asm_imm (head ops)) else 0 - 1)
   else if mnemonic == "bl"   then asm_enc_branch ops cur_off labels enc_bl_byte_off
   else if mnemonic == "b"    then asm_enc_branch ops cur_off labels enc_b_byte_off
-  else if mnemonic == "b.ne" then asm_enc_branch ops cur_off labels enc_bne_byte_off
-  else if mnemonic == "b.eq" then asm_enc_branch ops cur_off labels enc_beq_byte_off
-  else if mnemonic == "b.lt" then asm_enc_branch ops cur_off labels enc_blt_byte_off
-  else if mnemonic == "b.gt" then asm_enc_branch ops cur_off labels enc_bgt_byte_off
-  else if mnemonic == "b.le" then asm_enc_branch ops cur_off labels enc_ble_byte_off
-  else if mnemonic == "b.ge" then asm_enc_branch ops cur_off labels enc_bge_byte_off
+  else if mnemonic == "b.ne" then asm_enc_bcond ops cur_off labels enc_bne_byte_off
+  else if mnemonic == "b.eq" then asm_enc_bcond ops cur_off labels enc_beq_byte_off
+  else if mnemonic == "b.lt" then asm_enc_bcond ops cur_off labels enc_blt_byte_off
+  else if mnemonic == "b.gt" then asm_enc_bcond ops cur_off labels enc_bgt_byte_off
+  else if mnemonic == "b.le" then asm_enc_bcond ops cur_off labels enc_ble_byte_off
+  else if mnemonic == "b.ge" then asm_enc_bcond ops cur_off labels enc_bge_byte_off
   else if mnemonic == "cbz"  then asm_enc_cb ops cur_off labels enc_cbz_byte_off enc_cbzw_byte_off
   else if mnemonic == "cbnz" then asm_enc_cb ops cur_off labels enc_cbnz_byte_off enc_cbnzw_byte_off
-  else if mnemonic == "b.cs" then asm_enc_branch ops cur_off labels enc_bcs_byte_off
-  else if mnemonic == "b.hs" then asm_enc_branch ops cur_off labels enc_bhs_byte_off
-  else if mnemonic == "b.cc" then asm_enc_branch ops cur_off labels enc_bcc_byte_off
-  else if mnemonic == "b.lo" then asm_enc_branch ops cur_off labels enc_blo_byte_off
-  else if mnemonic == "b.hi" then asm_enc_branch ops cur_off labels enc_bhi_byte_off
-  else if mnemonic == "b.ls" then asm_enc_branch ops cur_off labels enc_bls_byte_off
+  else if mnemonic == "b.cs" then asm_enc_bcond ops cur_off labels enc_bcs_byte_off
+  else if mnemonic == "b.hs" then asm_enc_bcond ops cur_off labels enc_bhs_byte_off
+  else if mnemonic == "b.cc" then asm_enc_bcond ops cur_off labels enc_bcc_byte_off
+  else if mnemonic == "b.lo" then asm_enc_bcond ops cur_off labels enc_blo_byte_off
+  else if mnemonic == "b.hi" then asm_enc_bcond ops cur_off labels enc_bhi_byte_off
+  else if mnemonic == "b.ls" then asm_enc_bcond ops cur_off labels enc_bls_byte_off
   else if mnemonic == "blr"  then enc_blr (asm_reg_num (head ops))
   else if mnemonic == "br"   then enc_br  (asm_reg_num (head ops))
   else if mnemonic == "and"  then (if asm_is_vec (head ops) == 1 then asm_enc_3vreg ops enc_and_16b else asm_enc_logical ops 2449473536 enc_and)
   else if mnemonic == "orr"  then asm_enc_logical ops 2986344448 enc_orr
   else if mnemonic == "eor"  then asm_enc_logical ops 3523215360 enc_eor
-  else if mnemonic == "lsl"  then (if asm_is_w (head ops) == 1 && (head (chars (head (tail (tail ops))))) == "#" then enc_lsl_imm_w (asm_reg_num (head ops)) (asm_reg_num (head (tail ops))) (asm_imm (head (tail (tail ops)))) else asm_enc_ri ops enc_lsl enc_lsl_imm)
-  else if mnemonic == "lsr"  then asm_enc_ri ops enc_lsr enc_lsr_imm
+  else if mnemonic == "lsl"  then asm_enc_shift ops 0
+  else if mnemonic == "lsr"  then asm_enc_shift ops 1
   else if mnemonic == "ror"  then asm_enc_3reg ops enc_ror   -- register form only: rotl/rotr emit no immediate ror
-  else if mnemonic == "asr"  then asm_enc_ri ops enc_asr enc_asr_imm
+  else if mnemonic == "asr"  then asm_enc_shift ops 2
   else if mnemonic == "sdiv" then asm_enc_3reg ops enc_sdiv
   else if mnemonic == "udiv" then asm_enc_3reg ops enc_udiv
   else if mnemonic == "madd" then asm_enc_4reg ops enc_madd
@@ -425,13 +425,59 @@ asm_encode_insn mnemonic ops_str cur_off labels =
   else if mnemonic == "fcvt" then asm_enc_fcvt ops
   else if mnemonic == "fmadd" then asm_enc_fmadd ops
   else if mnemonic == "fneg" then enc_fneg_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
+  else if mnemonic == "fabs" then enc_fabs_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else if mnemonic == "fsqrt" then enc_fsqrt_d (asm_dreg_num (head ops)) (asm_dreg_num (head (tail ops)))
   else if mnemonic == "movi" then asm_enc_movi ops
-  else if mnemonic == "ushr" then enc_ushr_16b (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_imm (head (tail (tail ops))))
+  else if mnemonic == "ushr" then (if asm_rng 1 8 (asm_imm (head (tail (tail ops)))) then enc_ushr_16b (asm_vreg_num (head ops)) (asm_vreg_num (head (tail ops))) (asm_imm (head (tail (tail ops)))) else 0 - 1)
   else if mnemonic == "sdot" then asm_enc_3vreg ops enc_sdot_4s
   else if mnemonic == "addv" then enc_addv_4s (asm_sreg_num (head ops)) (asm_vreg_num (head (tail ops)))
   else if mnemonic == "sxtw" then enc_sxtw (asm_reg_num (head ops)) (asm_reg_num (head (tail ops)))
   else 0 - 1                                -- unknown mnemonic
+
+-- Range rules (worklist E4, 2026-11-19). Until this date most encoders below masked or dropped
+-- whatever did not fit: `ldr x0, [x1, #40000]` loaded from #7232, `str w0, [x1, #2]` stored at
+-- [x1], `mov x0, #70000` moved 65536, `ldr w0, [x1, x2]` loaded 64 bits, `ldr s0, [x1, #4]`
+-- loaded a double from [x1], and each assembled without a word. Now a form with no encoding
+-- returns a negative word, pass 2 names the line and the link is refused. The forms are held
+-- against the system assembler by tools/test/asm_ranges/ (suite asm_ranges).
+asm_rng lo hi v = v >= lo && v <= hi
+asm_imm9_ok v = v >= (0 - 256) && v <= 255
+asm_scaled_ok v scale top = v >= 0 && v <= top && (bit_and v (scale - 1)) == 0
+asm_pair_ok imm = imm >= (0 - 512) && imm <= 504 && (bit_and (imm + 512) 7) == 0
+-- a 64-bit load/store word made 32-bit: size bits 11 -> 10
+asm_wfix isw word = if word < 0 then word else if isw == 1 then word - 1073741824 else word
+asm_w32_if ops word = if word < 0 then word else if (asm_is_w (head ops)) == 1 then w32 word else word
+asm_shamt_ok ops sh = sh >= 0 && sh <= (if (asm_is_w (head ops)) == 1 then 31 else 63)
+-- the lsl amount after an index register ("x2", "lsl #3]"): 0 when absent, -1 when it is not lsl
+asm_idx_shift rest =
+  if (tail rest) == [] then 0
+  else if (asm_shift_kind (head (tail rest))) != 0 then 0 - 1
+  else asm_imm (asm_after_lsl (head (tail rest)))
+
+-- movz/movk/movn xD, #imm16[, lsl #0|16|32|48] (a w register: lsl #0|16)
+asm_wide_ok ops =
+  let imm = asm_imm (head (tail ops))
+  let third = tail (tail ops)
+  let sh = if third == [] then 0 else if (asm_shift_kind (head third)) != 0 then 0 - 1 else asm_imm (asm_after_lsl (head third))
+  imm >= 0 && imm <= 65535 && sh >= 0 && sh <= (if (asm_is_w (head ops)) == 1 then 16 else 48) && (bit_and sh 15) == 0
+asm_enc_wide ops which =
+  if (asm_wide_ok ops) == false then 0 - 1
+  else asm_w32_if ops (if which == 0 then asm_enc_movz ops else if which == 1 then asm_enc_movk ops else asm_enc_movn ops)
+
+-- lsl/lsr/asr xD, xN, (xM | #imm): kind 0 lsl, 1 lsr, 2 asr. The w immediate forms are their own
+-- UBFM/SBFM words (N = 0, imms = 31), not the x word with sf cleared.
+asm_enc_shift ops kind =
+  let op2 = head (tail (tail ops))
+  let d = asm_reg_num (head ops)
+  let n = asm_reg_num (head (tail ops))
+  let isw = asm_is_w (head ops)
+  if (head (chars op2)) != "#" then
+    (if kind == 0 then asm_enc_ri ops enc_lsl enc_lsl_imm else if kind == 1 then asm_enc_ri ops enc_lsr enc_lsr_imm else asm_enc_ri ops enc_asr enc_asr_imm)
+  else if (asm_shamt_ok ops (asm_imm op2)) == false then 0 - 1
+  else if kind == 0 then (if isw == 1 then enc_lsl_imm_w d n (asm_imm op2) else enc_lsl_imm d n (asm_imm op2))
+  else if isw == 1 then bit_or (if kind == 1 then 1392540672 else 318798848) (bit_or (shl (asm_imm op2) 16) (bit_or (shl n 5) d))
+  else if kind == 1 then enc_lsr_imm d n (asm_imm op2)
+  else enc_asr_imm d n (asm_imm op2)
 
 -- add xD, xN, (xM | #imm | sym@PAGEOFF). 3-reg, immediate, or a @PAGEOFF
 -- relocation (emit add-imm with 0; the linker fills the page offset).
@@ -447,14 +493,16 @@ asm_enc_add ops =
       -- Written when && evaluated both sides (it short-circuits since 2026-11-18): the
       -- nested if on rest != [] is the guard for `head rest`.
       if rest != [] then
-        (if (asm_imm (asm_after_lsl (head rest))) == 12 then enc_add_imm_sh dst n imm 1
-         else enc_add_imm dst n imm)
-      else if (imm > 4095) && ((bit_and imm 4095) == 0) then enc_add_imm_sh dst n (shr imm 12) 1
+        (if imm < 0 || imm > 4095 || (asm_shift_kind (head rest)) != 0 then 0 - 1
+         else if (asm_imm (asm_after_lsl (head rest))) == 12 then enc_add_imm_sh dst n imm 1
+         else if (asm_imm (asm_after_lsl (head rest))) == 0 then enc_add_imm dst n imm
+         else 0 - 1)
+      else if (imm > 4095) && ((bit_and imm 4095) == 0) && (shr imm 12) <= 4095 then enc_add_imm_sh dst n (shr imm 12) 1
       else if imm > 4095 || imm < 0 then 0 - 1
       else enc_add_imm dst n imm
     else if c0 == "x" || c0 == "w" then
       (if rest != [] then
-         (if (asm_shift_kind (head rest)) < 0 then 0 - 1
+         (if (asm_shift_kind (head rest)) < 0 || (asm_shamt_ok ops (asm_imm (asm_after_lsl (head rest)))) == false then 0 - 1
           else enc_add_shk dst n (asm_reg_num op2) (asm_shift_kind (head rest)) (asm_imm (asm_after_lsl (head rest))))
        else enc_add dst n (asm_reg_num op2))
     else enc_add_imm dst n 0
@@ -472,16 +520,25 @@ asm_enc_sub ops =
      let m = asm_reg_num (head (tail (tail ops)))
      let sh = head (tail (tail (tail ops)))
      let kind = asm_shift_kind sh
-     if kind < 0 then 0 - 1
+     if kind < 0 || (asm_shamt_ok ops (asm_imm (asm_after_lsl sh))) == false then 0 - 1
      else
        let word = enc_sub_shk dst n m kind (asm_imm (asm_after_lsl sh))
        if (asm_is_w (head ops)) == 1 then w32 word else word)
   else asm_enc_sub_plain ops
 asm_enc_sub_plain ops =
   let op2 = head (tail (tail ops))
+  let rest = tail (tail (tail ops))
   if (head (chars op2)) == "#" then
     (let imm = asm_imm op2
-     if imm < 0 || imm > 4095 then 0 - 1 else asm_enc_ri ops enc_sub enc_sub_imm)
+     let dst = asm_reg_num (head ops)
+     let n = asm_reg_num (head (tail ops))
+     let sa = if rest == [] then 0 else if (asm_shift_kind (head rest)) != 0 then 0 - 1 else asm_imm (asm_after_lsl (head rest))
+     -- sub #imm, lsl #12 is the add word with the op bit (30) set
+     if rest == [] && imm > 4095 && (bit_and imm 4095) == 0 && (shr imm 12) <= 4095 then asm_w32_if ops ((enc_add_imm_sh dst n (shr imm 12) 1) + 1073741824)
+     else if imm < 0 || imm > 4095 then 0 - 1
+     else if sa == 12 then asm_w32_if ops ((enc_add_imm_sh dst n imm 1) + 1073741824)
+     else if sa == 0 then asm_enc_ri ops enc_sub enc_sub_imm
+     else 0 - 1)
   else asm_enc_ri ops enc_sub enc_sub_imm
 
 -- subs xD, xN, #imm   (flag-setting decrement — compile.rail's loop bottom-test)
@@ -497,7 +554,10 @@ asm_enc_tb ops cur_off labels enc_fn =
   let reg = asm_reg_num (head ops)
   let bit_n = asm_imm (head (tail ops))
   let target = asm_lookup (head (tail (tail ops))) labels
-  enc_fn bit_n reg (target - cur_off)
+  if target < 0 then 0 - 1
+  else if bit_n < 0 || bit_n > 63 then 0 - 1
+  else if asm_in_reach (target - cur_off) 32768 == false then 0 - 1
+  else enc_fn bit_n reg (target - cur_off)
 
 -- adr xD, LABEL : PC-relative to an internal label if known, else 0 (reloc).
 asm_enc_adr ops cur_off labels =
@@ -512,11 +572,12 @@ asm_enc_adr ops cur_off labels =
 asm_mov_imm dst imm =
   if imm < 0 then
     (let inv = (0 - imm) - 1
-     if inv < 65536 then enc_movn dst inv 0 else enc_mov_imm16 dst imm)
+     if inv < 65536 then enc_movn dst inv 0 else 0 - 1)
   else if imm < 65536 then enc_mov_imm16 dst imm
-  else if (bit_and (shr imm 16) 65535) == (shr imm 16) then enc_movz_hw dst (shr imm 16) 1
-  else if (bit_and (shr imm 32) 65535) == (shr imm 32) then enc_movz_hw dst (shr imm 32) 2
-  else enc_movz_hw dst (shr imm 48) 3
+  else if (bit_and imm 65535) == 0 && (shr imm 16) < 65536 then enc_movz_hw dst (shr imm 16) 1
+  else if (bit_and imm 4294967295) == 0 && (shr imm 32) < 65536 then enc_movz_hw dst (shr imm 32) 2
+  else if (bit_and imm 281474976710655) == 0 then enc_movz_hw dst (shr imm 48) 3
+  else 0 - 1
 
 -- mov xD, #imm     → movz   xD, #imm
 -- mov xD, xS       → orr    xD, xzr, xS  (enc_mov_reg)
@@ -528,8 +589,10 @@ asm_enc_mov ops =
   else if (head src_cs) == "#" then
     (if (asm_is_w dst_s) == 1 then
        (let wimm = asm_imm src_s
-        if wimm < 0 then enc_movnw_imm16 (asm_reg_num dst_s) ((0 - wimm) - 1)
-        else enc_movzw_imm16 (asm_reg_num dst_s) wimm)
+        if wimm < 0 then (if (0 - wimm) - 1 < 65536 then enc_movnw_imm16 (asm_reg_num dst_s) ((0 - wimm) - 1) else 0 - 1)
+        else if wimm < 65536 then enc_movzw_imm16 (asm_reg_num dst_s) wimm
+        else if (bit_and wimm 65535) == 0 && (shr wimm 16) < 65536 then w32 (enc_movz_hw (asm_reg_num dst_s) (shr wimm 16) 1)
+        else 0 - 1)
      else asm_mov_imm (asm_reg_num dst_s) (asm_imm src_s))
   else if src_s == "sp" then enc_add_imm (asm_reg_num dst_s) 31 0   -- mov xD, sp = add xD, sp, #0
   else if dst_s == "sp" then enc_add_imm 31 (asm_reg_num src_s) 0   -- mov sp, xN = add sp, xN, #0
@@ -576,8 +639,7 @@ asm_drop_loop cs =
 asm_enc_movk ops =
   let dst = asm_reg_num (head ops)
   let imm = asm_imm (head (tail ops))
-  let shift_op = head (tail (tail ops))
-  let shift_n = asm_imm (asm_after_lsl shift_op) / 16
+  let shift_n = if (tail (tail ops)) == [] then 0 else asm_imm (asm_after_lsl (head (tail (tail ops)))) / 16
   enc_movk dst imm shift_n
 
 -- 3-register form: <mn> xD, xA, xB
@@ -590,6 +652,9 @@ asm_enc_3reg ops enc_fn =
 -- 32-bit (W) variant of any data-processing word = clear the sf bit (bit 31).
 w32 word = bit_and word 2147483647
 
+-- cmp xN, #imm: an immediate outside 0..4095 (or a multiple of 4096 up to 4095 << 12) has no
+-- encoding. Until 2026-11-19 the encoder kept its low 12 bits, so `cmp x0, #5000` compared
+-- against 904 and assembled without a word (suite t316). A negative word refuses the file.
 asm_enc_cmp ops =
   let a = asm_reg_num (head ops)
   let b_s = head (tail ops)
@@ -598,22 +663,36 @@ asm_enc_cmp ops =
   else if (head b_cs) == "#" then
     (let imm = asm_imm b_s
      let rest = tail (tail ops)
-     if (asm_is_w (head ops)) == 1 then enc_cmpw_imm a imm
+     if rest == [] && imm > 4095 && (bit_and imm 4095) == 0 && (shr imm 12) <= 4095 && (asm_is_w (head ops)) == 0 then enc_cmp_imm_sh a (shr imm 12) 1
+     else if imm < 0 || imm > 4095 then 0 - 1
+     else if (asm_is_w (head ops)) == 1 then enc_cmpw_imm a imm
      else if rest != [] then
-       (if (asm_imm (asm_after_lsl (head rest))) == 12 then enc_cmp_imm_sh a imm 1 else enc_cmp_imm a imm)
-     else if (imm > 4095) && ((bit_and imm 4095) == 0) then enc_cmp_imm_sh a (shr imm 12) 1
+       (if (asm_imm (asm_after_lsl (head rest))) == 12 then enc_cmp_imm_sh a imm 1 else if (asm_imm (asm_after_lsl (head rest))) == 0 then enc_cmp_imm a imm else 0 - 1)
      else enc_cmp_imm a imm)
-  else (if (asm_is_w (head ops)) == 1 then w32 (enc_cmp a (asm_reg_num b_s)) else enc_cmp a (asm_reg_num b_s))
+  else if (tail (tail ops)) == [] then (if (asm_is_w (head ops)) == 1 then w32 (enc_cmp a (asm_reg_num b_s)) else enc_cmp a (asm_reg_num b_s))
+  else
+    -- cmp xN, xM, <shift> #imm: subs xzr with the shifted register (the S bit is 29). Until
+    -- 2026-11-19 the shift was dropped and the plain compare assembled.
+    (let sh = head (tail (tail ops))
+     if (asm_shift_kind sh) < 0 || (asm_shamt_ok ops (asm_imm (asm_after_lsl sh))) == false then 0 - 1
+     else asm_w32_if ops ((enc_sub_shk 31 a (asm_reg_num b_s) (asm_shift_kind sh) (asm_imm (asm_after_lsl sh))) + 536870912))
 
 -- bl / b / b.cond LABEL. An UNRESOLVED (external) symbol -> emit 0 offset
 -- (matches `as`; the linker fills it via a BRANCH26 reloc). Local labels resolve.
 -- A local label (`.L...`) that no line defines has no target: a negative word, so pass 2 names
 -- the line and the file is refused (until 2026-11-04 it was emitted with offset 0, a branch to
 -- itself, and the program hung).
-asm_enc_branch ops cur_off labels enc_fn =
+-- A branch that cannot reach its label is refused too (2026-11-19): b and bl reach 128 MB each
+-- way, a conditional branch, cbz and cbnz 1 MB, tbz and tbnz 32 KB. The encoders mask the
+-- offset to its field, so a far target used to become a branch to somewhere else.
+asm_in_reach delta reach = delta >= (0 - reach) && delta < reach
+asm_enc_branch ops cur_off labels enc_fn = asm_enc_branch_r ops cur_off labels enc_fn 134217728
+asm_enc_bcond ops cur_off labels enc_fn = asm_enc_branch_r ops cur_off labels enc_fn 1048576
+asm_enc_branch_r ops cur_off labels enc_fn reach =
   let target = asm_lookup (head ops) labels
   if target < 0 then (if asm_is_local_label (head ops) == 1 then 0 - 1 else enc_fn 0)
-  else enc_fn (target - cur_off)
+  else if asm_in_reach (target - cur_off) reach then enc_fn (target - cur_off)
+  else 0 - 1
 
 -- cbz / cbnz xR|wR, LABEL — picks the 32-bit variant for a w-register.
 asm_enc_cb ops cur_off labels enc_x enc_w =
@@ -622,7 +701,8 @@ asm_enc_cb ops cur_off labels enc_x enc_w =
   if target < 0 then 0 - 1
   else
     let delta = target - cur_off
-    if (asm_is_w (head ops)) == 1 then enc_w reg delta else enc_x reg delta
+    if asm_in_reach delta 1048576 == false then 0 - 1
+    else if (asm_is_w (head ops)) == 1 then enc_w reg delta else enc_x reg delta
 
 -- 4-register form: <mn> xD, xN, xM, xA  (madd / msub)
 asm_enc_4reg ops enc_fn =
@@ -714,15 +794,22 @@ asm_enc_movi ops =
   let dst = head ops
   let imm = asm_imm (head (tail ops))
   if asm_last_is dst "d" then (if imm == 0 then enc_movi_2d_zero (asm_vreg_num dst) else 0 - 1)
-  else enc_movi_16b (asm_vreg_num dst) imm
+  else if asm_rng 0 255 imm then enc_movi_16b (asm_vreg_num dst) imm
+  else 0 - 1
 
 -- ldr qT, [xN], #imm  (post-index)  |  ldr qT, [xN]  |  ldr qT, [xN, #imm]  (stores are not needed yet)
 asm_enc_q_mem dst_s base_s rest base is_ldr =
   let t = asm_vreg_num dst_s
   if is_ldr == 0 then 0 - 1
   else if asm_last_is base_s "]" then
-    (if rest == [] then enc_ldr_q_imm t base 0 else enc_ldr_q_post t base (asm_imm (head rest)))
-  else enc_ldr_q_imm t base (asm_imm_from_brk (if rest == [] then "0]" else head rest))
+    (if rest == [] then enc_ldr_q_imm t base 0
+     else if asm_imm9_ok (asm_imm (head rest)) then enc_ldr_q_post t base (asm_imm (head rest))
+     else 0 - 1)
+  else
+    (let imm = asm_imm_from_brk (if rest == [] then "0]" else head rest)
+     if asm_scaled_ok imm 16 65520 then enc_ldr_q_imm t base imm
+     else if asm_imm9_ok imm then enc_idx9_b 1019215872 t base imm
+     else 0 - 1)
 
 -- ARM condition name -> 4-bit code.
 asm_cond_code c =
@@ -789,30 +876,32 @@ asm_enc_cset ops =
 asm_enc_fp_mem dst_s base_s rest base is_ldr =
   let is_d = (head (chars dst_s)) == "d"
   let reg = if is_d then asm_dreg_num dst_s else asm_sreg_num dst_s
+  -- word bases: scaled offset, unscaled (ldur/stur; post-index is + 1024, pre-index + 3072), register offset
+  let b_off = if is_d then (if is_ldr == 1 then 4248829952 else 4244635648) else (if is_ldr == 1 then 3175088128 else 3170893824)
+  let b_un = if is_d then (if is_ldr == 1 then 4232052736 else 4227858432) else (if is_ldr == 1 then 3158310912 else 3154116608)
+  let b_ro = if is_d then (if is_ldr == 1 then 4234176512 else 4229982208) else (if is_ldr == 1 then 3160434688 else 3156240384)
+  let scale = if is_d then 8 else 4
   if asm_last_is base_s "]" then
-    if rest == [] then
-      (if is_ldr == 1 then enc_ldr_d reg base 0 else enc_str_d reg base 0)
-    else
-      -- `[xN], #imm` post-index (imm9 unscaled). Until 2026-11-04 the immediate was dropped in
-      -- silence and the word was the zero-offset load: lowbit's attention kernel read one element.
-      let immp = asm_imm (head rest)
-      (if is_d then (if is_ldr == 1 then enc_idx9_b 4232053760 reg base immp else enc_idx9_b 4227859456 reg base immp)
-       else (if is_ldr == 1 then enc_idx9_b 3158311936 reg base immp else enc_idx9_b 3154117632 reg base immp))
+    -- `[xN], #imm` post-index (imm9 unscaled). Until 2026-11-04 the immediate was dropped in
+    -- silence and the word was the zero-offset load: lowbit's attention kernel read one element.
+    (if rest == [] then bit_or b_off (bit_or (shl base 5) reg)
+     else if asm_imm9_ok (asm_imm (head rest)) then enc_idx9_b (b_un + 1024) reg base (asm_imm (head rest))
+     else 0 - 1)
+  else asm_enc_fp_mem_off reg b_off b_un b_ro scale (if rest == [] then "0" else head rest) rest base
+asm_enc_fp_mem_off reg b_off b_un b_ro scale off_s rest base =
+  let oc0 = head (chars off_s)
+  if oc0 == "w" then 0 - 1
+  else if oc0 == "x" then
+    (let sh = asm_idx_shift rest
+     if sh == 0 || sh == (if scale == 8 then 3 else 2) then enc_regoff_b b_ro reg base (asm_reg_after_bracket off_s) (if sh == 0 then 0 else 1)
+     else 0 - 1)
+  else if asm_last_is off_s "!" then
+    (if asm_imm9_ok (asm_imm_from_brk off_s) then enc_idx9_b (b_un + 3072) reg base (asm_imm_from_brk off_s) else 0 - 1)
   else
-    let off_s = if rest == [] then "0" else head rest
-    let oc0 = head (chars off_s)
-    if oc0 == "x" || oc0 == "w" then
-      let m = asm_reg_after_bracket off_s
-      let sh = if (tail rest) == [] then 0 else asm_imm (asm_after_lsl (head (tail rest)))
-      let s = if sh == 0 then 0 else 1
-      (if is_d then (if is_ldr == 1 then enc_regoff_b 4234176512 reg base m s else enc_regoff_b 4229982208 reg base m s)
-       else (if is_ldr == 1 then enc_regoff_b 3160434688 reg base m s else enc_regoff_b 3156240384 reg base m s))
-    else if asm_last_is off_s "!" then
-      let imm = asm_imm_from_brk off_s
-      (if is_ldr == 1 then enc_idx9_b 4232055808 reg base imm else enc_idx9_b 4227861504 reg base imm)
-    else
-      let imm = asm_imm_from_brk off_s
-      (if is_ldr == 1 then enc_ldr_d reg base imm else enc_str_d reg base imm)
+    (let imm = asm_imm_from_brk off_s
+     if asm_scaled_ok imm scale (4095 * scale) then bit_or b_off (bit_or (shl (imm / scale) 10) (bit_or (shl base 5) reg))
+     else if asm_imm9_ok imm then enc_idx9_b b_un reg base imm
+     else 0 - 1)
 
 asm_enc_mem ops is_ldr =
   let dst_s = head ops
@@ -821,34 +910,37 @@ asm_enc_mem ops is_ldr =
   let base = asm_reg_after_bracket base_s
   if (head (chars dst_s)) == "q" then asm_enc_q_mem dst_s base_s rest base is_ldr
   else if ((head (chars dst_s)) == "d") || ((head (chars dst_s)) == "s") then asm_enc_fp_mem dst_s base_s rest base is_ldr
-  else if asm_last_is base_s "]" then
-    if rest == [] then
-      -- `[xN]` with NO displacement = zero-offset SCALED load, NOT post-index.
-      (if (asm_is_w dst_s) == 1 then (if is_ldr == 1 then enc_ldrw_imm (asm_reg_num dst_s) base 0 else enc_strw_imm (asm_reg_num dst_s) base 0)
-       else (if is_ldr == 1 then enc_ldr_imm (asm_reg_num dst_s) base 0 else enc_str_imm (asm_reg_num dst_s) base 0))
-    else
-      let immp = asm_imm (head rest)
-      (if is_ldr == 1 then enc_ldr_x_postidx (asm_reg_num dst_s) base immp else enc_str_x_postidx (asm_reg_num dst_s) base immp)
+  else asm_enc_int_mem (asm_reg_num dst_s) (asm_is_w dst_s) base_s rest base is_ldr
+asm_enc_int_mem r isw base_s rest base is_ldr =
+  if asm_last_is base_s "]" then
+    -- `[xN]` with NO displacement = zero-offset SCALED load, NOT post-index.
+    (if rest == [] then
+       (if isw == 1 then (if is_ldr == 1 then enc_ldrw_imm r base 0 else enc_strw_imm r base 0)
+        else (if is_ldr == 1 then enc_ldr_imm r base 0 else enc_str_imm r base 0))
+     else if asm_imm9_ok (asm_imm (head rest)) then
+       asm_wfix isw (if is_ldr == 1 then enc_ldr_x_postidx r base (asm_imm (head rest)) else enc_str_x_postidx r base (asm_imm (head rest)))
+     else 0 - 1)
+  else asm_enc_int_mem_off r isw (if rest == [] then "0" else head rest) rest base is_ldr
+asm_enc_int_mem_off r isw off_s rest base is_ldr =
+  let oc0 = head (chars off_s)
+  if oc0 == "w" then 0 - 1
+  else if oc0 == "x" then
+    (let sh = asm_idx_shift rest
+     let m = asm_reg_after_bracket off_s
+     if sh == 0 || sh == (if isw == 1 then 2 else 3) then
+       asm_wfix isw (if is_ldr == 1 then enc_ldr_regoff r base m (if sh == 0 then 0 else 1) else enc_str_regoff r base m (if sh == 0 then 0 else 1))
+     else 0 - 1)
+  else if asm_last_is off_s "!" then
+    (let immw = asm_imm_from_brk off_s
+     if asm_imm9_ok immw then asm_wfix isw (if is_ldr == 1 then enc_ldr_x_preidx r base immw else enc_str_x_preidx r base immw)
+     else 0 - 1)
   else
-    let off_s = if rest == [] then "0" else head rest
-    let oc0 = head (chars off_s)
-    if oc0 == "x" || oc0 == "w" then
-      let m = asm_reg_after_bracket off_s
-      let sh = if (tail rest) == [] then 0 else asm_imm (asm_after_lsl (head (tail rest)))
-      let s = if sh == 3 then 1 else 0
-      (if is_ldr == 1 then enc_ldr_regoff (asm_reg_num dst_s) base m s else enc_str_regoff (asm_reg_num dst_s) base m s)
-    else if asm_last_is off_s "!" then
-      let immw = asm_imm_from_brk off_s
-      (if is_ldr == 1 then enc_ldr_x_preidx (asm_reg_num dst_s) base immw else enc_str_x_preidx (asm_reg_num dst_s) base immw)
-    else
-      let immo = asm_imm_from_brk off_s
-      if (asm_is_w dst_s) == 1 then
-        (if is_ldr == 1 then enc_ldrw_imm (asm_reg_num dst_s) base immo else enc_strw_imm (asm_reg_num dst_s) base immo)
-      else if (immo < 0) || ((bit_and immo 7) != 0) then
-        -- negative or non-8-multiple offset: unscaled LDUR/STUR (imm9)
-        (if is_ldr == 1 then enc_ldur (asm_reg_num dst_s) base immo else enc_stur (asm_reg_num dst_s) base immo)
-      else
-        (if is_ldr == 1 then enc_ldr_imm (asm_reg_num dst_s) base immo else enc_str_imm (asm_reg_num dst_s) base immo)
+    (let immo = asm_imm_from_brk off_s
+     if isw == 1 && asm_scaled_ok immo 4 16380 then (if is_ldr == 1 then enc_ldrw_imm r base immo else enc_strw_imm r base immo)
+     else if isw == 0 && asm_scaled_ok immo 8 32760 then (if is_ldr == 1 then enc_ldr_imm r base immo else enc_str_imm r base immo)
+     -- negative or unaligned: unscaled LDUR/STUR (imm9)
+     else if asm_imm9_ok immo then asm_wfix isw (if is_ldr == 1 then enc_ldur r base immo else enc_stur r base immo)
+     else 0 - 1)
 
 -- "[xN" → register number N
 -- Register name between an optional "[" and the first "]"/","/" "/"!" — so
@@ -898,8 +990,17 @@ asm_enc_pair_fp ops is_ldp =
   let base_s = head (tail (tail ops))
   let rest = tail (tail (tail ops))
   let base = asm_reg_after_bracket base_s
-  let imm = if rest == [] then 0 else asm_imm_from_brk (head rest)
-  enc_pair_base (if is_ldp == 1 then 1832910848 else 1828716544) d1 d2 base imm
+  let b = if is_ldp == 1 then 1832910848 else 1828716544
+  if asm_last_is base_s "]" then
+    (if rest == [] then enc_pair_base b d1 d2 base 0
+     else if asm_pair_ok (asm_imm (head rest)) then enc_pair_base (b - 8388608) d1 d2 base (asm_imm (head rest))   -- post
+     else 0 - 1)
+  else
+    (let off_s = if rest == [] then "0" else head rest
+     let imm = asm_imm_from_brk off_s
+     if (asm_pair_ok imm) == false then 0 - 1
+     else if asm_last_is off_s "!" then enc_pair_base (b + 8388608) d1 d2 base imm   -- pre
+     else enc_pair_base b d1 d2 base imm)
 
 asm_enc_pair_x ops is_ldp =
   let d1 = asm_reg_num (head ops)
@@ -907,15 +1008,18 @@ asm_enc_pair_x ops is_ldp =
   let base_s = head (tail (tail ops))
   let rest = tail (tail (tail ops))
   let base = asm_reg_after_bracket base_s
-  if asm_last_is base_s "]" then
+  if (asm_is_w (head ops)) == 1 then 0 - 1    -- the w pair is its own word (scaled by 4); nothing emits it
+  else if asm_last_is base_s "]" then
     if rest == [] then
       enc_pair_base (if is_ldp == 1 then 2839543808 else 2835349504) d1 d2 base 0    -- [base] no-offset = offset form, imm 0
-    else
+    else if asm_pair_ok (asm_imm (head rest)) then
       enc_pair_base (if is_ldp == 1 then 2831155200 else 2826960896) d1 d2 base (asm_imm (head rest))   -- post
+    else 0 - 1
   else
     let off_s = if rest == [] then "0" else head rest
     let imm = asm_imm_from_brk off_s
-    if asm_last_is off_s "!" then
+    if (asm_pair_ok imm) == false then 0 - 1
+    else if asm_last_is off_s "!" then
       enc_pair_base (if is_ldp == 1 then 2847932416 else 2843738112) d1 d2 base imm -- pre
     else
       enc_pair_base (if is_ldp == 1 then 2839543808 else 2835349504) d1 d2 base imm -- offset
@@ -937,14 +1041,17 @@ asm_enc_byte_ldst ops is_ldr =
       (if is_ldr == 1 then enc_ldrb_imm dst base 0 else enc_strb_imm dst base 0)
     else
       let imm = asm_imm (head rest)
-      (if is_ldr == 1 then enc_ldrb_postidx dst base imm else enc_strb_postidx dst base imm)
+      (if (asm_imm9_ok imm) == false then 0 - 1 else if is_ldr == 1 then enc_ldrb_postidx dst base imm else enc_strb_postidx dst base imm)
   else
     -- bracket still open: 3rd token is "#imm]" (offset) or "xM]" (register)
     let op3 = head rest
     let c0 = head (chars op3)
     if c0 == "#" then
       let imm = asm_imm_from_brk op3
-      (if is_ldr == 1 then enc_ldrb_imm dst base imm else enc_strb_imm dst base imm)
+      (if asm_rng 0 4095 imm then (if is_ldr == 1 then enc_ldrb_imm dst base imm else enc_strb_imm dst base imm)
+       else if asm_imm9_ok imm then enc_idx9_b (if is_ldr == 1 then 943718400 else 939524096) dst base imm   -- ldurb/sturb
+       else 0 - 1)
+    else if c0 != "x" || (tail rest) != [] then 0 - 1
     else
       let m = asm_reg_after_bracket op3
       (if is_ldr == 1 then enc_ldrb_regoff dst base m else enc_strb_regoff dst base m)
@@ -956,8 +1063,15 @@ asm_enc_half_ld ops =
   let rest = tail (tail ops)
   let base = asm_reg_after_bracket base_s
   if asm_last_is base_s "]" then
-    (if rest == [] then enc_ldrh_imm dst base 0 else enc_ldrh_postidx dst base (asm_imm (head rest)))
-  else enc_ldrh_imm dst base (asm_imm_from_brk (head rest))
+    (if rest == [] then enc_ldrh_imm dst base 0
+     else if asm_imm9_ok (asm_imm (head rest)) then enc_ldrh_postidx dst base (asm_imm (head rest))
+     else 0 - 1)
+  else if (head (chars (head rest))) != "#" then 0 - 1
+  else
+    (let imm = asm_imm_from_brk (head rest)
+     if asm_scaled_ok imm 2 8190 then enc_ldrh_imm dst base imm
+     else if asm_imm9_ok imm then enc_idx9_b 2017460224 dst base imm   -- ldurh
+     else 0 - 1)
 
 -- ── Float ops: fadd / fsub / fmul / fdiv  dD, dA, dB
 asm_dreg_num s =

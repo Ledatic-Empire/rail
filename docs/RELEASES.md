@@ -184,3 +184,25 @@ read `attest/releases/<ident>/<file>` first and fall back to the bare key for
 the hand-written releases. The site is edited by its own sessions; land it
 there with `tests/worker_catchall_test.mjs` extended to cover the PUT-then-GET
 round trip.
+
+## Known gaps in the record (measured 2026-11-19)
+
+The record is honest only if its holes are written down. Measured against this tree, not
+quoted (worklist E6); none of these is repaired here, because repairing a past record means
+signing it today or rewriting it, and either is a decision, not a fix.
+
+- **48 of 51 `releases/*/index.json` have no attestation of their own.** Only v5.4.0, v5.5.0
+  and v5.6.0 carry `index.json.attestation.json`. For the other 48 the artifacts are attested
+  and the index that binds them to a tag and a commit is not.
+- **v5.2.0 and v5.3.0 name commits that are on no branch and no tag** (`e88217a9f`,
+  `28ad78be1`). The other 49 indexes name commits reachable from a remote branch.
+- **v3.6.0's index and its tag disagree.** The index names `30f424a`, and the attested
+  `compile.rail` hash (`1fd2f36b...`) is that commit's file. The tag `v3.6.0` points at
+  `305dc3c`, whose `compile.rail` hashes to `5ea97e01...`.
+- **`builds/f86f082/result.json` does not match its attestation.** The sidecar signs
+  `3c621110...`; the file hashes to `b9c5cd84...`. It was edited after signing by `8e17294`
+  (the public-surface sanitize pass).
+
+To re-measure: for each index, `test -f index.json.attestation.json`,
+`git branch -r --contains <git.commit>`, and `shasum -a 256` of the artifact against the
+sidecar's `artifact.sha256`.

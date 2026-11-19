@@ -1695,10 +1695,10 @@ cg_bi3 fname args env ar lc sl tp fs =
     let (aa, lc1, sl1) = cg (head args) env ar lc sl false fs
     let elbl = cat [".Liserr_", show lc]
     let dlbl = cat [".Liserd_", show lc]
-    (cat [aa, "    tst x0, #1\n    b.ne ", elbl, "\n    ldr x1, [x0]\n    and x1, x1, #0x7fffffffffffffff\n    cmp x1, #8\n    b.ne ", elbl, "\n    mov x0, #3\n    b ", dlbl, "\n", elbl, ":\n    mov x0, #1\n", dlbl, ":\n"], lc1 + 1, sl1)
+    (cat [aa, "    tst x0, #1\n    b.ne ", elbl, "\n    ldr x1, [x0]\n    and x1, x1, #0x7fffffffffffffff\n    cmp x1, #8\n    b.ne ", elbl, "\n    bl _rail_err_seen\n    mov x0, #3\n    b ", dlbl, "\n", elbl, ":\n    mov x0, #1\n", dlbl, ":\n"], lc1 + 1, sl1)
   else if fname == "err_msg" then
     let (aa, lc1, sl1) = cg (head args) env ar lc sl false fs
-    (cat [aa, "    ldr x0, [x0, #8]\n"], lc1, sl1)
+    (cat [aa, "    bl _rail_err_seen\n    ldr x0, [x0, #8]\n"], lc1, sl1)
   else if fname == "spawn" then
     let (aa, lc1, sl1) = cg (head args) env ar lc sl false fs
     (cat [aa, "    bl _rail_spawn\n"], lc1, sl1)
@@ -3587,6 +3587,61 @@ grad_deriv node p scope =
     else (NFloat "0.0")
   else (NFloat "0.0")
 
+-- What grad_deriv would drop (2026-11-19). Every form it does not know differentiates to
+-- 0.0, which is right when the form does not depend on the parameter and a silently wrong
+-- gradient when it does: `f x = sq (x +. 1.0)` with a user `sq` gave f__grad 2.0 0 = 0, the
+-- true slope being 6. grad_dropped walks the body the way grad_deriv does and names each
+-- such form that reads an ACTIVE name (the parameter, or a let whose value reads one), so
+-- synth_grad_decls can refuse the #grad instead of emitting the zero. act is that name list.
+grad_active node act =
+  if act == [] then false
+  else if uses_var node (head act) then true
+  else grad_active node (tail act)
+grad_act_drop nm act =
+  if act == [] then []
+  else if head act == nm then grad_act_drop nm (tail act)
+  else cons (head act) (grad_act_drop nm (tail act))
+grad_known_unary fname =
+  fname == "sin" || fname == "cos" || fname == "exp" || fname == "tanh" || fname == "sqrt" || fname == "log" || fname == "fneg"
+grad_dropped node act =
+  let tg = nd_tag node
+  if tg == "FL" then []
+  else if tg == "I" then []
+  else if tg == "V" then []
+  else if tg == "O" then
+    let op = op_base (nd_s1 node)
+    if op == "+" || op == "-" || op == "*" || op == "/" then append (grad_dropped (nd_n2 node) act) (grad_dropped (nd_n3 node) act)
+    else if grad_active node act then [cat ["the operator '", nd_s1 node, "'"]]
+    else []
+  else if tg == "A" then
+    let fn = nd_n1 node
+    if nd_tag fn == "V" && grad_known_unary (nd_s1 fn) then grad_dropped (nd_n2 node) act
+    else if grad_active node act then
+      let (callee, _) = ast_flat node
+      [cat ["the call to '", callee, "'"]]
+    else []
+  else if tg == "D" then
+    let nm = nd_s1 node
+    let val = nd_n2 node
+    let inner = if grad_active val act then cons nm (grad_act_drop nm act) else grad_act_drop nm act
+    append (grad_dropped val act) (grad_dropped (nd_n3 node) inner)
+  else if tg == "?" then append (grad_dropped (nd_n2 node) act) (grad_dropped (nd_n3 node) act)
+  else if tg == "M" then
+    if grad_arms_ok (nd_arms node) then grad_dropped_arms (nd_arms node) act
+    else if grad_active node act then ["a match whose arms bind or guard"]
+    else []
+  else if grad_active node act then ["a form it has no rule for (a tuple let, a lambda, a list or a tuple)"]
+  else []
+grad_dropped_arms arms act =
+  if arms == [] then []
+  else append (grad_dropped (arm_body (head arms)) act) (grad_dropped_arms (tail arms) act)
+grad_dropped_params ps body =
+  if ps == [] then []
+  else
+    let d = grad_dropped body [head ps]
+    if d == [] then grad_dropped_params (tail ps) body
+    else [(head ps, head d)]
+
 -- Pillar 3 / C4 (reverse-mode AD). Where forward-mode (grad_deriv) computes one
 -- directional derivative per call, reverse-mode computes ALL input partials in a
 -- single backward sweep. The synthesized f__rgrad p0 p1 .. __go writes every adjoint
@@ -4529,6 +4584,9 @@ synth_grad_decls marks decls =
           let rbody = mc_primals primals_init fullsweep
           let rgfn = (DFn (cat [nm, "__rgrad"]) (append params ["__gy"]) rbody)
           append reltfns (cons rgfn rest)
+        else if grad_dropped_params params body != [] then
+          let (bp, what) = head (grad_dropped_params params body)
+          cons (DErr (cat ["#grad ", nm, ": cannot differentiate ", what, " with respect to '", bp, "' (forward mode knows + - * /, sin cos exp tanh sqrt log fneg, let, if and a match on a plain discriminant; it would have returned a gradient of 0)"]) "1") rest
         else
           let gfn = (DFn (cat [nm, "__grad"]) (append params ["__gi"]) (grad_chain params body 0))
           if grad_rev_supported body && grad_rev_names_ok params body then
@@ -4679,7 +4737,10 @@ compile_func d ar lc =
   -- comment on _rail_stack_top). Without it, the fp+2048 default scan
   -- window can spill past the real stack top on small-env processes,
   -- producing an EXC_BAD_ACCESS at .Lgc_scan+8.
-  let save_args = if nm == "main" then "    adrp x8, _rail_argc@PAGE\n    str x0, [x8, _rail_argc@PAGEOFF]\n    adrp x8, _rail_argv@PAGE\n    str x1, [x8, _rail_argv@PAGEOFF]\n    adrp x8, _rail_envp@PAGE\n    str x2, [x8, _rail_envp@PAGEOFF]\n    mov x8, sp\n    adrp x9, _rail_stack_top@PAGE\n    str x8, [x9, _rail_stack_top@PAGEOFF]\n" else ""
+  -- Then install the stack overflow handler (runtime/arm64/effects.s). This text runs before
+  -- main's own frame exists, so the call saves the link register itself: without that, main
+  -- returned into its own first instruction and ran forever (measured 2026-11-19).
+  let save_args = if nm == "main" then "    adrp x8, _rail_argc@PAGE\n    str x0, [x8, _rail_argc@PAGEOFF]\n    adrp x8, _rail_argv@PAGE\n    str x1, [x8, _rail_argv@PAGEOFF]\n    adrp x8, _rail_envp@PAGE\n    str x2, [x8, _rail_envp@PAGEOFF]\n    mov x8, sp\n    adrp x9, _rail_stack_top@PAGE\n    str x8, [x9, _rail_stack_top@PAGEOFF]\n    stp x29, x30, [sp, #-16]!\n    bl _rail_sig_init\n    ldp x29, x30, [sp], #16\n" else ""
   -- Raw-register params (x19..x21, untagged) only when every param may be an
   -- int: all_params_int is syntactic and cannot see a float param the types
   -- proved (__argf_ == 2), so `mul2c a b = a * b` called with floats got its params
@@ -4812,7 +4873,9 @@ compile_func d ar lc =
   let self_loop_lbl = if use_regs && is_self_rec nm bd then cat [".Lself_", show lc, ":\n"] else ""
   let save_d8 = if has_float then cat ["    str d8, [x29, #", d8_off, "]\n"] else ""
   let pro = cat ["_", nm, ":\n", save_args, early, memo_lookup, sp_adjust "sub" frame_size, "    stp x29, x30, [sp]\n    mov x29, sp\n", save_d8]
-  let main_untag = if nm == "main" then "    asr x0, x0, #1\n" else ""
+  -- main returns through _rail_exit_check: an error raised outside `try` and never passed to
+  -- is_error or err_msg ends the program with a message and exit 1 (runtime/arm64/effects.s).
+  let main_untag = if nm == "main" then "    asr x0, x0, #1\n    bl _rail_exit_check\n" else ""
   let restore = gen_restore nregs
   let restore_d8 = if has_float then cat ["    ldr d8, [x29, #", d8_off, "]\n"] else ""
   let epi = cat [main_untag, memo_store, restore, restore_d8, "    ldp x29, x30, [sp]\n", sp_adjust "add" frame_size, "    ret\n", memo_hit, "\n"]
@@ -5418,6 +5481,34 @@ report_errors errs positions ntoks fname =
     let _ = print (cat [fname, ":", show ln, ":", show col, ": error: ", msg])
     1 + report_errors (tail errs) positions ntoks fname
 
+-- An integer literal must fit the 63-bit tagged int (2026-11-19). `9223372036854775807` was
+-- accepted and printed -1: the tag shift dropped the top bit in silence. Arithmetic still
+-- wraps at 2^62 (docs/language-reference.md, suite t315); a literal that cannot be
+-- represented is a compile error. The check reads tokens, so it sees every literal wherever it
+-- sits. The most negative int has no literal: write `0 - 4611686018427387903 - 1`.
+int_lit_max = "4611686018427387903"
+int_lit_digits_le a b =
+  if a == [] then true
+  else
+    let x = char_to_int (head a)
+    let y = char_to_int (head b)
+    if x < y then true else if x > y then false else int_lit_digits_le (tail a) (tail b)
+int_lit_drop_zeros cs = if cs == [] then [] else if head cs == "0" then int_lit_drop_zeros (tail cs) else cs
+int_lit_fits v =
+  let cs = int_lit_drop_zeros (chars v)
+  let n = length cs
+  if n < 19 then true else if n > 19 then false else int_lit_digits_le cs (chars int_lit_max)
+int_literals_out_of_range toks positions fname acc =
+  if toks == [] then acc
+  else if positions == [] then acc
+  else
+    let (tg, v) = head toks
+    if tg == "int" && int_lit_fits v == false then
+      let (ln, col) = head positions
+      let _ = print (cat [fname, ":", show ln, ":", show col, ": error: integer literal ", v, " does not fit in 63 bits (the largest int is ", int_lit_max, ")"])
+      int_literals_out_of_range (tail toks) (tail positions) fname (acc + 1)
+    else int_literals_out_of_range (tail toks) (tail positions) fname acc
+
 -- ===========================================================================
 -- PROGRAM DRIVERS: compile_checked and build
 -- ===========================================================================
@@ -5432,7 +5523,7 @@ compile_program_with_file src fname =
   let decls = inject_grad_fns (pprog_ast toks)
   let _ = warn_shadowed src fname decls
   let errs = ce_decls decls
-  let nerrs = report_errors errs positions ntoks fname + float_builtin_redefined decls fname + builtin_redefined decls fname
+  let nerrs = report_errors errs positions ntoks fname + int_literals_out_of_range toks positions fname 0 + float_builtin_redefined decls fname + builtin_redefined decls fname
   if nerrs > 0 then
     let _ = print (cat [show nerrs, " error(s) found"])
     ""
@@ -5465,7 +5556,7 @@ compile_checked decls0 =
   let ar = get_arities td
   let siblings = build_ctor_siblings td
   let match_errs = check_exhaustiveness td siblings
-  let arity_errs = check_arities td (arity_fn_names td)
+  let arity_errs = check_arities td (append (arity_fn_names td) (builtin_arities 0))
   let pat_errs = check_patterns td
   let lit_errs = check_literals td td
   if match_errs > 0 then
@@ -5507,6 +5598,19 @@ linked_asm decls =
 -- the wrong count is a compile error. Names bound locally in the function
 -- (params, lets, lambda params, match binders) are skipped: a local closure
 -- may legitimately shadow a global name.
+-- Builtins have an arity too (2026-11-19). cg_bi reads as many arguments as the builtin
+-- uses and ignores the rest, or reads registers nobody set: `range 1 8` printed [0],
+-- `length [1] 2` printed 1, `str_sub "abc" 1` printed an empty line. The table rides behind
+-- the program's own functions in check_arities, so a definition the program is allowed to
+-- make (the `cat` idiom) keeps its own count. Not listed, so not checked: channel, spawn,
+-- send, recv, the fiber and mutex calls (programs bind the socket `send` and `recv` over
+-- them through the FFI).
+builtin_arity1 = ["alloc_stats_snapshot", "arena_mark", "arena_reset", "arr_len", "cat", "char_from_int", "char_to_int", "chars", "err_msg", "error", "f32_bits", "fabs", "float_arr_len", "float_to_int", "fneg", "fsqrt", "head", "int_to_float", "is_error", "join_thread", "length", "not", "parse_float", "parse_int", "print", "range", "rc_alloc", "rc_release", "rc_retain", "read_file", "read_file_bytes", "read_line", "reverse", "round32", "shell", "show", "show_float", "show_float_exact", "tail", "to_float", "to_int", "sqrt", "sin", "cos", "tanh", "exp", "log", "floor", "ceil"]
+builtin_arity2 = ["append", "arr_get", "arr_new", "bit_and", "bit_or", "bit_xor", "byte_at", "cons", "filter", "float_arr_get", "float_arr_new", "join", "map", "rotl", "rotr", "shl", "shr", "spawn_thread", "split", "str_contains", "str_find", "str_split", "write_file", "pow", "atan2", "try"]
+builtin_arity3 = ["arr_set", "byte_set", "float_arr_set", "fma32", "fold", "mul_shr", "str_replace", "str_sub", "float_arr_from_f32_file", "float_arr_to_f32_file"]
+builtin_arity_pairs names n = if names == [] then [] else cons (head names, n) (builtin_arity_pairs (tail names) n)
+builtin_arities _ = append (builtin_arity_pairs builtin_arity1 1) (append (builtin_arity_pairs builtin_arity2 2) (builtin_arity_pairs builtin_arity3 3))
+
 arity_fn_names decls =
   if decls == [] then []
   else
@@ -5652,42 +5756,60 @@ lit_report ctx msg =
   let _ = print (cat ["  error: in ", ctx, ": ", msg])
   1
 
-lit_walk node decls bound ctx = match node
+-- A name bound once in its function, by a let, straight to a string, list or tuple literal
+-- is that literal wherever it is read (2026-11-19): `let s = "abc"` then `s - 1` printed
+-- -1 and `add1 s` printed 1, one let away from what the check above already refused.
+lit_bind x v bound lits =
+  if arity_count x bound 0 != 1 then lits
+  else if lit_kind v == "" then lits
+  else if nd_tag v == "F" then lits
+  else cons (x, v) lits
+lit_res n lits = match n
+  | NVar v -> lit_lookup v lits n
+  | _ -> n
+lit_lookup v lits dflt =
+  if lits == [] then dflt
+  else
+    let (k, nd) = head lits
+    if k == v then nd else lit_lookup v (tail lits) dflt
+
+lit_walk node decls bound lits ctx = match node
   | NOp o l r ->
-    let k = lit_op_bad o l r
-    (if k == "" then 0 else lit_report ctx (cat ["'", o, "' does arithmetic on ", k, " literal"])) + lit_walk l decls bound ctx + lit_walk r decls bound ctx
-  | NApp f a -> lit_walk_app node decls bound ctx
-  | NLet x v b -> lit_walk v decls bound ctx + lit_walk b decls bound ctx
-  | NLetTup xs v b -> lit_walk v decls bound ctx + lit_walk b decls bound ctx
-  | NLam q b -> lit_walk b decls bound ctx
-  | NIf c t e -> lit_walk c decls bound ctx + lit_walk t decls bound ctx + lit_walk e decls bound ctx
-  | NList es -> lit_walk_list es decls bound ctx
-  | NTup es -> lit_walk_list es decls bound ctx
-  | NMatch sc arms -> lit_walk sc decls bound ctx + lit_walk_arms arms decls bound ctx
+    let k = lit_op_bad o (lit_res l lits) (lit_res r lits)
+    let via = if k == "" then "" else if lit_op_bad o l r == "" then " (bound by a let)" else ""
+    (if k == "" then 0 else lit_report ctx (cat ["'", o, "' does arithmetic on ", k, " literal", via])) + lit_walk l decls bound lits ctx + lit_walk r decls bound lits ctx
+  | NApp f a -> lit_walk_app node decls bound lits ctx
+  | NLet x v b -> lit_walk v decls bound lits ctx + lit_walk b decls bound (lit_bind x v bound lits) ctx
+  | NLetTup xs v b -> lit_walk v decls bound lits ctx + lit_walk b decls bound lits ctx
+  | NLam q b -> lit_walk b decls bound lits ctx
+  | NIf c t e -> lit_walk c decls bound lits ctx + lit_walk t decls bound lits ctx + lit_walk e decls bound lits ctx
+  | NList es -> lit_walk_list es decls bound lits ctx
+  | NTup es -> lit_walk_list es decls bound lits ctx
+  | NMatch sc arms -> lit_walk sc decls bound lits ctx + lit_walk_arms arms decls bound lits ctx
   | _ -> 0
-lit_walk_list es decls bound ctx = if es == [] then 0 else lit_walk (head es) decls bound ctx + lit_walk_list (tail es) decls bound ctx
-lit_walk_arms arms decls bound ctx = if arms == [] then 0 else lit_walk (arm_body (head arms)) decls bound ctx + lit_walk_arms (tail arms) decls bound ctx
-lit_walk_app node decls bound ctx =
+lit_walk_list es decls bound lits ctx = if es == [] then 0 else lit_walk (head es) decls bound lits ctx + lit_walk_list (tail es) decls bound lits ctx
+lit_walk_arms arms decls bound lits ctx = if arms == [] then 0 else lit_walk (arm_body (head arms)) decls bound lits ctx + lit_walk_arms (tail arms) decls bound lits ctx
+lit_walk_app node decls bound lits ctx =
   let (callee, args) = ast_flat node
   let hd = ast_app_fn node
-  let inner = if nd_tag hd == "V" then 0 else lit_walk hd decls bound ctx
+  let inner = if nd_tag hd == "V" then 0 else lit_walk hd decls bound lits ctx
   let found = if is_in callee bound then [] else lit_find_fn callee decls
-  let bad = if found == [] then 0 else lit_check_args callee (decl_fn_params (head found)) (decl_fn_body (head found)) args ctx
-  bad + inner + lit_walk_list args decls bound ctx
-lit_check_args callee ps body args ctx =
+  let bad = if found == [] then 0 else lit_check_args callee (decl_fn_params (head found)) (decl_fn_body (head found)) args lits ctx
+  bad + inner + lit_walk_list args decls bound lits ctx
+lit_check_args callee ps body args lits ctx =
   if ps == [] then 0
   else if args == [] then 0
   else
-    let k = lit_kind (head args)
+    let k = lit_kind (lit_res (head args) lits)
     let rebound = is_in (head ps) (arity_binders body (tail ps))
     let bad = if k == "" then 0 else if rebound then 0 else if lit_numeric (head ps) body then lit_report ctx (cat ["'", callee, "' does arithmetic on its parameter '", head ps, "', and is passed ", k, " literal"]) else 0
-    bad + lit_check_args callee (tail ps) body (tail args) ctx
+    bad + lit_check_args callee (tail ps) body (tail args) lits ctx
 
 check_literals decls all =
   if decls == [] then 0
   else
     let d = head decls
-    if decl_is_fn d then lit_walk (decl_fn_body d) all (arity_binders (decl_fn_body d) (decl_fn_params d)) (decl_fn_name d) + check_literals (tail decls) all
+    if decl_is_fn d then lit_walk (decl_fn_body d) all (arity_binders (decl_fn_body d) (decl_fn_params d)) [] (decl_fn_name d) + check_literals (tail decls) all
     else check_literals (tail decls) all
 
 check_arities decls fns =
@@ -5845,6 +5967,19 @@ driver_expect_error name cmd src want =
   let _ = print (if ok then cat ["  PASS: ", want] else cat ["  FAIL: ", out])
   ok
 
+-- A program's output and exit code through the driver. run_test does not assert the exit code
+-- of a program that prints; this does, and `want` is a substring of everything it wrote.
+driver_expect_exit name src want want_rc =
+  let _ = print (cat ["  --- ", name, " ---"])
+  let base = trim (shell "mktemp -u /tmp/rail_ex_XXXXXX")
+  let path = cat [base, ".rail"]
+  let _ = write_file path src
+  let out = shell (cat ["./rail_native --out-prefix ", base, "_bin run ", path, " 2>&1; echo \"rc=$?;\""])
+  let _ = shell (cat ["rm -f ", path, " ", base, "_bin*"])
+  let ok = str_contains want out && str_contains (cat ["rc=", show want_rc, ";"]) out
+  let _ = print (if ok then cat ["  PASS: ", want, " (exit ", show want_rc, ")"] else cat ["  FAIL: ", out])
+  ok
+
 -- builtin_call_names must be the names cg_bi, cg_bi2 and cg_bi3 dispatch on: a builtin added
 -- to the dispatch and not to the list could be redefined silently again. Both sets come out
 -- of this file's own text.
@@ -5854,6 +5989,56 @@ driver_builtin_names_listed _ =
   let b = shell "grep '^builtin_call_names = ' tools/compile.rail | grep -o '\"[a-z_0-9]*\"' | sort -u | tr '\n' ' '"
   let ok = a == b && length a > 100
   let _ = print (if ok then "  PASS: the two lists agree" else cat ["  FAIL: dispatch [", a, "] list [", b, "]"])
+  ok
+
+-- Every builtin has an entry in docs/builtins.md (2026-11-19: 38 of 85 had none, and writing
+-- them found two that had never worked, fabs and mutex_new).
+builtins_undocumented names doc =
+  if length names == 0 then []
+  else if str_contains (cat ["`", head names]) doc == 1 then builtins_undocumented (tail names) doc
+  else cons (head names) (builtins_undocumented (tail names) doc)
+
+-- The same list feeds the VS Code grammar's builtin pattern, which until 2026-11-19 named
+-- about 40 functions of an older Rail (prompt_*, agent_loop, embed) and few of these.
+builtins_unhighlighted names pat =
+  if length names == 0 then []
+  else if str_contains (cat ["|", head names, "|"]) pat == 1 then builtins_unhighlighted (tail names) pat
+  else cons (head names) (builtins_unhighlighted (tail names) pat)
+
+driver_builtins_documented _ =
+  let _ = print "  --- builtins_documented ---"
+  let doc = read_file "docs/builtins.md"
+  let missing = builtins_undocumented builtin_call_names doc
+  let pat = shell "grep -o '\"match\": \"[^\"]*|print|[^\"]*\"' editors/vscode/syntaxes/rail.tmLanguage.json | tr '()' '||'"
+  let plain = builtins_unhighlighted builtin_call_names pat
+  let ok = length missing == 0 && length doc > 1000 && length plain == 0 && length pat > 100
+  let _ = print (if ok then "  PASS: every builtin is in docs/builtins.md and in the VS Code grammar"
+                 else cat ["  FAIL: not in docs/builtins.md: [", join " " missing, "] not in rail.tmLanguage.json: [", join " " plain, "]"])
+  ok
+
+-- The in-tree assembler against the record of what the system assembler does with the same
+-- line (tools/test/asm_ranges/forms.txt: a word, or refuse). Until 2026-11-19 the encoders
+-- masked or dropped an offset, immediate or shift that did not fit, so 66 of these forms
+-- assembled to a different instruction without a word (worklist E4).
+asm_ranges_bad rows =
+  if length rows == 0 then []
+  else
+    let f = split "\t" (head rows)
+    if length f < 2 then asm_ranges_bad (tail rows)
+    else
+      let parts = asm_split_mn_ops (head (tail f))
+      let word = asm_encode_insn (head parts) (head (tail parts)) 0 []
+      let ok = if head f == "refuse" then word < 0 else word == str_to_int (head f)
+      if ok then asm_ranges_bad (tail rows)
+      else cons (cat ["`", head (tail f), "` gave ", show word, ", the record says ", head f]) (asm_ranges_bad (tail rows))
+
+driver_asm_ranges _ =
+  let _ = print "  --- asm_ranges ---"
+  let rows = split "\n" (read_file "tools/test/asm_ranges/forms.txt")
+  let bad = asm_ranges_bad rows
+  let ok = length bad == 0 && length rows > 150
+  let _ = print (if ok then "  PASS: every form in tools/test/asm_ranges/forms.txt gets its word or a refusal"
+                 else cat ["  FAIL: ", show (length bad), " of ", show (length rows), " rows: ", join "; " bad])
   ok
 
 -- The REPL (tools/repl.rail) takes a comparison as an expression and keeps going.
@@ -6050,6 +6235,10 @@ run_test name src expected =
 -- value). A program that prints asserts on its FULL stdout and must not have
 -- died by signal (exit >= 128); a small nonzero exit from a printing program
 -- is main's return value, which many tests use deliberately (t28 returns 3).
+-- That leniency cannot hide a runtime refusal: stderr is part of the captured
+-- output, so `rail: array index out of bounds` or `rail: unhandled error` makes
+-- the text differ (2026-11-19, worklist E7: 89 of the tests judged here end
+-- with a nonzero status, so requiring 0 would mean rewriting them, not judging).
 judge_test stdout code expected =
   let actual = if stdout == "" then code else stdout
   let crashed = if stdout == "" then false else str_to_int code >= 128
@@ -6276,7 +6465,7 @@ run_tests _ =
   -- v1.5.0: multi-match-int
   let t74 = run_test "match_str" "greet s = match s\n  | \"hi\" -> \"hello\"\n  | _ -> \"huh\"\nmain =\n  let _ = print (greet \"hi\")\n  0" "hello"
   -- v1.5.0: list literal in fold
-  let t75 = run_test "fold_str" "cat a b = append a b\nmain =\n  let _ = print (fold cat \"\" [\"a\", \"b\", \"c\"])\n  0" "abc"
+  let t75 = run_test "fold_str" "glue a b = append a b\nmain =\n  let _ = print (fold glue \"\" [\"a\", \"b\", \"c\"])\n  0" "abc"
   -- v1.5.0: hash maps
   let t76 = run_test "map_new" "import \"stdlib/map.rail\"\nmain = map_size (map_new 0)" "0"
   let t77 = run_test "map_put_get" "import \"stdlib/map.rail\"\nmain =\n  let m = map_new 0\n  let m = map_put m \"x\" 42\n  map_get m \"x\"" "42"
@@ -6429,7 +6618,9 @@ run_tests _ =
   -- own traversal. Proves the duplicator handles mixed plain+auth fields + order guard.
   let dict_src = "import \"stdlib/sha256.rail\"\ntype Dict = | Leaf k v | Node k auth Dict auth Dict\nslt a b = char_to_int (head (chars a)) < char_to_int (head (chars b))\nlookup d key = match unauth d\n  | Leaf k v -> if k == key then v else error \"absent\"\n  | Node k l r -> if slt key k then lookup l key else lookup r key\n"
   let t149 = run_test "auth_dict_accept" (cat [dict_src, "main =\n  let t = Node \"b\" (Leaf \"a\" \"apple\") (Leaf \"b\" \"banana\")\n  let root = digest_Dict t\n  let pb = arr_new 1 []\n  let _ = lookup__prove t \"a\" pb\n  let pa = arr_get pb 0\n  let vb = arr_new 1 []\n  let _ = arr_set vb 0 pa\n  let res = lookup__verify root \"a\" vb\n  let _ = print (if is_error res then \"REJECT\" else cat [\"accept:\", res])\n  0"]) "accept:apple"
-  let t150 = run_test "auth_dict_wrong_key" (cat [dict_src, "main =\n  let t = Node \"b\" (Leaf \"a\" \"apple\") (Leaf \"b\" \"banana\")\n  let root = digest_Dict t\n  let pb = arr_new 1 []\n  let _ = lookup__prove t \"z\" pb\n  let pz = arr_get pb 0\n  let vb = arr_new 1 []\n  let _ = arr_set vb 0 pz\n  let res = lookup__verify root \"z\" vb\n  let _ = print (if is_error res then \"REJECT\" else cat [\"accept:\", res])\n  0"]) "REJECT"
+  -- The prover's own error for the absent key is looked at here: since 2026-11-19 an error
+  -- nobody inspects ends the program with exit 1 (t306), and this test discarded it.
+  let t150 = run_test "auth_dict_wrong_key" (cat [dict_src, "main =\n  let t = Node \"b\" (Leaf \"a\" \"apple\") (Leaf \"b\" \"banana\")\n  let root = digest_Dict t\n  let pb = arr_new 1 []\n  let pr = lookup__prove t \"z\" pb\n  let _ = print (if is_error pr then \"prover: absent\" else \"prover: found\")\n  let pz = arr_get pb 0\n  let vb = arr_new 1 []\n  let _ = arr_set vb 0 pz\n  let res = lookup__verify root \"z\" vb\n  let _ = print (if is_error res then \"REJECT\" else cat [\"accept:\", res])\n  0"]) "prover: absent\nREJECT"
   let t151 = run_test "auth_dict_tamper" (cat [dict_src, "main =\n  let t = Node \"b\" (Leaf \"a\" \"apple\") (Leaf \"b\" \"banana\")\n  let root = digest_Dict t\n  let pb = arr_new 1 []\n  let _ = lookup__prove t \"a\" pb\n  let pa = arr_get pb 0\n  let bad = cons (head pa) (cons \"L:a:HACKED\" [])\n  let vb = arr_new 1 []\n  let _ = arr_set vb 0 bad\n  let res = lookup__verify root \"a\" vb\n  let _ = print (if is_error res then \"REJECT\" else cat [\"accept:\", res])\n  0"]) "REJECT"
   -- t152 (P2 Stage B / B4): length-prefix framing closes the ':'-collision. A leaf
   -- value containing a colon must round-trip: under the old ':'-join the verifier
@@ -6858,12 +7049,72 @@ run_tests _ =
   let t304 = run_test "json_bad_value_and_escapes" "import \"stdlib/json.rail\"\nmain =\n  let _ = print (json_encode (parse_json \"[x]\"))\n  let _ = print (json_encode (parse_json \"{\\\"a\\\": \\\"x\\\\\\\"y\\\", \\\"b\\\": 1.5, \\\"c\\\": [1, -2, true, null]}\"))\n  0" "[null]\n{\"a\": \"x\\\"y\", \"b\": 1.5, \"c\": [1, -2, true, null]}"
   -- t305: the REPL runs `3 == 3` as an expression (D5: any `=` made the line a definition and the session never compiled again)
   let t305 = driver_repl_comparison 0
-  let s_wl = (if t283 then 1 else 0) + (if t284 then 1 else 0) + (if t285 then 1 else 0) + (if t286 then 1 else 0) + (if t287 then 1 else 0) + (if t288 then 1 else 0) + (if t289 then 1 else 0) + (if t290 then 1 else 0) + (if t291 then 1 else 0) + (if t292 then 1 else 0) + (if t293 then 1 else 0) + (if t294 then 1 else 0) + (if t295 then 1 else 0) + (if t296 then 1 else 0) + (if t297 then 1 else 0) + (if t298 then 1 else 0) + (if t299 then 1 else 0) + (if t300 then 1 else 0) + (if t301 then 1 else 0) + (if t302 then 1 else 0) + (if t303 then 1 else 0) + (if t304 then 1 else 0) + (if t305 then 1 else 0)
+  -- t306: C3: an error raised outside try and never inspected ended the program with exit 0 and no message
+  let t306 = driver_expect_exit "unhandled_error_exits_1" "main =\n  let _ = print \"before\"\n  let x = error \"boom\"\n  let _ = print \"after raise\"\n  0\n" "rail: unhandled error: boom" 1
+  -- t307: C3: looking at one error does not excuse another
+  let t307 = driver_expect_exit "unhandled_error_names_the_last" "main =\n  let a = error \"first\"\n  let b = error \"second\"\n  let _ = print (if is_error a then \"a seen\" else \"no\")\n  7\n" "rail: unhandled error: second" 1
+  -- t308: C3: is_error, err_msg and try each settle an error; the program still exits 0
+  let t308 = run_test "inspected_errors_are_values" "safe_div a b = if b == 0 then error \"div by zero\" else a / b\nmain =\n  let r = safe_div 4 0\n  let _ = print (if is_error r then cat [\"caught: \", err_msg r] else show r)\n  let _ = print (show (safe_div 9 3))\n  let e = error \"only err_msg\"\n  let _ = print (err_msg e)\n  let t = try (\\_ -> error \"in try\") (\\m -> cat [\"handled: \", m])\n  let _ = print t\n  0" "caught: div by zero\n3\nonly err_msg\nhandled: in try"
+  -- t309: C12: 20,000,000 frames died as a bare Bus error
+  let t309 = driver_expect_exit "stack_overflow_says_so" "count n = if n == 0 then 0 else 1 + count (n - 1)\nmain =\n  let _ = print (show (count 1000000))\n  let _ = print (show (count 20000000))\n  0\n" "rail: stack overflow" 1
+  -- t310: C12: the overflow handler passes every other fault on with the default action
+  let t310 = driver_expect_exit "wild_pointer_still_dies_by_signal" "main =\n  let _ = print \"before wild\"\n  let n = float_arr_len 1\n  let _ = print \"after wild\"\n  0\n" "before wild" 139
+  -- t311: C5: float_arr_get past the end read whatever was there
+  let t311 = run_test "float_arr_bounds" "main =\n  let xs = float_arr_new 3 1.5\n  let _ = float_arr_set xs 2 2.5\n  let _ = print (show (float_arr_get xs 2))\n  let _ = print (show (float_arr_len xs))\n  let _ = print (show (float_arr_get xs 3))\n  let _ = print \"not reached\"\n  0" "2.5\n3\nrail: array index out of bounds"
+  -- t312: C5: float_arr_set at -1 overwrote the length word
+  let t312 = run_test "float_arr_set_negative_index" "main =\n  let xs = float_arr_new 3 1.5\n  let _ = float_arr_set xs (0 - 1) 2.5\n  let _ = print \"not reached\"\n  0" "rail: array index out of bounds"
+  -- t313: C5: a negative length looped over memory it did not own
+  let t313 = run_test "float_arr_new_negative" "main =\n  let xs = float_arr_new (0 - 2) 1.5\n  let _ = print \"not reached\"\n  0" "rail: arr_new: negative length"
+  -- t314: C13: the literal compiled and printed -1
+  let t314 = driver_expect_error "int_literal_past_63_bits" "asm" "main =\n  let _ = print (show 9223372036854775807)\n  0\n" "integer literal 9223372036854775807 does not fit in 63 bits"
+  -- t315: C13: ints are 63-bit two's complement and arithmetic wraps; pinned so a change is a decision
+  let t315 = run_test "int_wraps_at_63_bits" "main =\n  let big = 4611686018427387903\n  let _ = print (show big)\n  let _ = print (show (big + 1))\n  let _ = print (show (big * 2))\n  let _ = print (show (3000000000 * 3000000000))\n  let _ = print (show (0 - 4611686018427387903 - 1))\n  0" "4611686018427387903\n-4611686018427387904\n-2\n-223372036854775808\n-4611686018427387904"
+  -- t316: E4: cmp x0, #5000 assembled as cmp x0, #904 and gt5000 1000 answered 1
+  let t316 = driver_expect_exit "asm_cmp_imm_out_of_range_refused" "link \"tools/test/link_cmp_range.s\"\nforeign gt5000 a -> int\nmain =\n  let _ = print (show (gt5000 1000))\n  0\n" "asm: no encoding for `cmp x0, #5000`" 1
+  -- t317: E4: the immediates cmp does hold still assemble, the shifted form included
+  let t317 = run_test "asm_cmp_imm_in_range" "link \"tools/test/link_cmp_shifted.s\"\nforeign gt4095 a -> int\nforeign gt8192 a -> int\nmain =\n  let _ = print (show [gt4095 4095, gt4095 4096, gt8192 8192, gt8192 8193, gt8192 904])\n  0" "[0, 1, 0, 1, 0]"
+  -- t318: E4: a branch past its reach was masked into a branch somewhere else (a far cbz segfaulted)
+  let t318 = driver_expect_exit "asm_branch_out_of_reach_refused" "link \"tools/test/link_tbz_far.s\"\nforeign tbzfar a -> int\nmain =\n  let _ = print (show (tbzfar 2))\n  0\n" "asm: no encoding for `tbz x0, #0, .Lend`" 1
+  -- t319: E1: rail_native x86 emitted a call to a name nothing defines, assembled it and exited 0
+  let t319 = driver_expect_error "x86_undefined_call_refused" "x86" "main =\n  let _ = print (show (undefined_thing 3))\n  0\n" "error: 'undefined_thing' is not defined"
+  -- t320: wider type errors: one let away from the literal check, `s - 1` printed -1
+  let t320 = driver_expect_error "let_bound_literal_arith_refused" "asm" "main =\n  let s = \"abc\"\n  let _ = print (show (s - 1))\n  0\n\n" "does arithmetic on a string literal (bound by a let)"
+  -- t321: wider type errors: a let-bound string passed where the callee does arithmetic printed 1
+  let t321 = driver_expect_error "let_bound_literal_arg_refused" "asm" "add1 x = x + 1\nmain =\n  let s = \"abc\"\n  let _ = print (show (add1 s))\n  0\n\n" "is passed a string literal"
+  -- t322: wider type errors: the let-bound check must not refuse ordinary uses
+  let t322 = run_test "let_bound_literal_legit_uses" "main =\n  let s = \"ab\"\n  let xs = [1, 2, 3]\n  let _ = print (cat [s, \"c\"])\n  let _ = print (show (length xs + 1))\n  0\n" "abc\n4"
+  -- t323: found 2026-11-19 while reproducing E10: a builtin ignored extra arguments, `range 1 8` printed [0]
+  let t323 = driver_expect_error "builtin_over_application_refused" "asm" "main =\n  let _ = print (show (range 1 8))\n  0\n\n" "'range' takes 1 argument(s), called with 2"
+  -- t324: a builtin given too few arguments read a register nobody set
+  let t324 = driver_expect_error "builtin_under_application_refused" "asm" "main =\n  let _ = print (str_sub \"abc\" 1)\n  0\n\n" "'str_sub' takes 3 argument(s), called with 2"
+  -- t325: E10: forward-mode AD returned 0 for a term it had no rule for (the slope is 6)
+  let t325 = driver_expect_error "grad_dropped_call_refused" "asm" "#grad f\nf x = sq (x +. 1.0)\nsq y = y *. y\nmain =\n  let _ = print (show_float (f__grad 2.0 0))\n  0\n\n" "#grad f: cannot differentiate the call to 'sq' with respect to 'x'"
+  -- t326: E10: a call that does not read the parameter still differentiates to 0, correctly
+  let t326 = run_test "grad_inactive_call_is_zero" "#grad f\nf x = scale 2.0 *. x\nscale k = k *. 3.0\nmain =\n  let _ = print (show_float (f__grad 2.0 0))\n  0\n" "6"
+  -- t327: E5: the collector scanned a frame to fp+2048 only, so the last of 300 let-bound lists were swept while live
+  let t327 = run_stressed "big_frame_roots_kept" "1" "churn n acc = if n == 0 then length acc else churn (n - 1) [n, n + 1, n + 2]\nbig k =\n  let a0 = [k + 0, 0]\n  let a1 = [k + 1, 1]\n  let a2 = [k + 2, 2]\n  let a3 = [k + 3, 3]\n  let a4 = [k + 4, 4]\n  let a5 = [k + 5, 5]\n  let a6 = [k + 6, 6]\n  let a7 = [k + 7, 7]\n  let a8 = [k + 8, 8]\n  let a9 = [k + 9, 9]\n  let a10 = [k + 10, 10]\n  let a11 = [k + 11, 11]\n  let a12 = [k + 12, 12]\n  let a13 = [k + 13, 13]\n  let a14 = [k + 14, 14]\n  let a15 = [k + 15, 15]\n  let a16 = [k + 16, 16]\n  let a17 = [k + 17, 17]\n  let a18 = [k + 18, 18]\n  let a19 = [k + 19, 19]\n  let a20 = [k + 20, 20]\n  let a21 = [k + 21, 21]\n  let a22 = [k + 22, 22]\n  let a23 = [k + 23, 23]\n  let a24 = [k + 24, 24]\n  let a25 = [k + 25, 25]\n  let a26 = [k + 26, 26]\n  let a27 = [k + 27, 27]\n  let a28 = [k + 28, 28]\n  let a29 = [k + 29, 29]\n  let a30 = [k + 30, 30]\n  let a31 = [k + 31, 31]\n  let a32 = [k + 32, 32]\n  let a33 = [k + 33, 33]\n  let a34 = [k + 34, 34]\n  let a35 = [k + 35, 35]\n  let a36 = [k + 36, 36]\n  let a37 = [k + 37, 37]\n  let a38 = [k + 38, 38]\n  let a39 = [k + 39, 39]\n  let a40 = [k + 40, 40]\n  let a41 = [k + 41, 41]\n  let a42 = [k + 42, 42]\n  let a43 = [k + 43, 43]\n  let a44 = [k + 44, 44]\n  let a45 = [k + 45, 45]\n  let a46 = [k + 46, 46]\n  let a47 = [k + 47, 47]\n  let a48 = [k + 48, 48]\n  let a49 = [k + 49, 49]\n  let a50 = [k + 50, 50]\n  let a51 = [k + 51, 51]\n  let a52 = [k + 52, 52]\n  let a53 = [k + 53, 53]\n  let a54 = [k + 54, 54]\n  let a55 = [k + 55, 55]\n  let a56 = [k + 56, 56]\n  let a57 = [k + 57, 57]\n  let a58 = [k + 58, 58]\n  let a59 = [k + 59, 59]\n  let a60 = [k + 60, 60]\n  let a61 = [k + 61, 61]\n  let a62 = [k + 62, 62]\n  let a63 = [k + 63, 63]\n  let a64 = [k + 64, 64]\n  let a65 = [k + 65, 65]\n  let a66 = [k + 66, 66]\n  let a67 = [k + 67, 67]\n  let a68 = [k + 68, 68]\n  let a69 = [k + 69, 69]\n  let a70 = [k + 70, 70]\n  let a71 = [k + 71, 71]\n  let a72 = [k + 72, 72]\n  let a73 = [k + 73, 73]\n  let a74 = [k + 74, 74]\n  let a75 = [k + 75, 75]\n  let a76 = [k + 76, 76]\n  let a77 = [k + 77, 77]\n  let a78 = [k + 78, 78]\n  let a79 = [k + 79, 79]\n  let a80 = [k + 80, 80]\n  let a81 = [k + 81, 81]\n  let a82 = [k + 82, 82]\n  let a83 = [k + 83, 83]\n  let a84 = [k + 84, 84]\n  let a85 = [k + 85, 85]\n  let a86 = [k + 86, 86]\n  let a87 = [k + 87, 87]\n  let a88 = [k + 88, 88]\n  let a89 = [k + 89, 89]\n  let a90 = [k + 90, 90]\n  let a91 = [k + 91, 91]\n  let a92 = [k + 92, 92]\n  let a93 = [k + 93, 93]\n  let a94 = [k + 94, 94]\n  let a95 = [k + 95, 95]\n  let a96 = [k + 96, 96]\n  let a97 = [k + 97, 97]\n  let a98 = [k + 98, 98]\n  let a99 = [k + 99, 99]\n  let a100 = [k + 100, 100]\n  let a101 = [k + 101, 101]\n  let a102 = [k + 102, 102]\n  let a103 = [k + 103, 103]\n  let a104 = [k + 104, 104]\n  let a105 = [k + 105, 105]\n  let a106 = [k + 106, 106]\n  let a107 = [k + 107, 107]\n  let a108 = [k + 108, 108]\n  let a109 = [k + 109, 109]\n  let a110 = [k + 110, 110]\n  let a111 = [k + 111, 111]\n  let a112 = [k + 112, 112]\n  let a113 = [k + 113, 113]\n  let a114 = [k + 114, 114]\n  let a115 = [k + 115, 115]\n  let a116 = [k + 116, 116]\n  let a117 = [k + 117, 117]\n  let a118 = [k + 118, 118]\n  let a119 = [k + 119, 119]\n  let a120 = [k + 120, 120]\n  let a121 = [k + 121, 121]\n  let a122 = [k + 122, 122]\n  let a123 = [k + 123, 123]\n  let a124 = [k + 124, 124]\n  let a125 = [k + 125, 125]\n  let a126 = [k + 126, 126]\n  let a127 = [k + 127, 127]\n  let a128 = [k + 128, 128]\n  let a129 = [k + 129, 129]\n  let a130 = [k + 130, 130]\n  let a131 = [k + 131, 131]\n  let a132 = [k + 132, 132]\n  let a133 = [k + 133, 133]\n  let a134 = [k + 134, 134]\n  let a135 = [k + 135, 135]\n  let a136 = [k + 136, 136]\n  let a137 = [k + 137, 137]\n  let a138 = [k + 138, 138]\n  let a139 = [k + 139, 139]\n  let a140 = [k + 140, 140]\n  let a141 = [k + 141, 141]\n  let a142 = [k + 142, 142]\n  let a143 = [k + 143, 143]\n  let a144 = [k + 144, 144]\n  let a145 = [k + 145, 145]\n  let a146 = [k + 146, 146]\n  let a147 = [k + 147, 147]\n  let a148 = [k + 148, 148]\n  let a149 = [k + 149, 149]\n  let a150 = [k + 150, 150]\n  let a151 = [k + 151, 151]\n  let a152 = [k + 152, 152]\n  let a153 = [k + 153, 153]\n  let a154 = [k + 154, 154]\n  let a155 = [k + 155, 155]\n  let a156 = [k + 156, 156]\n  let a157 = [k + 157, 157]\n  let a158 = [k + 158, 158]\n  let a159 = [k + 159, 159]\n  let a160 = [k + 160, 160]\n  let a161 = [k + 161, 161]\n  let a162 = [k + 162, 162]\n  let a163 = [k + 163, 163]\n  let a164 = [k + 164, 164]\n  let a165 = [k + 165, 165]\n  let a166 = [k + 166, 166]\n  let a167 = [k + 167, 167]\n  let a168 = [k + 168, 168]\n  let a169 = [k + 169, 169]\n  let a170 = [k + 170, 170]\n  let a171 = [k + 171, 171]\n  let a172 = [k + 172, 172]\n  let a173 = [k + 173, 173]\n  let a174 = [k + 174, 174]\n  let a175 = [k + 175, 175]\n  let a176 = [k + 176, 176]\n  let a177 = [k + 177, 177]\n  let a178 = [k + 178, 178]\n  let a179 = [k + 179, 179]\n  let a180 = [k + 180, 180]\n  let a181 = [k + 181, 181]\n  let a182 = [k + 182, 182]\n  let a183 = [k + 183, 183]\n  let a184 = [k + 184, 184]\n  let a185 = [k + 185, 185]\n  let a186 = [k + 186, 186]\n  let a187 = [k + 187, 187]\n  let a188 = [k + 188, 188]\n  let a189 = [k + 189, 189]\n  let a190 = [k + 190, 190]\n  let a191 = [k + 191, 191]\n  let a192 = [k + 192, 192]\n  let a193 = [k + 193, 193]\n  let a194 = [k + 194, 194]\n  let a195 = [k + 195, 195]\n  let a196 = [k + 196, 196]\n  let a197 = [k + 197, 197]\n  let a198 = [k + 198, 198]\n  let a199 = [k + 199, 199]\n  let a200 = [k + 200, 200]\n  let a201 = [k + 201, 201]\n  let a202 = [k + 202, 202]\n  let a203 = [k + 203, 203]\n  let a204 = [k + 204, 204]\n  let a205 = [k + 205, 205]\n  let a206 = [k + 206, 206]\n  let a207 = [k + 207, 207]\n  let a208 = [k + 208, 208]\n  let a209 = [k + 209, 209]\n  let a210 = [k + 210, 210]\n  let a211 = [k + 211, 211]\n  let a212 = [k + 212, 212]\n  let a213 = [k + 213, 213]\n  let a214 = [k + 214, 214]\n  let a215 = [k + 215, 215]\n  let a216 = [k + 216, 216]\n  let a217 = [k + 217, 217]\n  let a218 = [k + 218, 218]\n  let a219 = [k + 219, 219]\n  let a220 = [k + 220, 220]\n  let a221 = [k + 221, 221]\n  let a222 = [k + 222, 222]\n  let a223 = [k + 223, 223]\n  let a224 = [k + 224, 224]\n  let a225 = [k + 225, 225]\n  let a226 = [k + 226, 226]\n  let a227 = [k + 227, 227]\n  let a228 = [k + 228, 228]\n  let a229 = [k + 229, 229]\n  let a230 = [k + 230, 230]\n  let a231 = [k + 231, 231]\n  let a232 = [k + 232, 232]\n  let a233 = [k + 233, 233]\n  let a234 = [k + 234, 234]\n  let a235 = [k + 235, 235]\n  let a236 = [k + 236, 236]\n  let a237 = [k + 237, 237]\n  let a238 = [k + 238, 238]\n  let a239 = [k + 239, 239]\n  let a240 = [k + 240, 240]\n  let a241 = [k + 241, 241]\n  let a242 = [k + 242, 242]\n  let a243 = [k + 243, 243]\n  let a244 = [k + 244, 244]\n  let a245 = [k + 245, 245]\n  let a246 = [k + 246, 246]\n  let a247 = [k + 247, 247]\n  let a248 = [k + 248, 248]\n  let a249 = [k + 249, 249]\n  let a250 = [k + 250, 250]\n  let a251 = [k + 251, 251]\n  let a252 = [k + 252, 252]\n  let a253 = [k + 253, 253]\n  let a254 = [k + 254, 254]\n  let a255 = [k + 255, 255]\n  let a256 = [k + 256, 256]\n  let a257 = [k + 257, 257]\n  let a258 = [k + 258, 258]\n  let a259 = [k + 259, 259]\n  let a260 = [k + 260, 260]\n  let a261 = [k + 261, 261]\n  let a262 = [k + 262, 262]\n  let a263 = [k + 263, 263]\n  let a264 = [k + 264, 264]\n  let a265 = [k + 265, 265]\n  let a266 = [k + 266, 266]\n  let a267 = [k + 267, 267]\n  let a268 = [k + 268, 268]\n  let a269 = [k + 269, 269]\n  let a270 = [k + 270, 270]\n  let a271 = [k + 271, 271]\n  let a272 = [k + 272, 272]\n  let a273 = [k + 273, 273]\n  let a274 = [k + 274, 274]\n  let a275 = [k + 275, 275]\n  let a276 = [k + 276, 276]\n  let a277 = [k + 277, 277]\n  let a278 = [k + 278, 278]\n  let a279 = [k + 279, 279]\n  let a280 = [k + 280, 280]\n  let a281 = [k + 281, 281]\n  let a282 = [k + 282, 282]\n  let a283 = [k + 283, 283]\n  let a284 = [k + 284, 284]\n  let a285 = [k + 285, 285]\n  let a286 = [k + 286, 286]\n  let a287 = [k + 287, 287]\n  let a288 = [k + 288, 288]\n  let a289 = [k + 289, 289]\n  let a290 = [k + 290, 290]\n  let a291 = [k + 291, 291]\n  let a292 = [k + 292, 292]\n  let a293 = [k + 293, 293]\n  let a294 = [k + 294, 294]\n  let a295 = [k + 295, 295]\n  let a296 = [k + 296, 296]\n  let a297 = [k + 297, 297]\n  let a298 = [k + 298, 298]\n  let a299 = [k + 299, 299]\n  let _ = churn 40 []\n  show [head a0, head a150, head a298, head a299]\nmain =\n  let _ = print (big 1000)\n  0\n" "[1000, 1150, 1298, 1299]\nrc=0"
+  -- t328: E5: each sweep emptied the free lists and could not refill them with blocks already free, so a 2 MB arena grew 28 MB here
+  let t328 = run_env "free_blocks_survive_collections" "RAIL_ARENA_MB=2 RAIL_GC_STRESS=127" "rss u =\n  let s = shell \"/bin/ps -o rss= -p $PPID | /usr/bin/tr -d ' '\"\n  parse_int (head (split \"\\n\" s))\nchurn n acc = if n == 0 then acc else churn (n - 1) (acc + length [n, n + 1, n + 2])\nmain =\n  let a = rss 0\n  let t = churn 300000 0\n  let b = rss 0\n  let _ = print (show t)\n  let _ = print (if b - a < 4096 then \"flat\" else cat [\"grew \", show (b - a), \" KB\"])\n  0\n" "900000\nflat\nrc=0"
+  -- t329: E3: peer-supplied certificate and signature lengths are checked before use (a hostile one stopped the process)
+  let t329 = run_test "tls13_hostile_lengths" "-- A server chooses these lengths before it has proved anything (worklist E3, 2026-11-19).\n-- Each case hands a parser a length that points past what was received; the parser must\n-- answer \"malformed\", not read past the buffer. Until 2026-11-18 the reads went to\n-- whatever memory followed; from then the runtime's bounds check stopped the process\n-- (exit 1, `rail: array index out of bounds`), which a client should not do on a bad peer.\nimport \"stdlib/tls13_hs.rail\"\nimport \"stdlib/tls13_cert_verify.rail\"\n\nsay nm ok = print (cat [nm, if ok then \" ok\" else \" WRONG\"])\n\nmain =\n  -- Certificate: context 0, list length 0x00ffff, first cert length 0x00ffff, 4 bytes follow\n  let c1 = hex_to_bytes \"0000ffff00ffff01020304\"\n  let p1 = tls13_parse_certificate c1 0 11\n  let _ = say \"cert_len past the body\" (arr_get p1 2 == 0)\n  -- the list length field itself lies past the body\n  let c2 = hex_to_bytes \"ff000003\"\n  let p2 = tls13_parse_certificate c2 0 4\n  let _ = say \"context length past the body\" (arr_get p2 2 == 0)\n  -- an honest one still parses: context 0, list 7, cert 4 bytes, 0 extensions\n  let c3 = hex_to_bytes \"00000007000004aabbccdd0000\"\n  let p3 = tls13_parse_certificate c3 0 13\n  let _ = say \"honest certificate\" (arr_get p3 2 == 1 && arr_get p3 1 == 4 && arr_get (arr_get p3 0) 3 == 221)\n  -- CertificateVerify: signature length 0xffff with 2 bytes present\n  let v1 = hex_to_bytes \"0403ffff0102\"\n  let q1 = tls13_parse_certificate_verify v1 0 6\n  let _ = say \"signature length past the body\" (arr_get q1 3 == 0)\n  -- ECDSA signature whose r is 40 bytes: longer than any P-256 scalar\n  let sig = hex_to_bytes \"302d022801020304050607080910111213141516171819202122232425262728293031323334353637383940020101\"\n  let e1 = asn1_parse_ecdsa_sig_max sig 47 0 47 32\n  let _ = say \"r longer than the curve\" (arr_get e1 4 == 0)\n  let e2 = asn1_parse_ecdsa_sig_max sig 47 0 47 66\n  let _ = say \"same r fits P-521\" (arr_get e2 4 == 1 && arr_get e2 1 == 40)\n  0" "cert_len past the body ok\ncontext length past the body ok\nhonest certificate ok\nsignature length past the body ok\nr longer than the curve ok\nsame r fits P-521 ok"
+  -- t330: mutex_new returned the init status (0) and the first mutex_lock dereferenced null (found 2026-11-19)
+  let t330 = run_test "mutex_new_returns_the_mutex" "main =\n  let m = mutex_new 0\n  let a = mutex_lock m\n  let b = mutex_unlock m\n  let _ = print (cat [\"locked and unlocked \", show (a + b)])\n  0\n" "locked and unlocked 0"
+  -- t331: the fabs builtin emitted an instruction the assembler had no encoding for, so no program calling it linked (found 2026-11-19)
+  let t331 = run_test "fabs_links" "main =\n  let _ = print (show (fabs (0.0 -. 2.5)))\n  let _ = print (show (fabs 4.0))\n  0\n" "2.5\n4"
+  -- t332: E9: every name in builtin_call_names appears in docs/builtins.md
+  let t332 = driver_builtins_documented 0
+  -- t333: E3: an intermediate outside its validity window does not carry a chain
+  let t333 = run_test "chain_validity" "-- An intermediate outside its validity window must not carry a chain (worklist E3, 2026-11-19).\n-- The fixtures are a throwaway root, one leaf and three copies of one intermediate: valid until\n-- 2099, expired in 2021, and not valid before 2090. Their private keys were never kept.\nimport \"stdlib/cert_chain.rail\"\n\nwalk store name =\n  let ch = pem_load_trust_store (cat [\"tools/test/chain_validity/\", name])\n  cc_walk_chain store (arr_get ch 0) (arr_get ch 1) (arr_get ch 2)\n\nmain =\n  let store = pem_load_trust_store \"tools/test/chain_validity/root.pem\"\n  let _ = print (cat [\"valid intermediate: \", show (walk store \"chain_ok.pem\")])\n  let _ = print (cat [\"expired intermediate: \", show (walk store \"chain_expired.pem\")])\n  let _ = print (cat [\"not yet valid intermediate: \", show (walk store \"chain_future.pem\")])\n  -- the same root key and name in a certificate that expired in 2021: a trust anchor past its\n  -- own dates does not anchor\n  let stale = pem_load_trust_store \"tools/test/chain_validity/root_expired.pem\"\n  let _ = print (cat [\"expired root: \", show (walk stale \"chain_ok.pem\")])\n  0" "valid intermediate: 1\nexpired intermediate: 0\nnot yet valid intermediate: 0\nexpired root: 0"
+  -- t334: E3: every length and fixed field of a ServerHello is checked
+  let t334 = run_test "server_hello_hostile" "-- A ServerHello is the peer's bytes before anything is authenticated: every length and every\n-- fixed field has to be checked (worklist E3, 2026-11-19). The base message is the RFC 8448\n-- section 3 ServerHello; each line changes one thing and must be refused.\nimport \"stdlib/tls13_hs.rail\"\n\nbase _ = hex_to_bytes \"020000560303a6af06a4121860dc5e6e60249cd34c95930c8ac5cb1434dac155772ed3e2692800130100002e00330024001d0020c9828876112095fe66762bdbf7c672e156d6cc253b833df1dd69b1b04e751f0f002b00020304\"\n\nwith_byte i v =\n  let b = base 0\n  let _ = arr_set b i v\n  arr_get (tls13_parse_server_hello b 90) 3\n\nsay label v = print (cat [label, \": \", show v])\n\n-- two messages whose session ids are ch_n and sh_n bytes of 7; flip changes one echoed byte\nsid_case ch_n sh_n flip =\n  let ch = arr_new 80 7\n  let sh = arr_new 80 7\n  let _ = arr_set ch 38 ch_n\n  let _ = arr_set sh 38 sh_n\n  let _ = if flip == 1 then arr_set sh 50 9 else 0\n  tls13_sid_echoed ch sh\n\nmain =\n  let _ = say \"the RFC 8448 message\" (arr_get (tls13_parse_server_hello (base 0) 90) 3)\n  let _ = say \"legacy_version 0x0301\" (with_byte 5 1)\n  let _ = say \"compression method 1\" (with_byte 41 1)\n  let _ = say \"supported_versions 0x0303\" (with_byte 89 3)\n  let _ = say \"key_share group secp256r1\" (with_byte 49 23)\n  let _ = say \"no key_share at all\" (with_byte 45 52)\n  let _ = say \"extensions longer than the message\" (with_byte 43 64)\n  let _ = say \"session id of 200 bytes\" (with_byte 38 200)\n  let _ = say \"body longer than the record\" (with_byte 3 96)\n  let _ = say \"key length 31\" (with_byte 51 31)\n  let _ = say \"all zero bytes are all zero\" (tls13_all_zero (arr_new 32 0) 32)\n  let _ = say \"session id echoed\" (sid_case 32 32 0)\n  let _ = say \"session id of another length\" (sid_case 32 0 0)\n  let _ = say \"session id with one byte changed\" (sid_case 32 32 1)\n  let _ = say \"a real share is not\" (tls13_all_zero (arr_get (tls13_parse_server_hello (base 0) 90) 2) 32)\n  0" "the RFC 8448 message: 1\nlegacy_version 0x0301: 0\ncompression method 1: 0\nsupported_versions 0x0303: 0\nkey_share group secp256r1: 0\nno key_share at all: 0\nextensions longer than the message: 0\nsession id of 200 bytes: 0\nbody longer than the record: 0\nkey length 31: 0\nall zero bytes are all zero: 1\nsession id echoed: 1\nsession id of another length: 0\nsession id with one byte changed: 0\na real share is not: 0"
+  -- t335: E4: 163 load, store, move, shift and pair forms get the system assembler's word or a refusal
+  let t335 = driver_asm_ranges 0
+  let s_wl = (if t283 then 1 else 0) + (if t284 then 1 else 0) + (if t285 then 1 else 0) + (if t286 then 1 else 0) + (if t287 then 1 else 0) + (if t288 then 1 else 0) + (if t289 then 1 else 0) + (if t290 then 1 else 0) + (if t291 then 1 else 0) + (if t292 then 1 else 0) + (if t293 then 1 else 0) + (if t294 then 1 else 0) + (if t295 then 1 else 0) + (if t296 then 1 else 0) + (if t297 then 1 else 0) + (if t298 then 1 else 0) + (if t299 then 1 else 0) + (if t300 then 1 else 0) + (if t301 then 1 else 0) + (if t302 then 1 else 0) + (if t303 then 1 else 0) + (if t304 then 1 else 0) + (if t305 then 1 else 0) + (if t306 then 1 else 0) + (if t307 then 1 else 0) + (if t308 then 1 else 0) + (if t309 then 1 else 0) + (if t310 then 1 else 0) + (if t311 then 1 else 0) + (if t312 then 1 else 0) + (if t313 then 1 else 0) + (if t314 then 1 else 0) + (if t315 then 1 else 0) + (if t316 then 1 else 0) + (if t317 then 1 else 0) + (if t318 then 1 else 0) + (if t319 then 1 else 0) + (if t320 then 1 else 0) + (if t321 then 1 else 0) + (if t322 then 1 else 0) + (if t323 then 1 else 0) + (if t324 then 1 else 0) + (if t325 then 1 else 0) + (if t326 then 1 else 0) + (if t327 then 1 else 0) + (if t328 then 1 else 0) + (if t329 then 1 else 0) + (if t330 then 1 else 0) + (if t331 then 1 else 0) + (if t332 then 1 else 0) + (if t333 then 1 else 0) + (if t334 then 1 else 0) + (if t335 then 1 else 0)
   -- worklist 2026-11-18 end
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd + s_lnk + s_wl
   -- one literal carries the count: the printed line and the exit check both read it (2026-11-05: the
   -- check said 262 while the line said 264, and `test` exited 1 on green)
-  let summary = cat [show total, "/288 tests passed"]
+  let summary = cat [show total, "/318 tests passed"]
   let _ = print summary
   if summary == cat [show total, "/", show total, " tests passed"] then 0 else 1
 
@@ -7024,7 +7275,7 @@ dispatch_parse_check path =
   let ntoks = length toks
   let decls = pprog_ast toks
   let errs = ce_decls decls
-  let nerrs = report_errors errs positions ntoks path + float_builtin_redefined decls path + builtin_redefined decls path
+  let nerrs = report_errors errs positions ntoks path + int_literals_out_of_range toks positions path 0 + float_builtin_redefined decls path + builtin_redefined decls path
   if nerrs > 0 then 1 else 0
 
 build_linux asm_text =
@@ -7089,7 +7340,7 @@ build_linux asm_text =
   -- last stripped stub and the next kept label gets eaten, and the
   -- following data items (_fmt_int / _rail_argc / etc.) silently end up
   -- in .text (read-only). Result on ELF: SIGSEGV at _main+4 storing argc.
-  let _ = shell "awk 'BEGIN{skip=0} /^_(strlen|strcmp|strcpy|strcat|atoi|strstr|read|free|fopen|fwrite|fread|fclose|fseek|ftell|fflush|malloc|setjmp|longjmp|write|printf|snprintf|open|close|ioctl|rail_arena_init|rail_print|rail_print_float|rail_shell|rail_malloc_chain_drain|rail_float_arr_to_f32_file|rail_float_arr_from_f32_file):$/{skip=1;next} skip && (/^_[a-z]/ || /^\\.(text|data|bss|section)/){skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
+  let _ = shell "awk 'BEGIN{skip=0} /^_(strlen|strcmp|strcpy|strcat|atoi|strstr|read|free|fopen|fwrite|fread|fclose|fseek|ftell|fflush|malloc|setjmp|longjmp|write|printf|snprintf|open|close|ioctl|rail_arena_init|rail_print|rail_print_float|rail_shell|rail_malloc_chain_drain|rail_float_arr_to_f32_file|rail_float_arr_from_f32_file|rail_sig_init|rail_sig_handler|rail_exit_check):$/{skip=1;next} skip && (/^_[a-z]/ || /^\\.(text|data|bss|section)/){skip=0} !skip' /tmp/rail_linux_code.s > /tmp/rail_linux_code_stripped.s && mv /tmp/rail_linux_code_stripped.s /tmp/rail_linux_code.s"
   let _ = shell (cat ["cat /tmp/rail_linux_code.s /tmp/rail_linux_start.s ", libc_path, " ", data_path, " /tmp/rail_linux_bss.s > /tmp/rail_linux.s"])
   -- Detect if running on Linux (native) or macOS (cross)
   let uname = trim (shell "uname -s 2>/dev/null")
@@ -7468,12 +7719,20 @@ x86_emit_rcx node env =
     else cat ["    mov rcx, [rbp+", show off, "]\n"]
   else "    mov rcx, rax\n"
 
+-- Integer division on x86_64. idiv faults on a zero divisor (SIGFPE) where ARM64's sdiv
+-- answers 0, so the two backends disagreed on `a / 0` and `a % 0`: 0 and a on ARM64, a dead
+-- process here (worklist E1, 2026-11-19). Branch-free: a zero divisor becomes 1, and the
+-- dividend becomes 0 for `/` (quotient 0) or is or-ed back into the remainder for `%` (a).
+-- The quotient cannot overflow: operands are 63-bit, so the dividend is never INT64_MIN.
+x86_div_asm _ = "    mov r10, rax\n    sar r10, 1\n    mov rax, rcx\n    sar rax, 1\n    xor r11d, r11d\n    test r10, r10\n    sete r11b\n    add r10, r11\n    neg r11\n    not r11\n    and rax, r11\n    cqo\n    idiv r10\n    lea rax, [rax*2+1]\n"
+x86_mod_asm _ = "    mov r10, rax\n    sar r10, 1\n    mov rax, rcx\n    sar rax, 1\n    xor r11d, r11d\n    test r10, r10\n    sete r11b\n    add r10, r11\n    neg r11\n    and r11, rax\n    cqo\n    idiv r10\n    or rdx, r11\n    lea rax, [rdx*2+1]\n"
+
 x86_get_opc_noguard op =
   if op == "+" then "    add rax, rcx\n    dec rax\n"
   else if op == "-" then "    sub rcx, rax\n    lea rax, [rcx+1]\n"
   else if op == "*" then "    sar rcx, 1\n    sar rax, 1\n    imul rax, rcx\n    lea rax, [rax*2+1]\n"
-  else if op == "/" then "    mov r10, rax\n    sar r10, 1\n    mov rax, rcx\n    sar rax, 1\n    cqo\n    idiv r10\n    lea rax, [rax*2+1]\n"
-  else if op == "%" then "    mov r10, rax\n    sar r10, 1\n    mov rax, rcx\n    sar rax, 1\n    cqo\n    idiv r10\n    lea rax, [rdx*2+1]\n"
+  else if op == "/" then x86_div_asm 0
+  else if op == "%" then x86_mod_asm 0
   else if op == "<" then "    cmp rcx, rax\n    setl al\n    movzx rax, al\n    lea rax, [rax*2+1]\n"
   else if op == ">" then "    cmp rcx, rax\n    setg al\n    movzx rax, al\n    lea rax, [rax*2+1]\n"
   else if op == "<=" then "    cmp rcx, rax\n    setle al\n    movzx rax, al\n    lea rax, [rax*2+1]\n"
@@ -7504,8 +7763,8 @@ x86_get_opc_inline op lc =
   if op == "+" then cat [check_both, "    add rax, rcx\n    dec rax\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_add@PLT\n", fb_end]
   else if op == "-" then cat [check_both, "    sub rcx, rax\n    lea rax, [rcx+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_sub@PLT\n", fb_end]
   else if op == "*" then cat [check_both, "    sar rcx, 1\n    sar rax, 1\n    imul rax, rcx\n    lea rax, [rax*2+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_mul@PLT\n", fb_end]
-  else if op == "/" then cat [check_both, "    mov r10, rax\n    sar r10, 1\n    mov rax, rcx\n    sar rax, 1\n    cqo\n    idiv r10\n    lea rax, [rax*2+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_div@PLT\n", fb_end]
-  else if op == "%" then cat [check_both, "    mov r10, rax\n    sar r10, 1\n    mov rax, rcx\n    sar rax, 1\n    cqo\n    idiv r10\n    lea rax, [rdx*2+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_mod@PLT\n", fb_end]
+  else if op == "/" then cat [check_both, x86_div_asm 0, int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_div@PLT\n", fb_end]
+  else if op == "%" then cat [check_both, x86_mod_asm 0, int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_mod@PLT\n", fb_end]
   else if op == "<" then cat [check_both, "    cmp rcx, rax\n    setl al\n    movzx rax, al\n    lea rax, [rax*2+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_lt@PLT\n", fb_end]
   else if op == ">" then cat [check_both, "    cmp rcx, rax\n    setg al\n    movzx rax, al\n    lea rax, [rax*2+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_gt@PLT\n", fb_end]
   else if op == "<=" then cat [check_both, "    cmp rcx, rax\n    setle al\n    movzx rax, al\n    lea rax, [rax*2+1]\n", int_end, heap_lbl, ":\n    mov rdi, rcx\n    mov rsi, rax\n    call _rail_le@PLT\n", fb_end]
@@ -7823,12 +8082,14 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
   if fname == "arr_new" then
     let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
     (cat [pa, x86_cg_pop_regs (length args) 0, "    call _rail_arr_new\n"], lc1, sl1)
+  -- arr_get and arr_set check the index, unsigned, against the length at +8 (2026-11-19;
+  -- tools/x86_rt.s _rail_arr_oob). Until then x86 read and wrote wherever the index pointed.
   else if fname == "arr_get" then
     let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
-    (cat [pa, x86_cg_pop_regs (length args) 0, "    sar rsi, 1\n    add rsi, 2\n    mov rax, [rdi+rsi*8]\n"], lc1, sl1)
+    (cat [pa, x86_cg_pop_regs (length args) 0, "    sar rsi, 1\n    cmp rsi, [rdi+8]\n    jae _rail_arr_oob\n    add rsi, 2\n    mov rax, [rdi+rsi*8]\n"], lc1, sl1)
   else if fname == "arr_set" then
     let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
-    (cat [pa, x86_cg_pop_regs (length args) 0, "    sar rsi, 1\n    add rsi, 2\n    mov [rdi+rsi*8], rdx\n    mov rax, 1\n"], lc1, sl1)
+    (cat [pa, x86_cg_pop_regs (length args) 0, "    sar rsi, 1\n    cmp rsi, [rdi+8]\n    jae _rail_arr_oob\n    add rsi, 2\n    mov [rdi+rsi*8], rdx\n    mov rax, 1\n"], lc1, sl1)
   else if fname == "arr_len" then
     let (aa, lc1, sl1) = x86_cg (head args) env ar lc sl false fs
     (cat [aa, "    mov rax, [rax+8]\n    lea rax, [rax*2+1]\n"], lc1, sl1)
@@ -7916,7 +8177,7 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
     else if length args == 1 then
       let (aa, lc1, sl1) = x86_cg (head args) env ar lc sl false fs
       let rr = x86_reg_restore env
-      let call = if tp then cat [rr, "    mov rdi, rax\n    add rsp, ", fs, "\n    pop rbp\n    jmp _", fname, "\n"] else cat ["    mov rdi, rax\n    call _", fname, "\n"]
+      let call = if tp then cat [rr, "    mov rdi, rax\n    add rsp, ", fs, "\n    pop rbp\n    jmp ", x86_call_target fname ar_raw, "\n"] else cat ["    mov rdi, rax\n    call ", x86_call_target fname ar_raw, "\n"]
       (cat [aa, call], lc1, sl1)
     else
       let (pa, lc1, sl1) = x86_cg_push_args args env ar lc sl fs
@@ -7929,10 +8190,45 @@ x86_cg_bi3 fname args env ar lc sl tp fs =
       let cleanup = if has_stack then cat ["    add rsp, ", show ((nargs - 6) * 16), "\n"] else ""
       let tco_writeback = if has_stack then x86_move_stack_args_tco nargs 6 fs else ""
       let call = if tp then
-        cat [rr, load, tco_writeback, "    add rsp, ", show (nargs * 16), "\n    add rsp, ", fs, "\n    pop rbp\n    jmp _", fname, "\n"]
+        cat [rr, load, tco_writeback, "    add rsp, ", show (nargs * 16), "\n    add rsp, ", fs, "\n    pop rbp\n    jmp ", x86_call_target fname ar_raw, "\n"]
       else
-        cat [load, move_up, "    add rsp, ", release_amt, "\n    call _", fname, "\n", cleanup]
+        cat [load, move_up, "    add rsp, ", release_amt, "\n    call ", x86_call_target fname ar_raw, "\n", cleanup]
       (cat [pa, call], lc1, sl1)
+
+-- A call to a name nothing defines goes to the marker compile_x86 refuses by name, as the ARM64
+-- backend's does (cg "A"). Until 2026-11-19 it was `call _<name>`: the emitted file assembled,
+-- `rail_native x86` exited 0, and the mistake surfaced at link time on another machine.
+x86_call_target fname ar_raw = if ar_raw == (0 - 1) then cat ["_RAIL_UNDEFINED_IDENT_", fname] else cat ["_", fname]
+
+-- The names behind the markers in emitted x86 assembly, each once, in order of first use.
+x86_undefined_idents lines acc =
+  if lines == [] then rev acc
+  else
+    let words = split " " (trim (head lines))
+    if length words < 2 then x86_undefined_idents (tail lines) acc
+    else
+      let tok = head (rev words)
+      let nm = str_sub tok 22 (length (chars tok) - 22)
+      x86_undefined_idents (tail lines) (if x86_name_seen nm acc then acc else cons nm acc)
+x86_name_seen nm names = if names == [] then false else if head names == nm then true else x86_name_seen nm (tail names)
+-- The x86 runtime defines some builtins as plain labels the arity map does not know (to_int,
+-- byte_at, char_from_int, ...), so a marked name the emitted text defines is not undefined: its
+-- calls are pointed back at the label. What is left is reported.
+x86_runtime_defines asm nm = str_contains (cat ["\n_", nm, ":"]) asm
+x86_resolve_runtime asm names =
+  if names == [] then asm
+  else
+    let nm = head names
+    let a1 = if x86_runtime_defines asm nm then
+      str_replace (cat ["jmp _RAIL_UNDEFINED_IDENT_", nm, "\n"]) (cat ["jmp _", nm, "\n"]) (str_replace (cat ["call _RAIL_UNDEFINED_IDENT_", nm, "\n"]) (cat ["call _", nm, "\n"]) asm)
+    else asm
+    x86_resolve_runtime a1 (tail names)
+x86_report_undefined asm names path =
+  if names == [] then 0
+  else if x86_runtime_defines asm (head names) then x86_report_undefined asm (tail names) path
+  else
+    let _ = print (cat [path, ": error: '", head names, "' is not defined"])
+    1 + x86_report_undefined asm (tail names) path
 
 -- x86_64 MAIN CODEGEN
 x86_cg node env ar lc sl tp fs =
@@ -8245,24 +8541,39 @@ compile_x86 path =
   let decls = pprog_ast toks
   let _ = warn_shadowed src path decls
   let errs = ce_decls decls
-  let nerrs = report_errors errs positions ntoks path + guards_unsupported decls path "x86" + check_patterns decls + float_builtin_redefined decls path + builtin_redefined decls path
+  let nerrs = report_errors errs positions ntoks path + int_literals_out_of_range toks positions path 0 + guards_unsupported decls path "x86" + check_patterns decls + float_builtin_redefined decls path + builtin_redefined decls path
   if nerrs > 0 then
     let _ = print (cat [show nerrs, " error(s) found"])
     1
   else
-    let asm = x86_compile_checked_x86 decls
+    let asm0 = x86_compile_checked_x86 decls
+    let marked = x86_undefined_idents (filter (\l -> str_contains "call _RAIL_UNDEFINED_IDENT_" l || str_contains "jmp _RAIL_UNDEFINED_IDENT_" l) (split "\n" asm0)) []
+    let nundef = x86_report_undefined asm0 marked path
+    let asm = x86_resolve_runtime asm0 marked
+    if nundef > 0 then
+      let _ = print (cat [show nundef, " error(s) found; nothing written"])
+      1
+    else
     let _ = write_file "/tmp/rail_x86.s" asm
     let _ = print (cat ["  Assembly: /tmp/rail_x86.s (", show (length asm), " chars)"])
     -- Try local cross-assembler
     let local_as = trim (shell "which x86_64-elf-as 2>/dev/null || which x86_64-linux-gnu-as 2>/dev/null")
     if length local_as > 0 then
       let _ = print (cat ["  Assembler: ", local_as])
-      let as_res = trim (shell (cat [local_as, " -o /tmp/rail_x86.o /tmp/rail_x86.s 2>&1"]))
-      let _ = if length as_res > 0 then print (cat ["  as: ", as_res]) else print "  as: OK"
+      -- The exit code follows the assembler (2026-11-19; it was 0 whatever happened, and
+      -- "Binary: /tmp/rail_x86" was printed after a failed link). The link is tried and its
+      -- result reported, but a Mac has no x86_64 libc to link against, so a failed link is
+      -- said in words and is not an error of the program: the assembly is the product.
+      let as_out = shell (cat ["rm -f /tmp/rail_x86.o /tmp/rail_x86; ", local_as, " -o /tmp/rail_x86.o /tmp/rail_x86.s 2>&1; echo \"as_rc=$?;\""])
+      if str_contains "as_rc=0;" as_out == false then
+        let _ = print (cat ["  as: FAILED\n", as_out])
+        1
+      else
+      let _ = print "  as: OK"
       let local_ld = trim (shell "which x86_64-elf-ld 2>/dev/null || which x86_64-linux-gnu-ld 2>/dev/null")
-      let ld_res = trim (shell (cat [local_ld, " -o /tmp/rail_x86 /tmp/rail_x86.o -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2 2>&1"]))
-      let _ = if length ld_res > 0 then print (cat ["  ld: ", ld_res]) else print "  ld: OK"
-      let _ = print "  Binary: /tmp/rail_x86"
+      let ld_out = shell (cat [local_ld, " -o /tmp/rail_x86 /tmp/rail_x86.o -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2 2>&1; echo \"ld_rc=$?;\""])
+      let _ = if str_contains "ld_rc=0;" ld_out then print "  ld: OK\n  Binary: /tmp/rail_x86"
+              else print (cat ["  ld: not linked here (", trim (head (split "\n" ld_out)), "); assemble and link /tmp/rail_x86.s on a Linux x86_64 host"])
       0
     else
       -- No local cross-tools, install x86_64-elf-as / x86_64-elf-ld or copy

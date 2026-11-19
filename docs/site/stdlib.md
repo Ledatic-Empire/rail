@@ -155,6 +155,13 @@ import "stdlib/<name>.rail"
 ### `asn1_parse_ecdsa_sig buf buf_len off len`
 
 
+### `asn1_parse_ecdsa_sig_max buf buf_len off len maxlen`
+
+> The same parse, refusing an r or s longer than the curve's scalar (maxlen bytes: 32, 48
+> or 66). The callers left-pad r and s into a maxlen-byte array, so a longer one wrote at a
+> negative index: memory before the array until 2026-11-18, a stopped process after
+> (2026-11-19, worklist E3). No valid signature has one: r and s are below the group order.
+
 ### `asn1_ec_fail _`
 
 
@@ -2615,6 +2622,13 @@ import "stdlib/<name>.rail"
 
 ### `https_session_open host ip port`
 
+> https_session_open verifies the certificate chain to the trust store. Until 2026-11-19 it
+> did not (it called the core with strict = 0 and an empty store), so the plain name was the
+> unauthenticated one and a caller had to know to ask for _strict. The unverified opener is
+> still here under a name that says so: it is for tests against a local server.
+
+### `https_session_open_unverified host ip port`
+
 
 ### `https_session_open_strict host ip port`
 
@@ -3287,6 +3301,11 @@ import "stdlib/<name>.rail"
 > Write the byte buffer to disk via hex+xxd pipeline. The resulting
 > file is also chmod +x so it's ready to codesign + run.
 > Returns 0 on success, non-zero on shell failure.
+> 
+> The bytes go to a new file that is then renamed over the path (2026-11-19). Writing into an
+> existing executable in place keeps its vnode, and macOS judges a signed binary by the
+> signature it cached for that vnode: after a run of the old file had crashed, every run of
+> the new one was `Killed: 9` until the cache let go (measured: 10 of 10 runs after a crash).
 
 
 ## `stdlib/map.rail`
@@ -4783,10 +4802,37 @@ import "stdlib/<name>.rail"
 ### `sh_fail _`
 
 
-### `sh_find_keyshare buf off end`
+### `sh_scan_new _`
+
+
+### `sh_scan_bad r`
+
+
+### `sh_scan buf off end r`
 
 
 ### `tls13_parse_server_hello buf len`
+
+> Until 2026-11-19 this read sid_len, the extension lengths and the key share wherever the
+> peer's bytes pointed, checked neither legacy_version, the compression byte nor
+> supported_versions, and answered valid with an all-zero share when no key_share was there
+> (worklist E3). A HelloRetryRequest is refused here too: its key_share has no key.
+
+### `tls13_sid_echoed ch sh`
+
+> RFC 8446 4.1.3: the ServerHello's legacy_session_id_echo must be the ClientHello's
+> legacy_session_id, byte for byte. Both arguments are handshake messages (type, u24 length,
+> version, 32 random, then the length byte at 38). 1 when it is echoed.
+
+### `tls13_sid_eq a b i end`
+
+
+### `tls13_all_zero buf n`
+
+> 1 when every one of the first n bytes is zero. An x25519 result of all zeros means the peer
+> sent a low-order point (RFC 7748 6.1): the "shared" secret is then known to anyone.
+
+### `tls13_az_at buf n i`
 
 
 ### `tls13_hs_read_msg buf off`
@@ -4795,8 +4841,15 @@ import "stdlib/<name>.rail"
 ### `tls13_parse_encrypted_extensions buf body_off body_len`
 
 
+### `tls13_cert_malformed _`
+
+
 ### `tls13_parse_certificate buf body_off body_len`
 
+> Every length here is the peer's, read before anything is authenticated, so each is
+> checked against the end of the body before it is used (2026-11-19, worklist E3: a
+> cert_data_length past the body was copied from whatever followed the buffer, and after
+> the runtime's bounds checks it stopped the process instead).
 
 ### `tls13_parse_certificate_verify buf body_off body_len`
 
