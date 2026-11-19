@@ -19,7 +19,7 @@ q = "\""
 now _ = time 0
 
 -- String → int (builtin to_int is float→int only)
-parse_int s = parse_int_acc (chars s) 0
+-- parse_int is a builtin: a definition here never ran (the builtin answers the call), removed 2026-11-18
 
 parse_int_acc cs acc =
   if length cs == 0 then acc

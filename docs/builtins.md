@@ -125,7 +125,8 @@ The `+` operator on strings also calls `append`:
 
 ### `length`
 
-Return the number of elements in a list, or the number of characters in a string.
+Return the number of elements in a list, or the number of bytes in a string (`length "héllo"`
+is 6: the text is UTF-8 and `é` is two bytes).
 
 ```rail
 length [1, 2, 3]     -- returns 3
@@ -260,6 +261,53 @@ trim "hello\nworld"    -- returns "hello"
 ```
 
 Note: `trim` in the compiler is defined as `head (split "\n" s)`, so it really just returns the first line.
+
+## Names, errors, arrays and string edges
+
+### Builtin names are reserved
+
+A top-level definition whose name is a builtin's (`range a b = ...`) is a compile error. Until
+2026-11-18 it compiled and every call still reached the builtin. The one exception is the
+`cat` helper many programs carry (`cat xs = join "" xs`), which is the builtin's own meaning.
+
+### `error`, `is_error`, `try`
+
+`error "msg"` makes an error value. Outside `try` it does not stop the program: the value is
+returned like any other, `is_error v` tells it from an ordinary value, and execution goes on.
+Inside `try (\_ -> body) (\e -> handler)` an `error` leaves the body and the handler runs.
+
+```rail
+let e = error "oops"
+is_error e                                   -- true; the next line still runs
+try (\_ -> error "boom") (\e -> 0 - 1)       -- -1
+```
+
+### Arrays
+
+`arr_new n v`, `arr_get a i`, `arr_set a i v`, `arr_len a`. On ARM64 an index outside
+`0 .. arr_len a - 1` in `arr_get` or `arr_set`, and a negative length to `arr_new`, end the
+program with a message on stderr and exit code 1 (`rail: array index out of bounds`,
+`rail: arr_new: negative length`). Float arrays and the x86_64 backend are not checked.
+
+### `str_sub`, `str_replace`, `str_split`
+
+`str_sub s start count` clamps to the string: a start past the end gives `""`, a count past
+the end gives what is there, a negative start counts as 0. `str_replace old new s` with an
+empty `old` returns `s`. `str_split delim s` with an empty `delim` returns `[s]`.
+
+### Literal type errors
+
+The compiler refuses the type errors it can see from a literal: arithmetic on a string, list,
+tuple or lambda literal (`"a" - 1`), such a literal passed to a top-level function that does
+arithmetic on that parameter, and a call to a name bound to a literal (`let g = 5` then
+`g 3`). Anything that needs inference is not checked at compile time; `rail types` reports
+more, and reports some working programs too, so it is advice.
+
+### Recursion depth
+
+A call that is not a tail call uses the machine stack. A recursion deep enough to exhaust it
+(tens of millions of frames on macOS) ends the process with a signal (`Bus error: 10`) and no
+Rail message. Write the loop as a tail call (an accumulator) and it runs in constant stack.
 
 ## Math
 

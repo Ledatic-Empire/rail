@@ -9,16 +9,7 @@ import "stdlib/json.rail"
 
 -- ── String helpers ──────────────────────────────────────────────────
 
-str_contains haystack needle =
-  let h = chars haystack
-  let n = chars needle
-  let nlen = length n
-  str_contains_loop h n nlen
-
-str_contains_loop h n nlen =
-  if length h < nlen then 0
-  else if str_prefix_match h n nlen then 1
-  else str_contains_loop (tail h) n nlen
+-- str_contains is a builtin: a definition here never ran (the builtin answers the call), removed 2026-11-18
 
 str_prefix_match h n nlen =
   if nlen == 0 then 1
@@ -145,7 +136,7 @@ get_diagnostics uri =
 
 uri_to_path uri =
   -- Remove file:// prefix
-  if str_contains uri "file://" == 1 then
+  if str_contains "file://" uri then
     let cs = chars uri
     let dropped = drop 7 cs
     join "" dropped
@@ -156,7 +147,7 @@ parse_diag_lines lines acc =
   else
     let line = head lines
     -- Look for "Error" or "error" in the line
-    if str_contains line "rror" == 1 then
+    if str_contains "rror" line then
       let diag = make_diagnostic line
       parse_diag_lines (tail lines) (cons diag acc)
     else parse_diag_lines (tail lines) acc
@@ -172,7 +163,7 @@ make_diagnostic msg =
 
 extract_line_num msg =
   -- Try to find "line N" pattern
-  if str_contains msg "line " == 1 then
+  if str_contains "line " msg then
     let after = str_after msg "line "
     parse_leading_int (chars after) 0
   else 0

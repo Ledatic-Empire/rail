@@ -53,12 +53,7 @@ parse_int_acc cs acc =
   if length cs == 0 then acc
   else parse_int_acc (tail cs) (acc * 10 + char_to_digit (head cs))
 
-parse_int s =
-  let t = trim s
-  let cs = chars t
-  if length cs == 0 then 0
-  else if head cs == "-" then 0 - parse_int_acc (tail cs) 0
-  else parse_int_acc cs 0
+-- parse_int is a builtin: a definition here never ran (the builtin answers the call), removed 2026-11-18
 
 -- ---------- RNG: 32-bit LCG (Numerical Recipes) ----------
 -- We thread the state explicitly because Rail has no mutable refs.

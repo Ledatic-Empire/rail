@@ -56,7 +56,7 @@ is_inf x =
   else if xf <. (0.0 -. 1.0e308) then 1
   else 0
 
--- Finite = not NaN and not infinite. Avoids && (no short-circuit) by nesting.
+-- Finite = not NaN and not infinite. Nested ifs, written when && evaluated both sides.
 is_finite x =
   if is_nan x == 1 then 0
   else if is_inf x == 1 then 0

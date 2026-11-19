@@ -67,7 +67,7 @@ def same_kind(a, b):
 
 def evaluate(tree, env=None, fuel=None):
     env = {} if env is None else env
-    fuel = [10000] if fuel is None else fuel
+    fuel = [10000, 0] if fuel is None else fuel      # [steps left, lines the program prints first]
     fuel[0] -= 1
     if fuel[0] < 0:
         raise DomainError("reference fuel exhausted")
@@ -100,11 +100,22 @@ def evaluate(tree, env=None, fuel=None):
             raise DomainError("loop count out of domain")
         acc = number(ev(acc_tree))
         c = number(ev(ctree))
+        # 2026-11-18 shapes (worklist A1): the exit test reads the accumulator, or reads the
+        # counter with `<`. The bottom-test rewrite assumed `n == 0` and returned early.
+        if step == "accstop":
+            acc, c = integer(acc), integer(c)
+            if c - acc > 64:
+                raise DomainError("accstop distance out of domain")
+            return max(acc, c)
+        if step == "neglt":
+            n += 1
         for _ in range(n):
             # 2026-09-11 shapes (findings F-1003-22/901/902/903): a compound
             # operand, a let-bound argument, a literal argument. Each was
             # lowered wrongly by the tail self-call loop while `acc OP c` passed.
-            if step == "cdiv":
+            if step == "neglt":
+                acc = arith("add", acc, c)
+            elif step == "cdiv":
                 acc = arith("div", arith("add", acc, c), 3)
             elif step == "letmul":
                 acc = arith("mul", acc, c)
@@ -113,6 +124,22 @@ def evaluate(tree, env=None, fuel=None):
             else:
                 acc = arith(step, acc, c)
         return acc
+    if op == "fold":
+        # ["fold", param, shape, init, k]: fold (\param b -> BODY) init (range k); k is a
+        # literal, negative k is the empty range. param may be a name already in scope: the
+        # lambda's parameter must win (worklist A2: a rewrite captured the outer name).
+        pname, shape, init, k = args
+        acc = integer(ev(init))
+        for b in range(max(k, 0)):
+            acc = arith("add", acc, acc if shape == "dbl" else b)
+        return acc
+    if op == "ticks":
+        # ["ticks", name, n]: (name n + name n), where name n = tick n + name (n - 1) and
+        # tick prints a line. Every call prints (worklist A3: the second was served from a
+        # memo table, because purity did not look at what the callee does).
+        name, n = args
+        fuel[1] += 2 * n
+        return n * (n + 1)
     if op == "var":
         if args[0] not in env:
             raise DomainError("unbound variable")
@@ -219,9 +246,19 @@ def kind_of(tree, env=None):
         name, n, acc, step, c = a
         if kind_of(n, env) not in ("int", "any"):
             raise DomainError("loop count must be int")
+        if step in ("accstop", "neglt"):
+            if kind_of(acc, env) not in ("int", "any") or kind_of(c, env) != "int":
+                raise DomainError("int-only loop shape")
+            return "int"
         if step in ("cdiv", "letmul", "lit"):
             return join_kind("add", kind_of(acc, env), kind_of(c, env))
         return join_kind(step, kind_of(acc, env), kind_of(c, env))
+    if op == "fold":
+        if kind_of(a[2], env) not in ("int", "any"):
+            raise DomainError("fold accumulator must be int")
+        return "int"
+    if op == "ticks":
+        return "int"
     if op in ("iflt", "fiflt"):
         kl, kr = kind_of(a[0], env), kind_of(a[1], env)
         if "any" not in (kl, kr) and kl != kr:
@@ -276,6 +313,12 @@ def render(e):
     if op == "loop":
         name, n, acc, step, c = a
         return f"({name} {render(n)} {render(acc)})"
+    if op == "fold":
+        pname, shape, init, k = a
+        body = f"\\{pname} _ -> {pname} + {pname}" if shape == "dbl" else f"\\{pname} b -> {pname} + b"
+        return f"(fold ({body}) {render(init)} (range {render(['int', k])}))"
+    if op == "ticks":
+        return f"({a[0]} {a[1]} + {a[0]} {a[1]})"
     if op == "fiflt":
         return f"(if {render(a[0])} <. {render(a[1])} then {render(a[2])} else {render(a[3])})"
     if op == "var":
@@ -313,7 +356,11 @@ def decls(e, acc=None):
     elif op == "loop":
         name, n, a, step, c = e[1:]
         decls(n, acc); decls(a, acc); decls(c, acc)
-        if step == "cdiv":
+        if step == "accstop":
+            acc.setdefault(name, f"{name} n acc = if acc >= {render(c)} then acc else {name} (n - 1) (acc + 1)")
+        elif step == "neglt":
+            acc.setdefault(name, f"{name} n acc = if n < 0 then acc else {name} (n - 1) (acc + {render(c)})")
+        elif step == "cdiv":
             acc.setdefault(name, f"{name} n acc = if n == 0 then acc else {name} (n - 1) ((acc + {render(c)}) / 3)")
         elif step == "letmul":
             acc.setdefault(name, f"{name} n acc = if n == 0 then acc else let v = acc * {render(c)} in {name} (n - 1) v")
@@ -323,6 +370,10 @@ def decls(e, acc=None):
             sym = {"add": "+", "sub": "-", "mul": "*", "div": "/", "mod": "%",
                    "fadd": "+.", "fsub": "-.", "fmul": "*.", "fdiv": "/."}[step]
             acc.setdefault(name, f"{name} n acc = if n == 0 then acc else {name} (n - 1) (acc {sym} {render(c)})")
+    elif op == "ticks":
+        name = e[1]
+        acc.setdefault(name + "t", f"{name}t v =\n  let _ = print \"t\"\n  v")
+        acc.setdefault(name, f"{name} n = if n <= 0 then 0 else {name}t n + {name} (n - 1)")
     else:
         for x in e[1:]:
             if isinstance(x, list):
@@ -354,6 +405,13 @@ def source(e, position="argument"):
 
 def expected_text(value):
     return ("%.17g" % value) if type(value) is float else str(value)
+
+
+def printed_first(tree):
+    """The lines a program prints before its result: one "t" per tick call the reference ran."""
+    fuel = [10000, 0]
+    evaluate(tree, None, fuel)
+    return "t\n" * fuel[1]
 
 
 def generate(rng, depth, names=(), floats=True, counter=None):
@@ -389,11 +447,18 @@ def generate(rng, depth, names=(), floats=True, counter=None):
             params = tuple(f"p{i}" for i in range(k))
             body = generate(rng, depth - 1, params, floats, counter)
             return ["fn2", fresh("f"), list(params), body, [child() for _ in params]]
-        step = rng.choice(["add", "sub", "mul", "add", "fadd", "fmul", "fsub", "cdiv", "letmul", "lit"])
+        step = rng.choice(["add", "sub", "mul", "add", "fadd", "fmul", "fsub", "cdiv", "letmul", "lit",
+                           "accstop", "neglt"])
         cval = (["float", rng.choice(FLOATS)] if step.startswith("f")
+                else ["int", rng.choice([1, 2, 3, 7, 10])] if step == "accstop"
                 else ["int", rng.choice([1, 2, 3, 7, 4096, 65536, 100000, -3])])
         acc = ["float", rng.choice(FLOATS)] if step.startswith("f") else child()
         return ["loop", fresh("loop"), ["int", rng.randint(0, 12)], acc, step, cval]
+    if rng.randrange(8) == 0:      # the worklist A2 and A3 classes (2026-11-18)
+        if rng.randrange(2):
+            pname = rng.choice(names) if names and rng.randrange(2) else "a"
+            return ["fold", pname, rng.choice(["dbl", "sum"]), child(), rng.randint(-3, 8)]
+        return ["ticks", fresh("tk"), rng.randint(0, 4)]
     kind = rng.randrange(10)
     if kind < 3:
         return [["add", "sub", "mul"][kind], child(), child()]
@@ -441,6 +506,12 @@ def controls():
         ["call", ["call", ["fn", "x", ["fn", "y", ["add", ["var", "x"], ["var", "y"]]]], ["int", 8]], ["int", 3]],
         ["iflt", ["int", 1], ["int", 2], ["int", 7], ["div", ["int", 1], ["int", 0]]],
         ["length", ["list"]],
+        # worklist 2026-11-18, part A: each of these printed a wrong answer on 5c2ef0f
+        ["loop", "loopa1", ["int", 3], ["int", 0], "accstop", ["int", 10]],
+        ["loop", "loopa2", ["int", 3], ["int", 0], "neglt", ["int", 1]],
+        ["let", "a", ["int", 10], ["fold", "a", "dbl", ["int", 1], 3]],
+        ["fold", "a", "sum", ["int", 0], -3],
+        ["ticks", "tka", 3],
     ]
 
 
@@ -483,7 +554,7 @@ class Runner:
     def check(self, tree):
         kind_of(tree)
         value = number(evaluate(tree))
-        expected = ("1" if self.position == "comparison" else expected_text(value)) + "\n"
+        expected = printed_first(tree) + ("1" if self.position == "comparison" else expected_text(value)) + "\n"
         with tempfile.TemporaryDirectory(prefix="rail-semantic-") as scratch:
             src, binary = Path(scratch) / "case.rail", Path(scratch) / "program"
             src.write_text(source(tree, self.position))

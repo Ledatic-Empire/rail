@@ -70,10 +70,7 @@ read_file_size path =
 -- one byte per element.  Empty array on missing file.  Walks the
 -- malloc'd C buffer with byte_at -> arr_set so the binary contents
 -- survive intact (no NUL truncation, no chars-of-string detour).
-read_file_bytes path =
-  let fp = fopen path "rb"
-  if fp == 0 then arr_new 0 0
-  else read_file_bytes_open fp path
+-- read_file_bytes is a builtin: a definition here never ran (the builtin answers the call), removed 2026-11-18
 
 read_file_bytes_open fp path =
   let _ = fseek fp 0 2

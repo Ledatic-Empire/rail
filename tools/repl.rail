@@ -32,13 +32,26 @@ repl_loop defs n =
     let path = str_sub line 6 (length (chars line) - 6)
     let new_defs = repl_load defs path
     repl_loop new_defs n
+  else if str_sub line 0 4 == "let " then
+    -- `let x = 5` is kept as the top-level definition `x = 5`
+    let new_defs = join "\n" [defs, str_sub line 4 (length line - 4)]
+    if defs_compile new_defs then
+      let _ = print "  (defined)"
+      repl_loop new_defs n
+    else
+      let _ = print "  (not defined)"
+      repl_loop defs n
   else
-    -- Classify: definition (contains = not in let) or expression
+    -- Classify: definition (a bare = outside a string) or expression
     let is_def = is_definition line
     if is_def then
       let new_defs = join "\n" [defs, line]
-      let _ = print "  (defined)"
-      repl_loop new_defs n
+      if defs_compile new_defs then
+        let _ = print "  (defined)"
+        repl_loop new_defs n
+      else
+        let _ = print "  (not defined)"
+        repl_loop defs n
     else
       -- Expression: wrap in main, compile, run
       let src = make_program defs line n
@@ -106,14 +119,46 @@ write_str s =
   let _ = shell "printf '%s' \"$(cat /tmp/rail_prompt.txt)\""
   0
 
--- Check if line is a definition: has = but doesn't start with "let " or "if "
+-- A line is a definition when it starts like a name and holds a bare `=` outside a string:
+-- not `==`, `!=`, `<=` or `>=` (until 2026-11-18 any `=` counted, so `3 == 3` was stored as
+-- a definition and every later line failed to compile).
 is_definition line =
-  if str_contains "=" line then
-    if str_sub line 0 4 == "let " then false
-    else if str_sub line 0 3 == "if " then false
-    else if str_sub line 0 1 == "(" then false
-    else true
+  if str_sub line 0 4 == "let " then false
+  else if str_sub line 0 3 == "if " then false
+  else if str_sub line 0 6 == "match " then false
+  else if starts_like_name (str_sub line 0 1) then bare_eq (chars line) "" false
   else false
+
+starts_like_name c =
+  if c == "_" then true
+  else if c == "" then false
+  else str_contains c "abcdefghijklmnopqrstuvwxyz"
+
+bare_eq cs prev inq =
+  if length cs == 0 then false
+  else
+    let c = head cs
+    let rest = tail cs
+    if c == "\"" then bare_eq rest c (if inq then false else true)
+    else if inq then bare_eq rest c inq
+    else if c == "=" then
+      let nx = if length rest == 0 then "" else head rest
+      if nx == "=" then bare_eq (tail rest) "=" inq
+      else if prev == "!" then bare_eq rest c inq
+      else if prev == "<" then bare_eq rest c inq
+      else if prev == ">" then bare_eq rest c inq
+      else true
+    else bare_eq rest c inq
+
+-- A definition is kept only when the session still compiles with it, so one bad line
+-- cannot poison the lines after it.
+defs_compile defs =
+  let _ = write_file "/tmp/rail_repl_chk.rail" (join "\n" [defs, "main = 0\n"])
+  let out = shell "./rail_native --out-prefix /tmp/rail_repl_chk run /tmp/rail_repl_chk.rail 2>&1; echo \"rc=$?\""
+  if str_contains "rc=0" out then true
+  else
+    let _ = print_result out
+    false
 
 -- Build a complete Rail program from defs + expression
 make_program defs expr n =
@@ -131,6 +176,9 @@ print_meaningful lines =
     let line = head lines
     -- Skip compile output lines
     if str_sub line 0 9 == "Compiling" then print_meaningful (tail lines)
+    else if str_sub line 0 6 == "wrote " then print_meaningful (tail lines)
+    else if str_sub line 0 3 == "rc=" then print_meaningful (tail lines)
+    else if str_sub line 0 10 == "  link: OK" then print_meaningful (tail lines)
     else if str_sub line 0 5 == "  as:" then print_meaningful (tail lines)
     else if str_sub line 0 5 == "  ld:" then print_meaningful (tail lines)
     else if str_sub line 0 3 == "sh:" then

@@ -95,6 +95,8 @@ def tree_programs():
     progs = []
     for f in files:
         path = REPO / f
+        if not path.is_file():
+            continue  # deleted or renamed in the working tree, still in the index
         src = path.read_text(errors='replace')
         if re.search(r'^main\b', src, re.MULTILINE) and safe(path, set()):
             progs.append((f, None))

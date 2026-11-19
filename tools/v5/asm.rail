@@ -444,8 +444,8 @@ asm_enc_add ops =
   let word =
     if c0 == "#" then
       let imm = asm_imm op2
-      -- NOTE: Rail && does NOT short-circuit, so `head rest` must be gated by a
-      -- NESTED if (rest != []), never `(rest != []) && (... head rest ...)`.
+      -- Written when && evaluated both sides (it short-circuits since 2026-11-18): the
+      -- nested if on rest != [] is the guard for `head rest`.
       if rest != [] then
         (if (asm_imm (asm_after_lsl (head rest))) == 12 then enc_add_imm_sh dst n imm 1
          else enc_add_imm dst n imm)

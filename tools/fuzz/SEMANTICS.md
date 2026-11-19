@@ -66,6 +66,28 @@ artifact. Larger local campaigns can use different seeds and depths.
 - Hoisted names come from a per-campaign counter, so a seed is deterministic.
   `--no-floats` restores the milestone 1 grammar.
 
+## Milestone 3 (2026-11-18): the rewrites that changed answers
+
+Three optimizer rewrites printed wrong answers on 5c2ef0f and no generated
+program had their shape. The grammar now has them, and each is also a control:
+
+- **Loops whose exit test is not `n == 0`** (`loop` steps `accstop` and
+  `neglt`): `name n acc = if acc >= c then acc else name (n - 1) (acc + 1)` and
+  `name n acc = if n < 0 then acc else name (n - 1) (acc + c)`. Int only; the
+  reference refuses an `accstop` that would run more than 64 steps.
+- **Folds whose lambda parameter shadows a name in scope** (`fold`):
+  `fold (\a _ -> a + a) init (range k)` and `fold (\a b -> a + b) init (range k)`
+  with `k` in -3..8 (a negative range is empty) and the parameter drawn from
+  the enclosing scope half the time.
+- **Callees that print** (`ticks`): `name n + name n`, where `name` calls a
+  function that prints `t` and returns its argument. The reference counts the
+  lines (`printed_first`), so this is the one place the expected output is more
+  than one line: every call must print, and only when its branch is taken.
+
+Proof it can fail: `--cases 0` against the 5c2ef0f compiler fails all 5 new
+controls in all 4 positions (20 of 84 comparisons); the same run on the fixed
+compiler passes 84 of 84.
+
 First campaign result: 8 of 8 remaining failures on seeds 42 and 2026 reduce
 to one program, `mul2c a b = a * b` returning 0.12500000000000006
 (`known/float_param_bare_mul_lsb`).

@@ -582,8 +582,8 @@ import "stdlib/<name>.rail"
 
 ### `bpe_is_match arr n a b i`
 
-> Detect a match at position i. Guarded: no short-circuit in `&&`, so
-> nested ifs do the bounds-safe check.
+> Detect a match at position i. The nested ifs do the bounds-safe check (written when
+> `&&` evaluated both sides).
 
 ### `bpe_delta_scan arr n a b nid counts i run_k L`
 
@@ -1134,15 +1134,6 @@ import "stdlib/<name>.rail"
 
 ### `dns_servers _`
 
-> Read /etc/resolv.conf and collect EVERY IPv4 nameserver, in order,
-> with 1.1.1.1 appended as a last resort.
-> 
-> Using only the first nameserver was a single point of failure. On
-> 2026-08-28 Tailscale's MagicDNS sat at the top of resolv.conf,
-> accepted our query, and never answered it (sent=29, got=-1), while
-> the very next server answered normally. A resolver that accepts and
-> drops is indistinguishable from having no network at all, so every
-> Rail HTTPS consumer went dark at once, attestation signing included.
 
 ### `split_lines s`
 
@@ -1555,9 +1546,6 @@ import "stdlib/<name>.rail"
 
 ### `ed_d_bytes _`
 
-> Ed25519 "d" curve param = -121665 / 121666 (mod p), verified via
-> Python: (-121665 * pow(121666, -1, 2**255-19)) % (2**255-19). Canonical
-> 32-byte little-endian:
 
 ### `ed_sqrt_m1_bytes _`
 
@@ -1752,7 +1740,6 @@ import "stdlib/<name>.rail"
 
 ### `sc_l_bytes _`
 
-> ── L as 32-byte LE constant ──────────────────────────────────────────
 
 ### `sc_bn_add_inplace a b n`
 
@@ -2007,13 +1994,6 @@ import "stdlib/<name>.rail"
 ### `read_file_size path`
 
 > Returns the size in bytes; -1 if the file can't be opened.
-
-### `read_file_bytes path`
-
-> Returns an int array of length file_size with the file's raw bytes,
-> one byte per element.  Empty array on missing file.  Walks the
-> malloc'd C buffer with byte_at -> arr_set so the binary contents
-> survive intact (no NUL truncation, no chars-of-string detour).
 
 ### `read_file_bytes_open fp path`
 
@@ -2890,11 +2870,18 @@ import "stdlib/<name>.rail"
 > plus a multi-line lambda inside `map`, defeated the parser; flat
 > helpers parse cleanly and read better anyway.
 
+### `json_escape s`
+
+> A string goes out with its quote, backslash and control characters escaped (until
+> 2026-11-18 it went out raw, so a quote inside a value produced text no parser reads back).
+
 ### `json_encode_str val`
 
 
 ### `json_encode_num val`
 
+> A parsed number carries its source token at index 2; writing that back keeps 1.5 as 1.5.
+> A number built by hand, ["num", n], is written from its integer.
 
 ### `json_encode_bool val`
 
@@ -3381,7 +3368,7 @@ import "stdlib/<name>.rail"
 
 ### `is_finite x`
 
-> Finite = not NaN and not infinite. Avoids && (no short-circuit) by nesting.
+> Finite = not NaN and not infinite. Nested ifs, written when && evaluated both sides.
 
 
 ## `stdlib/math_exact.rail`
@@ -4197,15 +4184,6 @@ import "stdlib/<name>.rail"
 ### `sockaddr_in_size`
 
 
-### `parse_int s`
-
-> Pure-Rail string→int parser. (The builtin to_int is float→int, NOT
-> string→int — that misled the first version of parse_ip into always
-> returning 0, which made bind_udp/sendto silently use 0.0.0.0 as the
-> destination. Also: through ~2026-04-15 `char_to_int` itself was
-> broken on runtime strings and this parser silently returned 0 for
-> every digit; fixed in compile.rail with `bl _str_unwrap`.)
-
 ### `parse_int_acc cs acc`
 
 
@@ -4462,7 +4440,6 @@ import "stdlib/<name>.rail"
 
 ### `starts_with prefix s`
 
-> Check if string starts with prefix
 
 ### `starts_with_acc pcs scs`
 
