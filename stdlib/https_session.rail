@@ -20,8 +20,9 @@
 --   [11] pending_n    (int; len of pending; 0 once CF has been flushed)
 --
 -- Public API:
---   https_session_open        host ip port        -> session
---   https_session_open_strict host ip port        -> session (chain-to-root)
+--   https_session_open        host ip port        -> session (chain verified to the trust store)
+--   https_session_open_strict host ip port        -> session (the same; the older name)
+--   https_session_open_unverified host ip port    -> session (no chain check; local tests only)
 --   https_session_get         session path        -> (status, body, session')
 --   https_session_post        session path ct body hdrs -> (status, body, session')
 --   https_session_close       session             -> int
@@ -153,7 +154,13 @@ hss_build_handle fd host c_hs fsm =
 
 -- ── Public open constructors ──────────────────────────────────────────
 
-https_session_open host ip port =
+-- https_session_open verifies the certificate chain to the trust store. Until 2026-11-19 it
+-- did not (it called the core with strict = 0 and an empty store), so the plain name was the
+-- unauthenticated one and a caller had to know to ask for _strict. The unverified opener is
+-- still here under a name that says so: it is for tests against a local server.
+https_session_open host ip port = https_session_open_strict host ip port
+
+https_session_open_unverified host ip port =
   let fd = hc_connect_tcp ip port
   if fd < 0 then hss_fail "connect failed"
   else

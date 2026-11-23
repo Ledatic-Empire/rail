@@ -108,7 +108,7 @@ check_tag_vs_site() {
     [ "$page" = "index.html" ] && url="https://ledatic.org/"
     local banners
     banners=$(curl -fsS --max-time 5 "$url" 2>/dev/null \
-      | grep -oE 'v3\.[0-9]+\.[0-9]+' | sort -u)
+      | grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' | sort -u)
     [ -z "$banners" ] && continue
     local highest
     highest=$(echo "$banners" | sort -V | tail -1)

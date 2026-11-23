@@ -95,6 +95,10 @@ _rail_float_arr_new:
     stp x29, x30, [sp, #-48]!
     mov x29, sp
     asr x2, x0, #1
+    cmp x2, #0
+    b.ge .Lfan_len_ok
+    b _rail_arr_neg
+.Lfan_len_ok:
     str x2, [x29, #16]
     fmov d0, x1
     str d0, [x29, #24]
@@ -119,10 +123,19 @@ _rail_float_arr_new:
     ldp x29, x30, [sp], #48
     ret
 
+// Float arrays are [length (raw), doubles]. Since 2026-11-19 get and set check the index
+// against the length (unsigned, so a negative index fails too) and end the program through
+// _rail_arr_oob; float_arr_new refuses a negative length and float_arr_to_f32_file a count
+// past the length. Before, each read or wrote whatever was there.
 // float_arr_get: x0 = arr, x1 = idx (tagged) → raw double bits in x0
 //@ let rfarrget
 _rail_float_arr_get:
     asr x1, x1, #1
+    ldr x3, [x0]
+    cmp x1, x3
+    b.lo .Lfag_ok
+    b _rail_arr_oob
+.Lfag_ok:
     add x1, x1, #1
     ldr d0, [x0, x1, lsl #3]
     fmov x0, d0
@@ -132,6 +145,11 @@ _rail_float_arr_get:
 //@ let rfarrset
 _rail_float_arr_set:
     asr x1, x1, #1
+    ldr x3, [x0]
+    cmp x1, x3
+    b.lo .Lfas_ok
+    b _rail_arr_oob
+.Lfas_ok:
     add x1, x1, #1
     fmov d0, x2
     str d0, [x0, x1, lsl #3]
@@ -156,6 +174,11 @@ _rail_float_arr_to_f32_file:
     str x21, [x29, #64]
     str x1, [x29, #16]
     asr x2, x2, #1
+    ldr x3, [x1]
+    cmp x2, x3
+    b.ls .Lf32_n_ok
+    b _rail_arr_oob
+.Lf32_n_ok:
     str x2, [x29, #24]
     bl _str_unwrap
     mov x1, #0x601

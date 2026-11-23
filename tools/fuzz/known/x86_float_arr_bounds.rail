@@ -1,0 +1,8 @@
+-- x86_float_arr_bounds: float_arr_set at -1 is refused on x86-64 too (2026-11-19).
+main =
+  let xs = float_arr_new 3 1.5
+  let _ = float_arr_set xs 2 2.5
+  let _ = print (show (float_arr_len xs))
+  let _ = float_arr_set xs (0 - 1) 2.5
+  let _ = print "not reached"
+  0

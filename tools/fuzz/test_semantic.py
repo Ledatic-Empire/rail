@@ -22,7 +22,19 @@ class ReferenceTests(unittest.TestCase):
         s.ALLOW_MIXED[0] = False
         self.assertEqual(got[:6], [0.1 + 0.2, 1.0000000000000002 / 3.0, 0.125, 0.765625, 10**10, 1.0999999999999999])
         self.assertEqual(got[7], 1)
-        self.assertEqual(got[8:], [42, -2, -1, 1, 12, 11, 7, 0])
+        self.assertEqual(got[8:], [42, -2, -1, 1, 12, 11, 7, 0, 10, 4, 8, 0, 12])
+
+    def test_worklist_part_a_shapes(self):
+        # hand calculations for the 2026-11-18 node kinds, and the lines a tick program prints
+        self.assertEqual(s.evaluate(["loop", "l", ["int", 3], ["int", 12], "accstop", ["int", 10]]), 12)
+        self.assertEqual(s.evaluate(["loop", "l", ["int", 0], ["int", 5], "neglt", ["int", 7]]), 12)
+        self.assertEqual(s.evaluate(["fold", "a", "sum", ["int", 1], 4]), 1 + 0 + 1 + 2 + 3)
+        self.assertEqual(s.printed_first(["add", ["ticks", "k", 2], ["ticks", "k", 1]]), "t\n" * 6)
+        self.assertEqual(s.printed_first(["iflt", ["int", 1], ["int", 2], ["int", 0], ["ticks", "k", 4]]), "")
+        self.assertIn("\\a _ -> a + a", s.render(["fold", "a", "dbl", ["int", 1], 3]))
+        self.assertIn("kt v =", "\n".join(s.decls(["ticks", "k", 2]).values()))
+        with self.assertRaises(s.DomainError):
+            s.evaluate(["loop", "l", ["int", 3], ["int", -500], "accstop", ["int", 10]])
 
     def test_float_semantics_and_rendering(self):
         self.assertEqual(s.evaluate(["fdiv", ["float", 1.0], ["float", 4.0]]), 0.25)

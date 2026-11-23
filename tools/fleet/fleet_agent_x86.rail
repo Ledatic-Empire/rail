@@ -94,7 +94,7 @@ check_auth headers token =
 -- Whitelist
 load_whitelist _ =
   let raw = shell "cat ~/.fleet/allowed_commands 2>/dev/null || echo ''"
-  let nonempty line = length line > 0
+  let nonempty = \line -> length line > 0
   filter nonempty (split "\n" raw)
 
 cmd_allowed cmd whitelist =
@@ -173,9 +173,9 @@ handle_status_win _ =
   let disk = get_disk_win 0
   let uptime = get_uptime_win 0
   let svc_raw = get_services_win 0
-  let nonempty line = length line > 0
+  let nonempty = \line -> length line > 0
   let svc_lines = filter nonempty (split "\n" svc_raw)
-  let quote_svc s = cat [q, s, q]
+  let quote_svc = \s -> cat [q, s, q]
   let svc_json = map quote_svc svc_lines
   let svc_arr = cat ["[", join ", " svc_json, "]"]
   let tl = trim (shell "grep '^level=' ~/rail_training/progress.txt 2>/dev/null | cut -d= -f2 || echo ''")
@@ -194,9 +194,9 @@ handle_status_unix _ =
   let disk = get_disk_unix 0
   let uptime = get_uptime_unix 0
   let svc_raw = get_services_unix 0
-  let nonempty line = length line > 0
+  let nonempty = \line -> length line > 0
   let svc_lines = filter nonempty (split "\n" svc_raw)
-  let quote_svc s = cat [q, s, q]
+  let quote_svc = \s -> cat [q, s, q]
   let svc_json = map quote_svc svc_lines
   let svc_arr = cat ["[", join ", " svc_json, "]"]
   let tl = trim (shell "grep '^level=' ~/projects/rail-https/training/self_train/progress.txt 2>/dev/null | cut -d= -f2 || echo ''")

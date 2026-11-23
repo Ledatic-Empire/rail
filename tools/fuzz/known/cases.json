@@ -104,10 +104,10 @@
   "compile error:",
   "++ is not a Rail operator anywhere (not in the grammar, not in stdlib); strings concatenate with + or join \"\" [..]. Since 2026-09-07 the parser says so instead of \"unexpected operator +\""
  ],
- "and_or_eager": [
+ "and_or_short_circuit": [
   "semantics",
-  "7\n0",
-  "&& and || evaluate BOTH sides; the right side runs even when the left is false (documented in docs/STATUS.md)"
+  "0",
+  "&& and || short-circuit since 2026-11-18 (t293): the right side does not run when the left settles the answer. Until then both sides ran and this case pinned 7 then 0"
  ],
  "div_mod_truncate": [
   "semantics",

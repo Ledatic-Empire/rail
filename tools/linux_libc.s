@@ -722,104 +722,353 @@ _snprintf:
     b .Lsnpf_done
 
 .Lsnpf_float:
-    // d0 still holds the float value (callers do `str d0, [sp, #-16]!`
-    // before bl _snprintf, but that's a Mac-vararg quirk; AAPCS64
-    // keeps it in d0 and we never clobber it before this point).
-    ldr x4, [x29, #16]   // buf
-    mov x7, #0            // write idx
-    // sign
-    fmov x1, d0
-    tst x1, #0x8000000000000000
-    b.eq .Lsnpf_f_pos
-    fneg d0, d0
-    mov w1, #45           // '-'
-    strb w1, [x4, x7]
-    add x7, x7, #1
-.Lsnpf_f_pos:
-    // zero
-    fcmp d0, #0.0
-    b.ne .Lsnpf_f_nonzero
-    mov w1, #48           // '0'
-    strb w1, [x4, x7]
-    add x7, x7, #1
-    b .Lsnpf_f_emit_done
-.Lsnpf_f_nonzero:
-    // d0 *= 1e6 (shift 6 decimal places into the integer part).
-    adrp x0, _1e6_f64
-    ldr d1, [x0, :lo12:_1e6_f64]
-    fmul d0, d0, d1
-    frinta d0, d0
-    fcvtzs x0, d0
-    // Push x0's decimal digits (LSD first) onto the stack in 16-byte
-    // slots, count digits in x2.
-    mov x2, #0
-    mov x3, #10
-    cbnz x0, .Lsnpf_f_div
-    // After multiply+round, x0 is 0 — the original was so small it
-    // collapsed. Emit "0" and exit.
-    mov w1, #48
-    strb w1, [x4, x7]
-    add x7, x7, #1
-    b .Lsnpf_f_emit_done
-.Lsnpf_f_div:
-    udiv x5, x0, x3
-    msub x6, x5, x3, x0
-    add x6, x6, #48
-    str x6, [sp, #-16]!
-    add x2, x2, #1
-    mov x0, x5
-    cbnz x0, .Lsnpf_f_div
-    // Pad with leading zeros so total digit count is at least 7
-    // (leaves room for the implicit "0." prefix on values < 1).
-.Lsnpf_f_pad:
-    cmp x2, #7
-    b.ge .Lsnpf_f_pad_done
-    mov x6, #48
-    str x6, [sp, #-16]!
-    add x2, x2, #1
-    b .Lsnpf_f_pad
-.Lsnpf_f_pad_done:
-    // x2 = total digit count. Decimal point goes at column (x2-6) from
-    // the left (so the last 6 digits become the fractional part).
-    sub x3, x2, #6
-    mov x9, #0
-.Lsnpf_f_emit:
-    cmp x9, x3
-    b.ne .Lsnpf_f_emit_no_dot
-    cbz x9, .Lsnpf_f_emit_no_dot
-    mov w1, #46           // '.'
-    strb w1, [x4, x7]
-    add x7, x7, #1
-.Lsnpf_f_emit_no_dot:
-    ldr x6, [sp], #16
-    strb w6, [x4, x7]
-    add x7, x7, #1
-    add x9, x9, #1
-    cmp x9, x2
-    b.lt .Lsnpf_f_emit
-    // Trim trailing zeros after the decimal. Walk back from x7-1 while
-    // we see '0'. If we end on '.', drop it too.
-    sub x9, x7, #1
-.Lsnpf_f_trim:
-    ldrb w6, [x4, x9]
-    cmp w6, #48
-    b.ne .Lsnpf_f_trim_done
-    sub x9, x9, #1
-    sub x7, x7, #1
-    b .Lsnpf_f_trim
-.Lsnpf_f_trim_done:
-    cmp w6, #46
-    b.ne .Lsnpf_f_emit_done
-    sub x7, x7, #1
-.Lsnpf_f_emit_done:
-    // NUL-terminate
-    mov w1, #0
-    strb w1, [x4, x7]
-    mov x0, x7
+    // d0 still holds the value (AAPCS64 keeps it there; nothing above clobbers it). The format
+    // is "%.15g" or "%.17g": the second precision digit picks the count.
+    ldr x0, [x29, #16]
+    ldrb w1, [x2, #3]
+    sub w1, w1, #38       // '5' is 15, '7' is 17
+    bl _rail_fmt_g
     b .Lsnpf_done
 
 .Lsnpf_done:
     ldp x29, x30, [sp], #48
+    ret
+
+// _rail_fmt_g: x0 = buffer, x1 = precision P, d0 = value. Writes what C's "%.<P>g" writes,
+// NUL-terminated, and returns the length. Exact: the double is expanded to decimal digits with
+// integer arithmetic on 32-bit limbs (no float operation), then rounded half-to-even at P
+// significant digits, so the text is the one macOS's libc prints. Leaf: calls nothing.
+//
+// Written 2026-11-19. What stood here multiplied by 1e6 and printed the integer: six decimals
+// at most (show_float (1.0 /. 3.0) gave 0.333333, macOS 0.333333333333333), a saturated
+// 9223372036854.775807 for 1.0e21, and 0.1 where show_float_exact owes 0.10000000000000001.
+//
+// Frame: limbs at sp+0 (40 slots of 8 bytes, one 32-bit limb each), digits around sp+720
+// (integer digits grow down from there, fraction digits grow up).
+// x13 = first digit, x14 = one past the last, x15 = decimal exponent of the first digit,
+// x16 = nonzero when value remains beyond the digits produced.
+_rail_fmt_g:
+    sub sp, sp, #1408
+    mov x17, x0
+    mov x8, x0
+    fmov x9, d0
+    tbz x9, #63, .Lfg_pos
+    mov w2, #45
+    strb w2, [x17], #1
+    and x9, x9, #0x7fffffffffffffff
+.Lfg_pos:
+    lsr x11, x9, #52
+    and x10, x9, #0x000fffffffffffff
+    cmp x11, #0x7ff
+    b.ne .Lfg_finite
+    cbnz x10, .Lfg_nan
+    mov w2, #105
+    strb w2, [x17], #1
+    mov w2, #110
+    strb w2, [x17], #1
+    mov w2, #102
+    strb w2, [x17], #1
+    b .Lfg_done
+.Lfg_nan:
+    mov x17, x8
+    mov w2, #110
+    strb w2, [x17], #1
+    mov w2, #97
+    strb w2, [x17], #1
+    mov w2, #110
+    strb w2, [x17], #1
+    b .Lfg_done
+.Lfg_finite:
+    cbnz x9, .Lfg_nonzero
+    mov w2, #48
+    strb w2, [x17], #1
+    b .Lfg_done
+.Lfg_nonzero:
+    cbz x11, .Lfg_subnormal
+    orr x10, x10, #0x0010000000000000
+    sub x11, x11, #1075
+    b .Lfg_have_me
+.Lfg_subnormal:
+    mov x11, #-1074
+.Lfg_have_me:
+    // value = x10 * 2^x11, x10 below 2^53
+    mov x2, #0
+.Lfg_zero:
+    str xzr, [sp, x2, lsl #3]
+    add x2, x2, #1
+    cmp x2, #40
+    b.lt .Lfg_zero
+    add x13, sp, #720
+    add x14, sp, #720
+    mov x16, #0
+    mov x7, #10
+    cmp x11, #0
+    b.lt .Lfg_frac
+
+    // An integer: x10 << x11 across the limbs, then divide by ten until nothing is left.
+    lsr x2, x11, #5
+    and x3, x11, #31
+    lsl x4, x10, x3
+    mov x5, #0
+    cbz x3, .Lfg_int_store
+    mov x6, #64
+    sub x6, x6, x3
+    lsr x5, x10, x6
+.Lfg_int_store:
+    and x6, x4, #0xffffffff
+    str x6, [sp, x2, lsl #3]
+    add x2, x2, #1
+    lsr x6, x4, #32
+    str x6, [sp, x2, lsl #3]
+    add x2, x2, #1
+    str x5, [sp, x2, lsl #3]
+.Lfg_idiv:
+    mov x3, x2
+    mov x4, #0
+    mov x5, #0
+.Lfg_idiv_limb:
+    ldr x6, [sp, x3, lsl #3]
+    orr x6, x6, x4, lsl #32
+    udiv x12, x6, x7
+    msub x4, x12, x7, x6
+    str x12, [sp, x3, lsl #3]
+    orr x5, x5, x12
+    subs x3, x3, #1
+    b.ge .Lfg_idiv_limb
+    strb w4, [x13, #-1]!
+    cbnz x5, .Lfg_idiv
+    sub x15, x14, x13
+    sub x15, x15, #1
+    b .Lfg_round
+
+    // A fraction: k = -e. The whole part fits a register; the rest is F / 2^k with F in the
+    // limbs, and each next digit is the part of F * 10 at and above bit k.
+.Lfg_frac:
+    neg x11, x11
+    mov x2, #0
+    mov x3, x10
+    cmp x11, #53
+    b.ge .Lfg_split_done
+    lsr x2, x10, x11
+    lsl x4, x2, x11
+    sub x3, x10, x4
+.Lfg_split_done:
+    and x4, x3, #0xffffffff
+    str x4, [sp]
+    lsr x4, x3, #32
+    str x4, [sp, #8]
+    cbz x2, .Lfg_whole_done
+.Lfg_whole:
+    udiv x4, x2, x7
+    msub x5, x4, x7, x2
+    strb w5, [x13, #-1]!
+    mov x2, x4
+    cbnz x2, .Lfg_whole
+.Lfg_whole_done:
+    sub x15, x14, x13
+    sub x15, x15, #1
+    lsr x2, x11, #5          // limb holding bit k
+    and x3, x11, #31         // bit k within it
+    mov x12, #0              // zeros after the point before the first digit
+.Lfg_floop:
+    mov x4, #0
+    mov x5, #0
+.Lfg_fzero:
+    ldr x6, [sp, x4, lsl #3]
+    orr x5, x5, x6
+    add x4, x4, #1
+    cmp x4, x2
+    b.le .Lfg_fzero
+    cbz x5, .Lfg_round       // nothing left: the expansion is exact
+    sub x4, x14, x13
+    cmp x4, x1
+    b.gt .Lfg_fsticky        // P + 1 digits in hand and more would follow
+    mov x4, #0
+    mov x5, #0
+    add x9, x2, #1
+.Lfg_fmul:
+    ldr x6, [sp, x4, lsl #3]
+    madd x6, x6, x7, x5
+    and x10, x6, #0xffffffff
+    str x10, [sp, x4, lsl #3]
+    lsr x5, x6, #32
+    add x4, x4, #1
+    cmp x4, x9
+    b.le .Lfg_fmul
+    ldr x4, [sp, x2, lsl #3]
+    lsr x5, x4, x3
+    ldr x6, [sp, x9, lsl #3]
+    mov x10, #32
+    sub x10, x10, x3
+    lsl x6, x6, x10
+    orr x5, x5, x6
+    and x5, x5, #15
+    mov x6, #1
+    lsl x6, x6, x3
+    sub x6, x6, #1
+    and x4, x4, x6
+    str x4, [sp, x2, lsl #3]
+    str xzr, [sp, x9, lsl #3]
+    cmp x14, x13
+    b.ne .Lfg_fstore
+    cbnz x5, .Lfg_ffirst
+    add x12, x12, #1
+    b .Lfg_floop
+.Lfg_ffirst:
+    mvn x15, x12             // exponent of the first digit: -(zeros + 1)
+.Lfg_fstore:
+    strb w5, [x14], #1
+    b .Lfg_floop
+.Lfg_fsticky:
+    mov x16, #1
+
+    // Round half to even at P digits.
+.Lfg_round:
+    sub x2, x14, x13
+    cmp x2, x1
+    b.le .Lfg_trim
+    ldrb w3, [x13, x1]
+    add x4, x1, #1
+.Lfg_sticky:
+    cmp x4, x2
+    b.ge .Lfg_sticky_done
+    ldrb w5, [x13, x4]
+    orr x16, x16, x5
+    add x4, x4, #1
+    b .Lfg_sticky
+.Lfg_sticky_done:
+    add x14, x13, x1
+    cmp w3, #5
+    b.lt .Lfg_trim
+    b.gt .Lfg_up
+    cbnz x16, .Lfg_up
+    ldrb w5, [x14, #-1]
+    tbz w5, #0, .Lfg_trim
+.Lfg_up:
+    mov x4, x14
+.Lfg_carry:
+    cmp x4, x13
+    b.eq .Lfg_carry_out
+    ldrb w5, [x4, #-1]!
+    add w5, w5, #1
+    cmp w5, #10
+    b.lt .Lfg_carry_store
+    strb wzr, [x4]
+    b .Lfg_carry
+.Lfg_carry_store:
+    strb w5, [x4]
+    b .Lfg_trim
+.Lfg_carry_out:
+    mov w5, #1               // all nines: 1 and zeros, one decade up
+    strb w5, [x13]
+    add x15, x15, #1
+.Lfg_trim:
+    sub x2, x14, x13
+    cmp x2, #1
+    b.le .Lfg_emit
+    ldrb w5, [x14, #-1]
+    cbnz w5, .Lfg_emit
+    sub x14, x14, #1
+    b .Lfg_trim
+
+    // %g: scientific when the exponent is below -4 or at least P, else fixed.
+.Lfg_emit:
+    cmn x15, #4
+    b.lt .Lfg_sci
+    cmp x15, x1
+    b.ge .Lfg_sci
+    cmp x15, #0
+    b.lt .Lfg_small
+    mov x3, #0
+.Lfg_fix_whole:
+    mov w5, #0
+    cmp x3, x2
+    b.ge .Lfg_fix_put
+    ldrb w5, [x13, x3]
+.Lfg_fix_put:
+    add w5, w5, #48
+    strb w5, [x17], #1
+    add x3, x3, #1
+    cmp x3, x15
+    b.le .Lfg_fix_whole
+    cmp x3, x2
+    b.ge .Lfg_done
+    mov w5, #46
+    strb w5, [x17], #1
+.Lfg_fix_frac:
+    ldrb w5, [x13, x3]
+    add w5, w5, #48
+    strb w5, [x17], #1
+    add x3, x3, #1
+    cmp x3, x2
+    b.lt .Lfg_fix_frac
+    b .Lfg_done
+.Lfg_small:
+    mov w5, #48
+    strb w5, [x17], #1
+    mov w5, #46
+    strb w5, [x17], #1
+    mvn x3, x15
+.Lfg_small_zero:
+    cbz x3, .Lfg_small_digits
+    mov w5, #48
+    strb w5, [x17], #1
+    sub x3, x3, #1
+    b .Lfg_small_zero
+.Lfg_small_digits:
+    mov x3, #0
+.Lfg_small_put:
+    ldrb w5, [x13, x3]
+    add w5, w5, #48
+    strb w5, [x17], #1
+    add x3, x3, #1
+    cmp x3, x2
+    b.lt .Lfg_small_put
+    b .Lfg_done
+.Lfg_sci:
+    ldrb w5, [x13]
+    add w5, w5, #48
+    strb w5, [x17], #1
+    cmp x2, #1
+    b.le .Lfg_sci_exp
+    mov w5, #46
+    strb w5, [x17], #1
+    mov x3, #1
+.Lfg_sci_put:
+    ldrb w5, [x13, x3]
+    add w5, w5, #48
+    strb w5, [x17], #1
+    add x3, x3, #1
+    cmp x3, x2
+    b.lt .Lfg_sci_put
+.Lfg_sci_exp:
+    mov w5, #101
+    strb w5, [x17], #1
+    mov w5, #43
+    cmp x15, #0
+    b.ge .Lfg_sci_sign
+    mov w5, #45
+    neg x15, x15
+.Lfg_sci_sign:
+    strb w5, [x17], #1
+    cmp x15, #100
+    b.lt .Lfg_sci_two
+    mov x4, #100
+    udiv x5, x15, x4
+    msub x15, x5, x4, x15
+    add w5, w5, #48
+    strb w5, [x17], #1
+.Lfg_sci_two:
+    udiv x5, x15, x7
+    msub x6, x5, x7, x15
+    add w5, w5, #48
+    strb w5, [x17], #1
+    add w6, w6, #48
+    strb w6, [x17], #1
+.Lfg_done:
+    strb wzr, [x17]
+    sub x0, x17, x8
+    add sp, sp, #1408
     ret
 
 // 1e6 as IEEE-754 double: 0x412E848000000000.
@@ -835,6 +1084,41 @@ _1e6_f64:
 _exit:
     mov x8, #93
     svc #0
+    b _exit
+
+// _rail_sig_init: the stack overflow handler (runtime/arm64/effects.s) is Darwin syscalls and
+// a Darwin signal frame. Not ported: on Linux a runaway recursion still dies by SIGSEGV.
+_rail_sig_init:
+    ret
+
+// _rail_exit_check: main's epilogue calls it with the exit code in x0. An error raised outside
+// `try` and never inspected (runtime/arm64/effects.s) ends the program with exit 1.
+_rail_exit_check:
+    adrp x1, _rail_err_pending
+    ldr x1, [x1, :lo12:_rail_err_pending]
+    cmp x1, #0
+    b.gt 1f
+    ret
+1:
+    mov x0, #2
+    adrp x1, _rail_err_hdr
+    add x1, x1, :lo12:_rail_err_hdr
+    mov x2, #23
+    bl _write
+    adrp x0, _rail_err_last
+    add x0, x0, :lo12:_rail_err_last
+    bl _strlen
+    mov x2, x0
+    mov x0, #2
+    adrp x1, _rail_err_last
+    add x1, x1, :lo12:_rail_err_last
+    bl _write
+    mov x0, #2
+    adrp x1, _rail_err_nl
+    add x1, x1, :lo12:_rail_err_nl
+    mov x2, #1
+    bl _write
+    mov x0, #1
     b _exit
 
 // _sqrt: IEEE-754 requires a correctly rounded square root, so the instruction and
@@ -1329,22 +1613,36 @@ _clock_ms:
     add x0, x0, x1           // total ms
     ret
 
-// ============ Stubs for symbols dns-sink doesnt use ============
+// ============ Threads, mutexes, try ============
 //
-// Rails runtime emits these unconditionally (spawn_thread, try-handle).
-// dns-sink never calls them. We provide stubs so the link succeeds.
-// If anyone actually invokes them at runtime, the program will misbehave.
+// Until 2026-11-19 these were stubs written for dns-sink, which calls none of them: _setjmp
+// returned 0 and _longjmp exited 1, so an error raised inside `try` ended the program in silence
+// with status 1 instead of running the handler, and _pthread_create returned -1, which
+// spawn_thread took for a handle and join_thread then dereferenced (SIGSEGV). Measured on a
+// Pi Zero 2 W (aarch64 Linux). setjmp and longjmp are real now. Threads are still not built
+// here (no libc: it would take clone, a stack and a futex join), so spawn_thread says so and
+// exits 1 rather than crashing later.
 
 _pthread_create:
-    mov x0, #-1
-    ret
+    mov x0, #2
+    adr x1, .Lno_threads_msg
+    mov x2, #51
+    mov x8, #64              // write
+    svc #0
+    mov x0, #1
+    mov x8, #93              // exit
+    svc #0
+.Lno_threads_msg:
+    .ascii "rail: spawn_thread is not supported on Linux ARM64\n"
+    .p2align 2
 
 _pthread_join:
     mov x0, #-1
     ret
 
+// Nothing can contend without threads; the mutex calls succeed.
 _pthread_mutex_init:
-    mov x0, #-1
+    mov x0, #0
     ret
 
 // The allocator takes this mutex only while a thread is live, which never happens here.
@@ -1356,16 +1654,38 @@ _pthread_mutex_unlock:
     mov x0, #0
     ret
 
+// jmp_buf (the runtime gives it 200 bytes): x19..x30 at 0..88, sp at 96, d8..d15 at 104..160.
 _setjmp:
+    stp x19, x20, [x0, #0]
+    stp x21, x22, [x0, #16]
+    stp x23, x24, [x0, #32]
+    stp x25, x26, [x0, #48]
+    stp x27, x28, [x0, #64]
+    stp x29, x30, [x0, #80]
+    mov x2, sp
+    str x2, [x0, #96]
+    stp d8, d9, [x0, #104]
+    stp d10, d11, [x0, #120]
+    stp d12, d13, [x0, #136]
+    stp d14, d15, [x0, #152]
     mov x0, #0
     ret
 
 _longjmp:
-    // We should never get here. If we do, exit cleanly so we dont
-    // continue executing with corrupted control flow.
-    mov x0, #1
-    mov x8, #93
-    svc #0
+    ldp x19, x20, [x0, #0]
+    ldp x21, x22, [x0, #16]
+    ldp x23, x24, [x0, #32]
+    ldp x25, x26, [x0, #48]
+    ldp x27, x28, [x0, #64]
+    ldp x29, x30, [x0, #80]
+    ldr x2, [x0, #96]
+    mov sp, x2
+    ldp d8, d9, [x0, #104]
+    ldp d10, d11, [x0, #120]
+    ldp d12, d13, [x0, #136]
+    ldp d14, d15, [x0, #152]
+    cmp x1, #0
+    csinc x0, x1, xzr, ne    // setjmp returns the value, or 1 when asked for 0
     ret
 
 // ============ Bump-allocated _malloc replacement ============

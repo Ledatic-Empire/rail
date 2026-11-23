@@ -1,0 +1,6 @@
+-- x86_arr_new_negative: a negative length is refused on x86-64 too (2026-11-19).
+main =
+  let _ = print "before"
+  let xs = arr_new (0 - 2) 0
+  let _ = print "not reached"
+  0

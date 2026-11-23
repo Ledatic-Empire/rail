@@ -95,10 +95,32 @@ def tree_programs():
     progs = []
     for f in files:
         path = REPO / f
+        if not path.is_file():
+            continue  # deleted or renamed in the working tree, still in the index
         src = path.read_text(errors='replace')
         if re.search(r'^main\b', src, re.MULTILINE) and safe(path, set()):
             progs.append((f, None))
     return progs
+
+
+# Programs that cannot be stressed, by design. Each is named with its reason; a skip that is
+# not here counts against --max-skip (default 0), so a program that stops compiling is seen.
+EXPECTED_SKIP = {
+    'bare_import': 'imports a module file only the suite run writes',
+    'bare_import_as': 'imports a module file only the suite run writes',
+    'import': 'imports a module file only the suite run writes',
+    'qual_import': 'imports a module file only the suite run writes',
+    'generate_ct': 'reads /tmp/rail_gen_code.rail, which only the suite run writes',
+    'examples/error_test.rail': 'shows a compile error on purpose',
+    'tools/fuzz/known/concat_in_let.rail': 'a known case that must not compile',
+    'tools/fuzz/known/ctor_typo_in_pattern.rail': 'a known case that must not compile',
+    'tools/fuzz/known/over_application.rail': 'a known case that must not compile',
+    'tools/fuzz/known/under_application.rail': 'a known case that must not compile',
+}
+
+
+def expected_skip(label):
+    return label in EXPECTED_SKIP or label.split()[-1] in EXPECTED_SKIP
 
 
 def run(argv, timeout, env=None):
@@ -122,7 +144,13 @@ def one(prog, args):
         if rc != 0 or not binary.is_file():
             return label, 'skip', 'compile failed'
         base = run([str(binary)], 20)
-        if base[0] == 'timeout' or not 0 <= base[0] < 128:
+        # A negative code is a signal. 128 to 255 is a program's own exit status (main's value):
+        # until 2026-11-19 those were skipped as crashes.
+        # A normal run that does not finish in 20 s is a slow program on this box, not one that
+        # stopped working (CI, 2026-11-19: a hosted runner timed out tools/test/seq_crash_repro.rail).
+        if base[0] == 'timeout':
+            return label, 'slow', 'the normal run did not finish in 20s'
+        if base[0] < 0:
             return label, 'skip', f'normal run rc={base[0]}'
         for n in args.ladder:
             env = dict(os.environ, RAIL_GC_STRESS=str(n), **args.env)
@@ -143,6 +171,7 @@ def main():
     ap.add_argument('--ladder', default='1,13,127,1021')
     ap.add_argument('--only', choices=['suite', 'tree'])
     ap.add_argument('--env', nargs='*', default=[])
+    ap.add_argument('--max-skip', type=int, default=0)
     args = ap.parse_args()
     args.compiler = str(Path(args.compiler).resolve())
     args.ladder = [int(x) for x in args.ladder.split(',')]
@@ -155,11 +184,24 @@ def main():
     counts = {}
     with cf.ThreadPoolExecutor(args.jobs) as ex:
         for label, verdict, detail in ex.map(lambda p: one(p, args), progs):
+            if verdict == 'skip' and expected_skip(label):
+                verdict = 'expected-skip'
             counts[verdict] = counts.get(verdict, 0) + 1
-            if verdict in ('DIFF', 'slow'):
+            if verdict in ('DIFF', 'slow', 'skip'):
                 print(f'{verdict:5} {label}  {detail}', flush=True)
     print('  '.join(f'{k} {v}' for k, v in sorted(counts.items())))
-    return 1 if counts.get('DIFF') else 0
+    # A program that could not be stressed is not a program that passed. Skips are listed and
+    # bounded: more than --max-skip of them, or no program checked at all, fails the run
+    # (until 2026-11-19 a run that skipped everything exited 0).
+    if counts.get('DIFF'):
+        return 1
+    if not counts.get('ok'):
+        print('FAIL: no program was stressed')
+        return 1
+    if counts.get('skip', 0) > args.max_skip:
+        print(f"FAIL: {counts['skip']} skipped, --max-skip is {args.max_skip}")
+        return 1
+    return 0
 
 
 if __name__ == '__main__':

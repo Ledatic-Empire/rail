@@ -69,7 +69,10 @@ cc_verify_against_root store cur cur_len ridx =
   let store_lens = arr_get store 1
   let root = arr_get store_certs ridx
   let root_len = arr_get store_lens ridx
-  cv_verify_cert_by cur cur_len root root_len
+  -- A trust anchor outside its own validity window does not anchor (2026-11-19). Until then the
+  -- store's dates were never read: a chain to a root that expired in 2021 was accepted.
+  if cv_validate_period root root_len == 0 then 0
+  else cv_verify_cert_by cur cur_len root root_len
 
 -- Step 3: neither SPKI match nor issuer match — try the next cert in
 -- the server-supplied chain. The next cert is being used as an issuing
@@ -83,5 +86,8 @@ cc_try_inter store certs lens count i cur cur_len =
     let upper = arr_get certs (i + 1)
     let upper_len = arr_get lens (i + 1)
     if asn1_is_ca upper upper_len == 0 then 0
+    -- and it must be inside its validity window: until 2026-11-19 only the leaf's dates were
+    -- read, so an expired or not yet valid intermediate carried the chain.
+    else if cv_validate_period upper upper_len == 0 then 0
     else if cv_verify_cert_by cur cur_len upper upper_len == 0 then 0
     else cc_walk_at store certs lens count (i + 1)

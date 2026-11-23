@@ -8,9 +8,9 @@
 | Fact | Value | Verify it yourself |
 |---|---|---|
 | Release | v5.6.0 | `git describe --tags` |
-| Compiler | 8073 lines of Rail | `wc -l tools/compile.rail` |
-| Seed binary | 1074328 bytes | `wc -c rail_native` |
-| Seed sha256 | `25534a9739917b765472cde4ea41c6dc4331182ff5f90b945074840bbf30cabc` | `shasum -a 256 rail_native` |
+| Compiler | 8679 lines of Rail | `wc -l tools/compile.rail` |
+| Seed binary | 1156744 bytes | `wc -c rail_native` |
+| Seed sha256 | `f612ecb8ee5a3c99812846af35893dbb4cb6b83320d9e81b132758ce2bb8cecb` | `shasum -a 256 rail_native` |
 | Stdlib | 61 modules | `ls stdlib/*.rail \| wc -l` |
 | Non-Rail surface | 31 in-tree files | `SHIMS.md` |
 | Tests | runner self-reports N/N and exits 0 iff N == N | `./rail_native test; echo $?` |
@@ -37,7 +37,11 @@ ARM64 macOS (native) - Linux ARM64 - Linux x86_64. WebAssembly left on 2026-10-2
 Compilation proves a program is *accepted by the binary you run*, not that it is
 *correct*. These are defined, but easy to trip over:
 
-- `&&` / `||` do not short-circuit - both sides always evaluate
+- Integers are 63-bit and wrap silently on overflow
+- `error "msg"` outside `try` returns an error value and the program goes on; one nobody tests (`is_error`) makes the exit code 1 when `main` returns
+- Deep recursion that is not a tail call ends with `rail: stack overflow` and exit 1
+- Linux ARM64 has no threads and a fixed 1 GB heap; x86-64 is executed by CI only
+- `length` of a string counts bytes, not characters
 - `split` takes a single-character delimiter (use `str_split` for multi-char)
 
 ## What this proves

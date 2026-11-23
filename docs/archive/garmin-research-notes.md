@@ -72,7 +72,7 @@ Garmin Connect mobile sync, GCM cloud parsing, and downstream third-party toolin
 
 ### Primitive 5 — Watch's own serial number is leaked into every persisted workout file
 
-The watch re-stamps the persisted file's `file_id` with its own `manufacturer/product/serial_number` regardless of what the source drop declared. Per the persisted Pass 6 file, `serial_number = 3422906732`. Anyone who recovers the file post-write gets the device serial. Trivial information leak by design.
+The watch re-stamps the persisted file's `file_id` with its own `manufacturer/product/serial_number` regardless of what the source drop declared. Per the persisted Pass 6 file, `serial_number = [redacted]`. Anyone who recovers the file post-write gets the device serial. Trivial information leak by design.
 
 Whether the device serial is a sensitive identifier in Garmin's threat model is a separate question.
 

@@ -8,7 +8,7 @@ json_skip_ws cs =
   if cs == [] then []
   else
     let c = head cs
-    if c == " " || c == "\t" || c == "\n" then json_skip_ws (tail cs)
+    if c == " " || c == "\t" || c == "\n" || c == "\r" then json_skip_ws (tail cs)
     else cs
 
 -- Parse a JSON string value (after opening quote)
@@ -59,6 +59,9 @@ json_parse cs =
     else if c == "n" then (["null"], drop 4 ws)
     else
       let (num_s, rest) = json_parse_num ws ""
+      -- A character that starts no value (`[x]`) is skipped as a null. Until 2026-11-18 it
+      -- was left in place, and the array and object loops read it again without end.
+      if num_s == "" then (["null"], tail ws) else
       -- Keep the integer at index 1 (json_int / json_encode_num stay
       -- byte-for-byte compatible) and stash the raw token at index 2 so
       -- json_float can parse the full numeric lexeme without truncation.
@@ -173,8 +176,17 @@ json_encode val =
   else if tag == "obj" then json_encode_obj val
   else "null"
 
-json_encode_str val = cat ["\"", head (tail val), "\""]
-json_encode_num val = show (head (tail val))
+-- A string goes out with its quote, backslash and control characters escaped (until
+-- 2026-11-18 it went out raw, so a quote inside a value produced text no parser reads back).
+json_escape s = str_replace "\r" "\\r" (str_replace "\t" "\\t" (str_replace "\n" "\\n" (str_replace "\"" "\\\"" (str_replace "\\" "\\\\" s))))
+json_encode_str val = cat ["\"", json_escape (head (tail val)), "\""]
+-- A parsed number carries its source token at index 2; writing that back keeps 1.5 as 1.5.
+-- A number built by hand, ["num", n], is written from its integer.
+json_encode_num val =
+  let rest = tail (tail val)
+  if rest == [] then show (head (tail val))
+  else if head rest == "" then show (head (tail val))
+  else head rest
 
 json_encode_bool val =
   if head (tail val) then "true" else "false"
@@ -185,7 +197,7 @@ json_encode_arr val =
 
 json_encode_pair p =
   let (k, v) = p
-  cat ["\"", k, "\": ", json_encode v]
+  cat ["\"", json_escape k, "\": ", json_encode v]
 
 json_encode_obj val =
   let pairs = map json_encode_pair (head (tail val))

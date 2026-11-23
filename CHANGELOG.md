@@ -5,6 +5,71 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Changed
+- **An error nobody looked at ends the program with exit 1** (2026-11-19, worklist C3). `error
+  "boom"` outside `try` is still a value and the next line still runs, but when `main` returns
+  with an error that no `is_error`, `err_msg` or `try` settled, the runtime prints `rail:
+  unhandled error: boom` on stderr and exits 1; before, exit 0 and silence (t306 to t308).
+- **A builtin called with the wrong number of arguments is a compile error** (found 2026-11-19).
+  `range 1 8` printed `[0]` (the extra argument was dropped) and a builtin given too few read a
+  register nobody had set (t323, t324).
+- **An integer literal that does not fit 63 bits is a compile error** (worklist C13; t314). It
+  compiled and printed -1. Arithmetic still wraps at 63 bits; t315 pins that so a change is a
+  decision.
+- **A let-bound string or number literal is type-checked like the literal itself** (t320 to
+  t322): `let s = "a"` then `s - 1` printed -1. Still the literal-evident minimum, one `let`
+  wider, not a type checker.
+- **`#grad` refuses a call it has no rule for** (worklist E10). Forward-mode AD answered 0 for
+  such a term (a slope of 6 printed 0); it is now a compile error, and a call that does not read
+  the parameter still differentiates to 0 (t325, t326).
+- **Float arrays and the x86-64 backend check array bounds** (worklist C5). `float_arr_get`,
+  `float_arr_set` and `float_arr_new` on ARM64 (t311 to t313); `arr_*` and `float_arr_*` in
+  `tools/x86_rt.s` (known cases `x86_arr_bounds`, `x86_arr_new_negative`, `x86_float_arr_bounds`).
+  Integer division and modulo by zero on x86-64 exit 1 with a message instead of a SIGFPE
+  (`x86_div_zero`). Nothing on this estate executes x86-64: those four cases are emitted here
+  and run by CI's `numerics-x86` job only (13 cases).
+- **Recursion past the stack says so** (worklist C12). `rail: stack overflow` and exit 1 where
+  20,000,000 frames died of a bare bus error; any other fault is passed on with the default
+  action (t309, t310).
+- **TLS: what the peer sends is checked before it is used** (worklist E3). Certificate and
+  signature lengths in the Certificate and CertificateVerify messages are bounded by the message
+  (t329: a hostile length stopped the process). An intermediate certificate must be inside its
+  validity window; only the leaf's dates were read, so an expired intermediate carried a chain
+  (t333, fixtures in `tools/test/chain_validity/`). `tls13_parse_server_hello` checks the body
+  length, legacy_version, session id length, compression byte and every extension length, and
+  requires supported_versions 0x0304 and one 32-byte x25519 key_share; it used to answer valid
+  with an all-zero share when no key_share was present and read wherever the lengths pointed
+  (t334: nine hostile variants of the RFC 8448 ServerHello, seven of them accepted before and
+  one a bounds fault). The live client refuses a suite it did not offer and an all-zero x25519
+  secret. **`https_session_open` now verifies the chain to the trust store**; the old behaviour
+  is `https_session_open_unverified`. A trust anchor outside its own validity window no longer
+  anchors (t333: the test root's key and name in a certificate that expired in 2021 carried a
+  chain), and the ServerHello must echo the session id the ClientHello sent (t334).
+- **Linux ARM64: `try`, float text and threads** (worklist E2). `_setjmp`/`_longjmp` were stubs,
+  so an `error` inside `try` did not reach its handler; they are real. `show` of a float printed
+  six digits where macOS prints seventeen; `_rail_fmt_g` in `tools/linux_libc.s` is an exact
+  `%.17g`. `spawn_thread` crashed; it now prints `rail: spawn_thread is not supported on Linux
+  ARM64` and exits 1. `tools/test/linux_arm64_check.sh user@host` builds four fixtures, runs
+  them on a Linux ARM64 box and compares with macOS (16378 float lines identical on the Pi). It
+  is not in CI: no runner here is Linux ARM64. Still different by design: no threads, a fixed
+  1 GB heap (`docs/site/backends.md`).
+- **`&&` and `||` short-circuit** (2026-11-18, worklist C4). Both sides used to be evaluated, so
+  `i < n && arr_get a i == 0` read past the array. The right side now runs only when the left
+  does not decide the answer (suite t293; known case `and_or_eager` renamed `and_or_short_circuit`,
+  expected `0`). No program in the tree, in rail-plasma or in the examples has a side effect to
+  the right of either operator (grepped).
+- **A top-level definition named like a builtin is a compile error** (2026-11-18, worklist B5).
+  `range a b = a + b` compiled and every call reached the builtin. The refusal reads
+  `builtin_call_names`, and t287 fails when that list and the names `cg_bi`, `cg_bi2` and `cg_bi3`
+  dispatch on differ (85 each). `cat parts = join "" parts` is the one redefinition let through:
+  it says what the builtin does and the estate carries it in dozens of programs.
+- **Array access is bounds-checked on ARM64** (2026-11-18, worklist C5). `arr_get`, `arr_set` and
+  `arr_new` with an index or length outside the array print `rail: array index out of bounds`
+  (or `rail: arr_new: negative length`) on stderr and exit 1; before, a read past the end returned heap
+  bytes and `arr_set a (0 - 1) v` overwrote the length word (t299 to t301). Float arrays and the
+  x86 backend followed on 2026-11-19 (below).
+- **`-f 3` is `-(f 3)`** (2026-11-18, worklist C2; t289). It parsed as `(-f) 3` and crashed.
+- **`rail_native run` exits with the program's code when the output has no final newline**
+  (2026-11-18, worklist C11; t291). It exited 0 and the marker `__rail_rc:3` leaked into stdout.
 - **The fleet witness looks the beacon up once per 5 minutes and reads a pulse with one python3**
   (2026-11-01, `tools/fleet/witness.sh`, `witness_push.sh`). Both polled through a fresh DNS lookup
   every time, and the witness started python3 five times a poll: on a Pi Zero 2 W that was 69% of
@@ -15,6 +80,106 @@ All notable changes to Rail are documented here.
   record 1.37 s to 0.68 s); records identical to the old witness on every shared pulse id.
 
 ### Fixed
+- **The collector lost live values in a large frame and never reused freed blocks** (2026-11-19,
+  worklist E5). A frame was scanned to fp+2048 only, so the last of 300 let-bound lists were
+  swept while live (t327). Each sweep emptied the free lists and could not refill them with
+  blocks already free, so a 2 MB working set grew the arena 28 MB (t328).
+  `tools/fuzz/gc_stress.py --jobs 3 --budget 30` under the new collector: 346 ok, 3 slow, the 10
+  named skips.
+- **The in-tree assembler encoded what it could not hold** (worklist E4). `cmp x0, #5000`
+  assembled as `cmp x0, #904`, and a branch past its reach was masked into a branch somewhere
+  else; both are now errors (t316 to t318; the shifted immediate form still assembles).
+  `fabs` emitted an instruction with no encoding, so no program calling it linked (t331).
+  Held against the system assembler one instruction at a time (2026-11-19,
+  `tools/test/asm_ranges/against_as.py`), 66 of 130 edge forms were wrong without a word: 48 with
+  no encoding were taken (`ldr x0, [x1, #40000]` loaded from #7232, `mov x0, #70000` moved
+  65536, `ldp x0, x1, [sp, #1024]` read `[sp]`, `add x0, x1, x2, lsl #70`), and 18 real ones got
+  another instruction (`str w0, [x1, #2]` stored at `[x1]`; `ldr w0, [x1, x2]` and the w
+  pre and post index forms loaded 64 bits; `ldr s0, [x1, #4]` loaded a double from `[x1]`;
+  `ldrb w0, [x1, #-1]` read 4095 bytes ahead). Loads, stores, pairs, wide moves, shifts, `svc`,
+  `movi` and `ushr` now check their ranges; the unscaled, single-float, w-register and
+  shifted-compare forms are encoded; 163 forms are on record in `tools/test/asm_ranges/forms.txt`
+  (92 the system assembler's word, 64 refused by both, 7 it takes and ours refuses) and the
+  suite reads that record (t335). The compiler emitted none of the wrong forms: the self-compile
+  is a fixed point and the suite is unchanged. This protects hand-written `.s` linked with
+  `link`.
+- **A program run right after a crashed run of the same path was `Killed: 9`** (worklist D6). The
+  linker wrote the new binary into the old file, and macOS judged it by the signature cached
+  for that file. It now writes `path.new` and renames (`stdlib/macho.rail`); 10 of 10
+  crash-then-run rounds answer 139 then 0.
+- **Editor support matched an older Rail** (worklist E9). The tree-sitter highlight query named
+  a field the grammar does not have and did not load; it loads. The VS Code grammar's builtin
+  list is generated from `builtin_call_names` plus the libm names, and t332 fails when a
+  builtin is missing from it. `tree-sitter.json` points at this repository.
+- **Checked and left alone.** Constant folding of floats (worklist E10) gives the IEEE double
+  bit for bit (`show_float_exact` against Python); `show` prints 15 digits by design.
+  `judge_test` still ignores an exit status under 128 for a test that asserts on output: 89
+  tests end nonzero on purpose, and since stderr is captured into the asserted text a runtime
+  refusal cannot hide behind it (worklist E7; the comment says so).
+- **`mutex_new` returned the init status** (found 2026-11-19), so the first `mutex_lock`
+  dereferenced null (t330).
+- **`rail_native x86` refuses a call to a name nothing defines** (worklist E1; t319). It emitted
+  the call, assembled and exited 0.
+- **Gates that could not fail** (worklist E7). `gc_stress.py` passed however many programs it
+  skipped: `--max-skip` (default 0) now fails the run, the ten programs that cannot be
+  stressed are named with their reasons (three more after the first CI run: they import files
+  only a suite run leaves in `/tmp`), a normal run that times out is slow, not skipped, and an exit status of 128 to 255 is a program's own
+  status, not a crash (three suite programs were skipped for it). `attest_selfhost.sh` exits
+  nonzero when the build is not a fixed point; `drift_audit.sh` reads the current banner.
+- **Every builtin is documented, and a gate keeps it so** (worklist E9; t332 compares
+  `builtin_call_names` with `docs/builtins.md`).
+- **The release record's gaps are written down** (worklist E6, `docs/RELEASES.md`, "Known gaps in
+  the record"): 48 of 51 release indexes carry no attestation, two name commits on no branch,
+  one disagrees with its tag, one signed build result was edited after signing. Measured, not
+  repaired.
+- **Three optimizer rewrites printed wrong answers** (found 2026-11-18 by a full read, worklist
+  part A; no test or fuzz program had their shape).
+  The bottom-test loop rewrite assumed the exit test was `p0 <= 0`: `loop n acc = if acc >= 10
+  then acc else loop (n - 1) (acc + 1)` printed 3 for `loop 3 0` (now 10) and `if n < 0` printed
+  3 (now 4); a loop keeps its own test unless it is that exact shape (t283).
+  `fold f init (range n)` was rewritten to a closed form from the lambda's text: a lambda
+  parameter named like an outer `a` captured it (31 for 8), a string accumulator printed 0, and a
+  negative range summed (6 for 0); the rewrite is gone and fold over a range is a fold (t284;
+  `fold (\a b -> a + b) 0 (range 1000000)` still prints 499999500000).
+  A function was memoized when its own body looked pure, without looking at what it calls: the
+  second `f 3` printed none of its callee's lines; a function that calls any other function is
+  no longer memoized (t285).
+  `tools/fuzz/semantic.py` now generates all three shapes and carries each as a control: against
+  the 5c2ef0f compiler the 5 new controls fail in all 4 positions (20 of 84 comparisons), on this
+  tree 84 of 84 pass (`tools/fuzz/SEMANTICS.md`, milestone 3).
+- **Programs that should not compile are refused** (2026-11-18, worklist part B). A character the
+  lexer has no token for (`1 ^ 2`, `!x`) is an error; it was dropped, leaving the application
+  `1 2` (t288). A string literal passed to a parameter used in arithmetic, a call to a name bound
+  to a literal, and arithmetic other than `+` on a string literal are type errors (t295 to t297;
+  t298 holds the ordinary cases that must still compile). This is the literal-evident minimum,
+  not a type checker: a string that arrives through a variable is still not caught. A call to a
+  let-bound lambda with the wrong number of arguments is an error (t294; `(adder 5) 10` parses as
+  `adder 5 10`, and the language reference's example, which was wrong, now binds the partial
+  application first). An arm written left of an inner match's arms closes the inner match (t290:
+  the inner match took every arm and the outer one reported `non-exhaustive`). A self loop that
+  decrements by more than 4095 builds (t286: the assembler refused `subs x19, x19, #5000`).
+- **String and JSON builtins no longer read, write or loop past their input** (2026-11-18,
+  worklist C6 to C10). `str_sub "abc" 10 5` returned 5 bytes from after the string; start and
+  length are now clamped and a start past the end gives the empty string (t302). `str_replace`
+  with an empty needle crashed and `str_split` with an empty separator never returned; both now
+  return the input unchanged (as a one-element list for split). While fixing it: `str_replace`
+  sized its buffer from the input, so a replacement longer than the needle wrote past it; the
+  buffer is sized from the count of matches (t303). `parse_json "[x]"` never returned and grew
+  to gigabytes; a value that starts with none of the JSON openers is now a parse error, and
+  `encode` escapes quotes, backslashes and control characters and keeps fractions (t304).
+- **The REPL takes `3 == 3` as an expression** (2026-11-18, worklist D5; t305). Any `=` on a line
+  made it a definition, and one bad definition stopped every later line compiling. A definition
+  now needs a name first and a bare `=` outside a string, and is compiled before it is kept.
+- **`tools/verify/check_selftest.sh` passes again and runs in CI** (2026-11-18, worklist D1). The
+  squash merge ce1a688 (2026-09-22) had put the older `check.sh` back, which calls a verifier ok
+  when it prints ok and then dies. The 8-section script from b941a74 is restored.
+- **Docs that said something untrue** (2026-11-18, worklist D2, D3). Integers are 63-bit and
+  wrap silently (the reference said 64); `length` counts bytes; `error` returns a value and
+  execution continues unless something checks `is_error` (pinned by t90, left as is); recursion
+  20,000,000 frames deep dies of a bare bus error. README and CLAUDE.md no longer carry
+  hand-written line and byte counts (STATUS.md is generated and gated); `docs/site/stdlib.md`
+  was stale and is regenerated. `tools/fuzz/gc_stress.py` skips a file deleted in the working
+  tree instead of crashing on it. 288/288.
 - **A function named like a libm float builtin was compiled as the builtin** (found 2026-10-24,
   rail-lab fuzz, finding A3; fixed on a branch 10-25, landed on master 2026-11-15). `pow a b = a * b` then `pow 3 5` printed 3 with no warning, a
   user `log`, `sqrt`, `floor` or `atan2` returned its first argument, and a three-parameter

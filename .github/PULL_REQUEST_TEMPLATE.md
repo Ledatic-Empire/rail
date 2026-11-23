@@ -1,7 +1,7 @@
 <!--
 Thanks for contributing to Rail. A few quick checks before you open:
 
- - [ ] `./rail_native test` passes 116/116 on your branch.
+ - [ ] `./rail_native test` passes every test on your branch (the current count is in `docs/STATUS.md`).
  - [ ] If you touched `tools/compile.rail`, `./rail_native self` reaches a
        byte-identical fixed point (`cmp rail_native /tmp/rail_self` is silent).
  - [ ] If you added an stdlib module, there's a suite test or a standalone one under `tools/test/`, or a
@@ -24,7 +24,7 @@ See CONTRIBUTING.md for the full bar.
 <!-- Concrete commands a reviewer can run. Test files, expected output, etc. -->
 
 ```bash
-./rail_native test                     # 116/116
+./rail_native test                     # every test passes
 ./rail_native self && cmp rail_native /tmp/rail_self   # fixed point
 # plus any module-specific tests
 ```

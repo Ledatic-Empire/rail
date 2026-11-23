@@ -77,7 +77,7 @@ _rail_gc:
 .Lgc_bits_miss:
     mov w23, #-1
 .Lgc_bits_ready:
-// Scan frame: slots from fp+16 to fp+2048 (or parent frame).
+// Scan frame: slots from fp+16 to the parent frame (fp+2048 when there is none to bound it).
 // A frame inside the heap sits on a fiber stack (_rail_spawn carves 64 KB from the arena and
 // _rail_await switches sp into it): cap it at _rail_heap_ptr, never at _rail_stack_top. Until
 // 2026-10-19 every frame was capped at _rail_stack_top; the arena maps above the main stack
@@ -97,18 +97,31 @@ _rail_gc:
     ldr x3, [x3, _rail_heap_ptr@PAGEOFF]
     cmp x19, x3
     b.hs .Lgc_cap_main
+    add x22, x19, #16, lsl #12
     cmp x22, x3
     b.ls .Lgc_skip_top_cap
     mov x22, x3
     b .Lgc_skip_top_cap
+// A frame is as large as its function's locals make it: 300 let-bound lists is 2400 bytes.
+// Until 2026-11-19 the range stopped at fp+2048 whatever the parent said, so the slots past
+// it were never marked and their objects were swept while live (worklist E5; t327 holds 300
+// lists across a collection). On the main stack the parent frame is the bound, however far;
+// on a fiber stack the frame cannot pass the 64 KB the fiber was given.
 //@ piece
 .Lgc_cap_main:
     adrp x3, _rail_stack_top@PAGE
     ldr x3, [x3, _rail_stack_top@PAGEOFF]
     cbz x3, .Lgc_skip_top_cap
     cmp x22, x3
-    b.ls .Lgc_skip_top_cap
+    b.ls .Lgc_main_parent
     mov x22, x3
+.Lgc_main_parent:
+    cmp x20, x19
+    b.ls .Lgc_skip_top_cap
+    cmp x20, x3
+    b.hi .Lgc_skip_top_cap
+    mov x22, x20
+    b .Lgc_scan
 .Lgc_skip_top_cap:
 // The parent frame caps the range only when it lies above this one. A parent below is the
 // frame that called _rail_await on another stack: this frame is the top of its own stack.
@@ -156,15 +169,11 @@ _rail_gc:
 //@ piece
 .Lgc_sweep:
     mov x21, #0
-//@ piece
-    adrp x0, _rail_free_list@PAGE
-    str xzr, [x0, _rail_free_list@PAGEOFF]
-    adrp x0, _rail_free_rover@PAGE
-    str xzr, [x0, _rail_free_rover@PAGEOFF]
-    adrp x0, _rail_free_16@PAGE
-    str xzr, [x0, _rail_free_16@PAGEOFF]
-    adrp x0, _rail_free_24@PAGE
-    str xzr, [x0, _rail_free_24@PAGEOFF]
+// The free lists are kept across collections. A free block carries its size where a tag
+// would be (16 or more, so the sweep below passes it by as not an object), which means the
+// sweep cannot put it back: until 2026-11-19 the lists were emptied here, and every block
+// freed by one collection and not reused before the next was lost for good (worklist E5:
+// 3 million three-element lists under RAIL_GC_STRESS=127 in a 16 MB arena reached 289 MB).
 // pos = heap start, end = heap_ptr
 //@ piece
     adrp x19, _rail_heap_base@PAGE

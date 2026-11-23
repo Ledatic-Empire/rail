@@ -46,7 +46,9 @@
 (escape_sequence) @string.escape
 
 ; Identifiers
-(func_decl name: (identifier) @function)
+; The grammar has no fields: the name is the first child (a `name:` field here made the
+; whole query fail to load, 2026-11-19).
+(func_decl . (identifier) @function)
 (constructor_name) @type
 (type_name) @type
 (return_type) @type.builtin
