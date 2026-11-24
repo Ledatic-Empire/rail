@@ -4,6 +4,18 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Added
+- **The release record's gaps are measured and signed as errata** (2026-11-23, decision: errata,
+  history untouched). `tools/attest/measure_errata.sh` measures five gap classes (unsigned
+  indexes with their sha256, indexes naming a commit on no public branch, pre-rewrite names whose
+  attested `compile.rail` is byte-equal at the tag, the one tag whose bytes differ (v3.6.0), the
+  one sidecar that disagrees with its file) and writes them deterministically;
+  `releases/errata/2026-11-23.json` is that measurement, witness-attested at pulse 10604250;
+  `tools/verify/check_errata.sh` fails when the tree stops measuring what the newest errata says
+  or its attestation stops verifying. The public number corrects the 11-19 reading: 47 of 51
+  index commits are on no public branch (the 11-19 count of 49 reachable included a private
+  remote), 44 of those are rename-only. Nothing in a past record was edited.
+
 ### Changed
 - **An error nobody looked at ends the program with exit 1** (2026-11-19, worklist C3). `error
   "boom"` outside `try` is still a value and the next line still runs, but when `main` returns
