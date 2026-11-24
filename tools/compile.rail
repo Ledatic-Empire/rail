@@ -162,11 +162,15 @@ tc2 c r nx acc pacc ln col =
     if nx == "=" then tc (tail r) (cons ("op", "!=") acc) (cons (ln, col) pacc) ln (col + 2)
     else tc r (cons ("bad", c) acc) (cons (ln, col) pacc) ln (col + 1)
   else if c == "<" then
-    if nx == "=" then tc (tail r) (cons ("op", "<=") acc) (cons (ln, col) pacc) ln (col + 2)
+    if nx == "=" then
+      (if tail r != [] && head (tail r) == "." then tc (tail (tail r)) (cons ("op", "<=.") acc) (cons (ln, col) pacc) ln (col + 3)
+       else tc (tail r) (cons ("op", "<=") acc) (cons (ln, col) pacc) ln (col + 2))
     else if nx == "." then tc (tail r) (cons ("op", "<.") acc) (cons (ln, col) pacc) ln (col + 2)
     else tc r (cons ("op", "<") acc) (cons (ln, col) pacc) ln (col + 1)
   else if c == ">" then
-    if nx == "=" then tc (tail r) (cons ("op", ">=") acc) (cons (ln, col) pacc) ln (col + 2)
+    if nx == "=" then
+      (if tail r != [] && head (tail r) == "." then tc (tail (tail r)) (cons ("op", ">=.") acc) (cons (ln, col) pacc) ln (col + 3)
+       else tc (tail r) (cons ("op", ">=") acc) (cons (ln, col) pacc) ln (col + 2))
     else if nx == "." then tc (tail r) (cons ("op", ">.") acc) (cons (ln, col) pacc) ln (col + 2)
     else tc r (cons ("op", ">") acc) (cons (ln, col) pacc) ln (col + 1)
   else if c == "&" then
@@ -322,7 +326,7 @@ sn ts = if ct ts == "nl" then sn (ad ts) else ts
 xp tg ts = if tt (cu ts) == tg then (tv (cu ts), ad ts) else ("ERR", ts)
 xk kw ts = if tt (cu ts) == "kw" then if tv (cu ts) == kw then (kw, ad ts) else ("ERR", ts) else ("ERR", ts)
 
-is_cmp v = v == "==" || v == "!=" || v == "<" || v == ">" || v == "<=" || v == ">=" || v == "<." || v == ">."
+is_cmp v = v == "==" || v == "!=" || v == "<" || v == ">" || v == "<=" || v == ">=" || v == "<." || v == ">." || v == "<=." || v == ">=."
 is_add v = v == "+" || v == "-" || v == "+." || v == "-."
 is_mul v = v == "*" || v == "/" || v == "%" || v == "*." || v == "/."
 
@@ -732,6 +736,24 @@ ast_private_fn d = match d
   | DFn nm ps b -> str_starts_with "_" nm
   | _ -> false
 
+-- A parse error inside an imported file carries a token count of THAT file, which the
+-- reporter would read against the importing file's positions (2026-11-24: an error in
+-- l11/moe_ink.rail was printed as l11/test_dot_ink.rail:1:107). Here each such error is
+-- rewritten to name the imported file and its own line and column, and re-anchored at
+-- the import statement (p_outer) in the importing file.
+relocate_import_errs decls path positions ntoks p_outer =
+  if decls == [] then []
+  else
+    let d = head decls
+    let rest = relocate_import_errs (tail decls) path positions ntoks p_outer
+    match d
+    | DErr m p ->
+      let rem = str_to_int p
+      let idx = if ntoks > rem then ntoks - rem else 0
+      let (ln, col) = list_nth positions idx
+      cons (DErr (cat ["in import ", path, ":", show ln, ":", show col, ": ", m]) p_outer) rest
+    | _ -> cons d rest
+
 -- `import m as M`: the module's fns are renamed M_<name>
 prefix_decls_ast pfx decls =
   if decls == [] then []
@@ -848,8 +870,8 @@ pprog_ast ts =
         if str_starts_with "_NOT_FOUND" path then cons (DErr (cat ["cannot open import \"", path0, "\" (looked in the current directory and beside the compiler)"]) (show (length r2))) (pprog_ast r2)
         else
           let imp_src = read_file path
-          let imp_toks = tokenize imp_src
-          let imp_decls = filter_exports_ast (pprog_ast imp_toks)
+          let (imp_toks, imp_pos) = tokenize_with_pos imp_src
+          let imp_decls = relocate_import_errs (filter_exports_ast (pprog_ast imp_toks)) path imp_pos (length imp_toks) (show (length r2))
           -- Check for "as Name" qualifier
           let r3 = sn r2
           if ct r3 == "id" then
@@ -1240,9 +1262,9 @@ emit_load_float_bits r top frac =
 -- itself rather than inferred from operands. Signal-consumers (is_float/is_int/
 -- tools/types.rail/O-node codegen) test the dotted form to
 -- FORCE the float path; structure-consumers (parser AST walkers, AD desugar,
--- used_in_arith) call op_base to match the underlying op. Only the 6 spellings
--- actually used in the codebase are recognized (no <=. >=. ==. !=.).
-op_is_dotted op = op == "+." || op == "-." || op == "*." || op == "/." || op == "<." || op == ">."
+-- used_in_arith) call op_base to match the underlying op. Eight spellings are recognized
+-- (<=. and >=. since 2026-11-24, lowbit's l11; no ==. !=.).
+op_is_dotted op = op == "+." || op == "-." || op == "*." || op == "/." || op == "<." || op == ">." || op == "<=." || op == ">=."
 op_base op =
   if op == "+." then "+"
   else if op == "-." then "-"
@@ -1250,6 +1272,8 @@ op_base op =
   else if op == "/." then "/"
   else if op == "<." then "<"
   else if op == ">." then ">"
+  else if op == "<=." then "<="
+  else if op == ">=." then ">="
   else op
 
 used_in_arith name node = match node
@@ -1288,7 +1312,7 @@ is_int node env = match node
   | _ -> false
 is_int_op op l r env =
   if op == "+" || op == "-" || op == "*" || op == "/" || op == "%" then is_int l env && is_int r env
-  else if op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=" || op == "&&" || op == "||" || op == "<." || op == ">." then true
+  else if op == "<" || op == ">" || op == "<=" || op == ">=" || op == "==" || op == "!=" || op == "&&" || op == "||" || op == "<." || op == ">." || op == "<=." || op == ">=." then true
   else false
 is_int_app node env =
   let (fname, _) = ast_flat node
@@ -5310,8 +5334,12 @@ tc_infer node tenv fname_ctx = match node
 
 tc_infer_op node tenv fname_ctx =
   let op = op_base (nd_s1 node)
-  let lt = tc_infer (nd_n2 node) tenv fname_ctx
-  let rt = tc_infer (nd_n3 node) tenv fname_ctx
+  -- a dotted op (+. -. <. ...) converts both sides to float, so its result is float and a
+  -- comparison through it never mismatches (2026-11-24: `d >. 0.5` after
+  -- `let d = m -. (int_to_float f)` warned "mismatched types 'int' and 'float'")
+  let dotted = op_is_dotted (nd_s1 node)
+  let lt = if dotted then "float" else tc_infer (nd_n2 node) tenv fname_ctx
+  let rt = if dotted then "float" else tc_infer (nd_n3 node) tenv fname_ctx
   if op == "+" then
     if lt == "string" || rt == "string" then "string"
     else if lt == "float" || rt == "float" then "float"
@@ -6142,6 +6170,38 @@ driver_undefined_call _ =
   let c = str_contains "BIN=no" out
   let _ = print (if a && b && c then "  PASS: foo named, the link refused, rc=1, no binary" else cat ["  FAIL: ", out])
   a && b && c
+
+-- t337: a dotted op converts both sides to float, so `d >. 0.5` after `let d = m -. (int_to_float f)`
+-- is not a mismatched comparison (2026-11-24: both compilers warned "'int' and 'float'")
+driver_dotted_no_type_warning _ =
+  let _ = print "  --- dotted_no_type_warning ---"
+  let path = cat [trim (shell "mktemp -u /tmp/rail_dotted_XXXXXX"), ".rail"]
+  let _ = write_file path "gap m f =\n  let d = m -. (int_to_float f)\n  if d >. 0.5 then 1 else 0\nmain =\n  let _ = print (show (gap 2.5 1))\n  0\n"
+  let out = shell (cat ["./rail_native --out-prefix ", path, ".bin run ", path, " 2>&1"])
+  let _ = shell (cat ["rm -f ", path, " ", path, ".bin"])
+  let a = str_contains "WARNING" out == false
+  let b = str_contains "link: OK\n1" out
+  let _ = print (if a && b then "  PASS: no warning, printed 1" else cat ["  FAIL: ", out])
+  a && b
+
+-- t338: a user function named after a float builtin is refused at compile with its name (the lowbit
+-- branch of 2026-11-08 let `fabs x = ...` through to the linker, which had no encoding for fabs d0, d0)
+driver_fabs_user_fn_refused _ =
+  driver_expect_error "fabs_user_fn_refused" "asm" "fabs x = if x <. 0.0 then 0.0 -. x else x\nmain =\n  let _ = print (show_float (fabs (0.0 -. 2.5)))\n  0\n" "'fabs' names a float builtin"
+
+-- t339: a declaration-level parse error inside an imported file names that file and its own line
+-- (2026-11-24: it was reported at a position in the importing file, read off the wrong token list)
+driver_import_error_names_its_file _ =
+  let _ = print "  --- import_error_names_its_file ---"
+  let dir = trim (shell "mktemp -d /tmp/rail_imperr_XXXXXX")
+  let _ = write_file (cat [dir, "/sub.rail"]) "good x = x + 1\n) stray = 2\n"
+  let _ = write_file (cat [dir, "/top.rail"]) "import \"sub.rail\"\nmain =\n  let _ = print (show (good 1))\n  0\n"
+  let out = shell (cat ["d=$(pwd); cd ", dir, " && \"$d/rail_native\" --out-prefix ", dir, "/top.bin top.rail 2>&1; echo rc=$?"])
+  let _ = shell (cat ["rm -rf ", dir])
+  let a = str_contains "top.rail:1:" out && str_contains "in import sub.rail:2:1: expected decl" out
+  let b = str_contains "rc=1" out
+  let _ = print (if a && b then "  PASS: the import's own file and line are named" else cat ["  FAIL: ", out])
+  a && b
 
 driver_pattern_errors _ =
   let a = driver_expect_error "pattern_unknown_ctor" "asm" "type C = | Red | Green\nf c = match c\n  | Rde -> 1\n  | Green -> 2\nmain = f Red\n" "'Rde' in a pattern is not a declared constructor"
@@ -7001,7 +7061,9 @@ run_tests _ =
   -- t280: add/sub xD, xN, xM, <lsl|lsr|asr> #n (2026-11-05, lowbit L6's quantizer): the kind was read as lsl
   -- whatever the text said, so `add x16, x16, x14, lsr #3` added x14 << 3; sub ignored a fourth operand
   let t280 = run_test "link_shift" "link \"tools/test/link_shift.s\"\nforeign shr3add a b -> int\nforeign sub2shl a b -> int\nforeign asradd a b -> int\nmain =\n  let _ = print (show (shr3add 5 40))\n  let _ = print (show (sub2shl 100 3))\n  let _ = print (show (asradd 10 (0 - 8)))\n  0" "10\n88\n6"
-  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0) + (if t280 then 1 else 0)
+  -- t281: the vector forms of lowbit's batched 4-bit kernel (2026-11-08): ldp q, fadd/fmul .2d, dup .2d, umov
+  let t281 = run_test "link_vec" "link \"tools/test/link_vec.s\"\nforeign vecforms fa out\nfill fa i v = if i >= 5 then 0 else let _ = float_arr_set fa i v in fill fa (i + 1) (v +. 1.0)\nmain =\n  let a = float_arr_new 5 0.0\n  let _ = fill a 0 1.0\n  let o = float_arr_new 8 0.0\n  let _ = vecforms a o\n  let _ = print (cat [show (to_int (float_arr_get o 0)), \" \", show (to_int (float_arr_get o 1)), \" \", show (to_int (float_arr_get o 2)), \" \", show (to_int (float_arr_get o 4)), \" \", show (to_int (float_arr_get o 5)), \" \", show (to_int (float_arr_get o 6)), \" \", show (to_int (float_arr_get o 7))])\n  0" "13 25 5 5 25 8 20"
+  let s_lnk = (if t274 then 1 else 0) + (if t275 then 1 else 0) + (if t276 then 1 else 0) + (if t277 then 1 else 0) + (if t278 then 1 else 0) + (if t279 then 1 else 0) + (if t280 then 1 else 0) + (if t281 then 1 else 0)
   -- worklist 2026-11-18 begin (generated block; see docs/handoff/2026-11-18.md)
   -- t283: a self loop whose test is not `p0 <= 0` keeps its own test (A1: printed 3 and 3)
   let t283 = run_test "loop_cond_not_param_le_zero" "loop n acc = if acc >= 10 then acc else loop (n - 1) (acc + 1)\ncount n acc = if n < 0 then acc else count (n - 1) (acc + 1)\nmain =\n  let _ = print (show (loop 3 0))\n  let _ = print (show (count 3 0))\n  0" "10\n4"
@@ -7109,12 +7171,19 @@ run_tests _ =
   let t334 = run_test "server_hello_hostile" "-- A ServerHello is the peer's bytes before anything is authenticated: every length and every\n-- fixed field has to be checked (worklist E3, 2026-11-19). The base message is the RFC 8448\n-- section 3 ServerHello; each line changes one thing and must be refused.\nimport \"stdlib/tls13_hs.rail\"\n\nbase _ = hex_to_bytes \"020000560303a6af06a4121860dc5e6e60249cd34c95930c8ac5cb1434dac155772ed3e2692800130100002e00330024001d0020c9828876112095fe66762bdbf7c672e156d6cc253b833df1dd69b1b04e751f0f002b00020304\"\n\nwith_byte i v =\n  let b = base 0\n  let _ = arr_set b i v\n  arr_get (tls13_parse_server_hello b 90) 3\n\nsay label v = print (cat [label, \": \", show v])\n\n-- two messages whose session ids are ch_n and sh_n bytes of 7; flip changes one echoed byte\nsid_case ch_n sh_n flip =\n  let ch = arr_new 80 7\n  let sh = arr_new 80 7\n  let _ = arr_set ch 38 ch_n\n  let _ = arr_set sh 38 sh_n\n  let _ = if flip == 1 then arr_set sh 50 9 else 0\n  tls13_sid_echoed ch sh\n\nmain =\n  let _ = say \"the RFC 8448 message\" (arr_get (tls13_parse_server_hello (base 0) 90) 3)\n  let _ = say \"legacy_version 0x0301\" (with_byte 5 1)\n  let _ = say \"compression method 1\" (with_byte 41 1)\n  let _ = say \"supported_versions 0x0303\" (with_byte 89 3)\n  let _ = say \"key_share group secp256r1\" (with_byte 49 23)\n  let _ = say \"no key_share at all\" (with_byte 45 52)\n  let _ = say \"extensions longer than the message\" (with_byte 43 64)\n  let _ = say \"session id of 200 bytes\" (with_byte 38 200)\n  let _ = say \"body longer than the record\" (with_byte 3 96)\n  let _ = say \"key length 31\" (with_byte 51 31)\n  let _ = say \"all zero bytes are all zero\" (tls13_all_zero (arr_new 32 0) 32)\n  let _ = say \"session id echoed\" (sid_case 32 32 0)\n  let _ = say \"session id of another length\" (sid_case 32 0 0)\n  let _ = say \"session id with one byte changed\" (sid_case 32 32 1)\n  let _ = say \"a real share is not\" (tls13_all_zero (arr_get (tls13_parse_server_hello (base 0) 90) 2) 32)\n  0" "the RFC 8448 message: 1\nlegacy_version 0x0301: 0\ncompression method 1: 0\nsupported_versions 0x0303: 0\nkey_share group secp256r1: 0\nno key_share at all: 0\nextensions longer than the message: 0\nsession id of 200 bytes: 0\nbody longer than the record: 0\nkey length 31: 0\nall zero bytes are all zero: 1\nsession id echoed: 1\nsession id of another length: 0\nsession id with one byte changed: 0\na real share is not: 0"
   -- t335: E4: 163 load, store, move, shift and pair forms get the system assembler's word or a refusal
   let t335 = driver_asm_ranges 0
-  let s_wl = (if t283 then 1 else 0) + (if t284 then 1 else 0) + (if t285 then 1 else 0) + (if t286 then 1 else 0) + (if t287 then 1 else 0) + (if t288 then 1 else 0) + (if t289 then 1 else 0) + (if t290 then 1 else 0) + (if t291 then 1 else 0) + (if t292 then 1 else 0) + (if t293 then 1 else 0) + (if t294 then 1 else 0) + (if t295 then 1 else 0) + (if t296 then 1 else 0) + (if t297 then 1 else 0) + (if t298 then 1 else 0) + (if t299 then 1 else 0) + (if t300 then 1 else 0) + (if t301 then 1 else 0) + (if t302 then 1 else 0) + (if t303 then 1 else 0) + (if t304 then 1 else 0) + (if t305 then 1 else 0) + (if t306 then 1 else 0) + (if t307 then 1 else 0) + (if t308 then 1 else 0) + (if t309 then 1 else 0) + (if t310 then 1 else 0) + (if t311 then 1 else 0) + (if t312 then 1 else 0) + (if t313 then 1 else 0) + (if t314 then 1 else 0) + (if t315 then 1 else 0) + (if t316 then 1 else 0) + (if t317 then 1 else 0) + (if t318 then 1 else 0) + (if t319 then 1 else 0) + (if t320 then 1 else 0) + (if t321 then 1 else 0) + (if t322 then 1 else 0) + (if t323 then 1 else 0) + (if t324 then 1 else 0) + (if t325 then 1 else 0) + (if t326 then 1 else 0) + (if t327 then 1 else 0) + (if t328 then 1 else 0) + (if t329 then 1 else 0) + (if t330 then 1 else 0) + (if t331 then 1 else 0) + (if t332 then 1 else 0) + (if t333 then 1 else 0) + (if t334 then 1 else 0) + (if t335 then 1 else 0)
+  -- lowbit reconcile 2026-11-24 (docs/handoff/2026-11-24.md)
+  -- t336: the float comparisons <=. and >=. are lexed and compiled through fcmp (master read `<=.` as
+  -- `<=` then an unexpected '.', so rail-lab lowbit/l11 did not build)
+  let t336 = run_test "float_le_ge_dotted" "cls a = if a <=. 0.25 then 0 else if a <. 0.75 then 1 else if a >=. 2.0 then 9 else 2\nmain =\n  let _ = print (show (cls 0.25))\n  let _ = print (show (cls 0.5))\n  let _ = print (show (cls 2.0))\n  let _ = print (show (cls 1.0))\n  let _ = print (if 1.0 <=. 1.0 && 2.0 >=. 2.0 && (1.5 <=. 1.0) == false && (1.0 >=. 1.5) == false then \"ok\" else \"bad\")\n  0" "0\n1\n9\n2\nok"
+  let t337 = driver_dotted_no_type_warning 0
+  let t338 = driver_fabs_user_fn_refused 0
+  let t339 = driver_import_error_names_its_file 0
+  let s_wl = (if t283 then 1 else 0) + (if t284 then 1 else 0) + (if t285 then 1 else 0) + (if t286 then 1 else 0) + (if t287 then 1 else 0) + (if t288 then 1 else 0) + (if t289 then 1 else 0) + (if t290 then 1 else 0) + (if t291 then 1 else 0) + (if t292 then 1 else 0) + (if t293 then 1 else 0) + (if t294 then 1 else 0) + (if t295 then 1 else 0) + (if t296 then 1 else 0) + (if t297 then 1 else 0) + (if t298 then 1 else 0) + (if t299 then 1 else 0) + (if t300 then 1 else 0) + (if t301 then 1 else 0) + (if t302 then 1 else 0) + (if t303 then 1 else 0) + (if t304 then 1 else 0) + (if t305 then 1 else 0) + (if t306 then 1 else 0) + (if t307 then 1 else 0) + (if t308 then 1 else 0) + (if t309 then 1 else 0) + (if t310 then 1 else 0) + (if t311 then 1 else 0) + (if t312 then 1 else 0) + (if t313 then 1 else 0) + (if t314 then 1 else 0) + (if t315 then 1 else 0) + (if t316 then 1 else 0) + (if t317 then 1 else 0) + (if t318 then 1 else 0) + (if t319 then 1 else 0) + (if t320 then 1 else 0) + (if t321 then 1 else 0) + (if t322 then 1 else 0) + (if t323 then 1 else 0) + (if t324 then 1 else 0) + (if t325 then 1 else 0) + (if t326 then 1 else 0) + (if t327 then 1 else 0) + (if t328 then 1 else 0) + (if t329 then 1 else 0) + (if t330 then 1 else 0) + (if t331 then 1 else 0) + (if t332 then 1 else 0) + (if t333 then 1 else 0) + (if t334 then 1 else 0) + (if t335 then 1 else 0) + (if t336 then 1 else 0) + (if t337 then 1 else 0) + (if t338 then 1 else 0) + (if t339 then 1 else 0)
   -- worklist 2026-11-18 end
   let total = s1 + s2 + s3 + s4 + s5 + s6 + s7 + s8 + s9 + s10 + s11 + s12 + s_inf + s_bx + s_ed + s_tls + s_flt + s_drv + s_mhd + s_lnk + s_wl
   -- one literal carries the count: the printed line and the exit check both read it (2026-11-05: the
   -- check said 262 while the line said 264, and `test` exited 1 on green)
-  let summary = cat [show total, "/318 tests passed"]
+  let summary = cat [show total, "/323 tests passed"]
   let _ = print summary
   if summary == cat [show total, "/", show total, " tests passed"] then 0 else 1
 
