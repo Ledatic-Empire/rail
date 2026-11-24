@@ -185,24 +185,28 @@ the hand-written releases. The site is edited by its own sessions; land it
 there with `tests/worker_catchall_test.mjs` extended to cover the PUT-then-GET
 round trip.
 
-## Known gaps in the record (measured 2026-11-19)
+## Known gaps in the record (measured 2026-11-23, signed as errata)
 
-The record is honest only if its holes are written down. Measured against this tree, not
-quoted (worklist E6); none of these is repaired here, because repairing a past record means
-signing it today or rewriting it, and either is a decision, not a fix.
+The record is honest only if its holes are written down. The holes are measured by
+`tools/attest/measure_errata.sh` and written, dated and witness-signed, in
+`releases/errata/` (`2026-11-23.json` and its `.attestation.json`, pulse 10604250);
+`tools/verify/check_errata.sh` fails when the tree stops measuring what the newest errata says.
+None of these is repaired: repairing a past record means signing it today or rewriting it, and
+the decision taken on 2026-11-23 was errata, history untouched.
 
 - **48 of 51 `releases/*/index.json` have no attestation of their own.** Only v5.4.0, v5.5.0
-  and v5.6.0 carry `index.json.attestation.json`. For the other 48 the artifacts are attested
-  and the index that binds them to a tag and a commit is not.
-- **v5.2.0 and v5.3.0 name commits that are on no branch and no tag** (`e88217a9f`,
-  `28ad78be1`). The other 49 indexes name commits reachable from a remote branch.
-- **v3.6.0's index and its tag disagree.** The index names `30f424a`, and the attested
-  `compile.rail` hash (`1fd2f36b...`) is that commit's file. The tag `v3.6.0` points at
-  `305dc3c`, whose `compile.rail` hashes to `5ea97e01...`.
+  and v5.6.0 carry `index.json.attestation.json`. The errata holds each unsigned index's
+  sha256 as it stood, so a later edit is visible.
+- **47 of 51 indexes name a commit on no branch of the public repository.** The history was
+  rewritten in 2026-10 (the sanitize pass before the move to `Ledatic-Empire/rail`); the indexes
+  kept the pre-rewrite names. For 44 of them the same-named tag's `tools/compile.rail` is
+  byte-equal to the attested one, so the bytes are vouched for and only the name is stale.
+  v5.2.0 and v5.3.0 (`e88217a9f`, `28ad78be1`) are reachable from no branch anywhere.
+- **v3.6.0's index and its tag disagree in content.** The index names `30f424a`, whose
+  `compile.rail` is the attested `1fd2f36b...`; the tag points at `305dc3c`, whose hashes to
+  `5ea97e01...`. The one release where the split is in the bytes, not the name.
 - **`builds/f86f082/result.json` does not match its attestation.** The sidecar signs
-  `3c621110...`; the file hashes to `b9c5cd84...`. It was edited after signing by `8e17294`
-  (the public-surface sanitize pass).
+  `3c621110...`; the file hashes to `b9c5cd84...`. It was edited after signing by `8e17294`.
 
-To re-measure: for each index, `test -f index.json.attestation.json`,
-`git branch -r --contains <git.commit>`, and `shasum -a 256` of the artifact against the
-sidecar's `artifact.sha256`.
+The 2026-11-19 reading said 49 indexes were reachable; it counted a private remote. The
+public number is 4.
