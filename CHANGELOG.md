@@ -5,6 +5,30 @@ All notable changes to Rail are documented here.
 ## Unreleased
 
 ### Changed
+- **The float comparisons `<=.` and `>=.` are lexed and compiled** (2026-11-24, t336). `a <=. 0.25`
+  was read as `<=` then an unexpected `.`, so rail-lab's lowbit `l11` (Inkling) did not build on
+  master. Both go through `fcmp` like `<.` and `>.`; `op_base` maps them to `<=` and `>=`.
+- **A dotted op is typed as float** (t337). `d >. 0.5` after `let d = m -. (int_to_float f)` drew
+  a false `WARNING [typecheck]: comparison '>' on mismatched types 'int' and 'float'`; a dotted
+  op converts both sides, so its result is float and a comparison through it never mismatches.
+- **A declaration-level parse error inside an imported file names that file and its own line**
+  (t339): `top.rail:1:18: error: in import sub.rail:2:1: expected decl ...`, anchored at the
+  `import` line; nested imports chain. Before, the imported file's token count was read against
+  the importing file's positions (`l11/test_dot_ink.rail:1:107` for an error in `l11/moe_ink.rail`).
+  An error inside a function body of an imported file still prints at a position in the
+  importing file (issue filed).
+- **The assembler encodes the vector forms lowbit's batched 4-bit and attention kernels use**
+  (t281, from the `lowbit/scalar-fp-forms` branch of 2026-11-08, reconciled onto master
+  2026-11-24): `ldp`/`stp` q, `str q` (scaled, unscaled and post-index), `fadd`/`fmul`/`fdiv .2d`,
+  `dup`, `umov`, `addp`, `sxtl`/`sxtl2`, `scvtf .2d`, `ld2`, `trn1`/`trn2 .2d`, `vN.d[1]`.
+  `tools/verify/neon_enc.cases` grows to 5,067 lines held to Apple clang, now including
+  `lsr`/`lsl`/`asr wD, wN, #n` and the unscaled q forms: the branch had encoded the 32-bit
+  `lsr w14, w14, #1` as `0x5341fdce` (SIGILL; clang `0x53017dce`) and `str q2, [x3, #-32]` as a
+  negative garbage word; master's encodings are kept, and `asm_enc_q_mem` keeps master's
+  immediate range checks (`asm_imm9_ok`, `asm_scaled_ok`) on the new store forms.
+- **A user function named after a float builtin stays refused at compile** (t338 pins it; the
+  lowbit branch let `fabs x = ...` through to a linker with no encoding for `fabs d0, d0`).
+
 - **An error nobody looked at ends the program with exit 1** (2026-11-19, worklist C3). `error
   "boom"` outside `try` is still a value and the next line still runs, but when `main` returns
   with an error that no `is_error`, `err_msg` or `try` settled, the runtime prints `rail:
