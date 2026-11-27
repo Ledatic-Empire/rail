@@ -22,9 +22,6 @@ import "tools/verify/lib.rail"
 cat parts = join "" parts
 
 
--- trailing newlines off
-
--- lines of a shell listing, the empty tail dropped
 
 
 -- "examples/name.rail" -> "name"

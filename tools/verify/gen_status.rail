@@ -8,8 +8,8 @@
 --
 -- Run from the repo root:  ./rail_native run tools/verify/gen_status.rail
 
--- `cat` and `trim` are defined locally (trim is a phantom builtin — declared but
--- not code-generated, so it links only if defined here; mirrors gen_site.rail).
+-- `cat` is defined locally; `trim` (a phantom builtin: declared, not code-generated, so a
+-- program must define it) comes from tools/verify/lib.rail.
 import "tools/verify/lib.rail"
 
 cat parts = join "" parts

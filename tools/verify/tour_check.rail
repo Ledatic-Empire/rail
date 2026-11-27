@@ -463,5 +463,5 @@ main =
 check_docs docs syms want paths = if docs == [] then 0 else check_doc (head docs) syms want paths + check_docs (tail docs) syms want paths
 
 -- the shell result without its trailing newline
-trim_all s = rstrip_nl (chars s)
-rstrip_nl cs = join "" (reverse (drop_nl (reverse cs)))
+trim_all s = rstrip_nl_chars (chars s)
+rstrip_nl_chars cs = join "" (reverse (drop_nl (reverse cs)))

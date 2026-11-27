@@ -42,7 +42,7 @@ check_module path =
 
 -- stdlib files that import from tools/; prints each, returns how many
 layering_breaks =
-  let hits = nonempty (split "\n" (shell "grep -l '^import \"tools/' stdlib/*.rail"))
+  let hits = nonempty (split "\n" (shell "grep -lE '^[[:space:]]*import[[:space:]]+\"tools/' stdlib/*.rail"))
   let _ = map (\p -> print (cat ["  FAIL ", p, ": stdlib imports from tools/"])) hits
   length hits
 

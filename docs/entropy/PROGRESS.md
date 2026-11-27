@@ -26,7 +26,7 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 |---|---|---|
 | `tools/compile.rail`, `types.rail`, `ast.rail` | 3 | 8,679 + 1,378 + 207 lines. The one compiler. |
 | `tools/v5` | 18 after round 2 | Live: `link_lib`, `asm`, `arm64`. Gates and fixtures: kept. |
-| `stdlib` | 61 | Each module checked alone by `tools/verify/stdlib_alone.rail`. |
+| `stdlib` | 62 | Each module checked alone by `tools/verify/stdlib_alone.rail`. |
 | `tools/test`, `tools/fuzz`, `tools/verify` | 61, 79, 23 | Suite, differential fuzzer, gates. |
 | `tools/fleet`, `tools/attest` | 23, 26 | Four fleet agent variants; fleet is deferred. |
 
