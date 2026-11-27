@@ -9,7 +9,7 @@ tools/compile.rail  tools/types.rail  tools/ast.rail     the compiler (one progr
         |
 tools/v5   assembler (asm, arm64) and in-process linker (link_lib)
         |
-stdlib/    61+ modules: bytes, sha256, macho, codesign, json, tls13, ...
+stdlib/    the modules (count in docs/STATUS.md): bytes, sha256, macho, codesign, json, tls13, ...
 ```
 
 Programs that sit beside the compiler and import down only: `tools/verify` (gates),

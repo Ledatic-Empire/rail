@@ -27,6 +27,10 @@ All notable changes to Rail are documented here.
   "path does not exist" findings; with the fix it prints PASS.
 
 ### Changed
+- **`docs/ARCHITECTURE.md`: the layers, each layer's public interface and where a change goes**
+  (2026-11-27, round 6), every rule tied to the gate that holds it. `stdlib_alone.rail`'s layering
+  check now also fails a `tools/v5` file that imports anything but stdlib or `tools/v5` (seen failing on
+  a planted `import "tools/verify/lib.rail"` in `arm64.rail`, then reverted).
 - **`sha256_hex_file` is defined once, in `stdlib/sha256.rail`** (2026-11-27, round 5). `tools/attest/attest.rail`
   and `tools/attest/verify.rail` each carried the same 19 lines; both now import it. The verifier already
   imported `sha256.rail`, so its trusted base is unchanged. The seed was rebuilt (1 more rebuild:
