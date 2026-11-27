@@ -73,7 +73,8 @@ large item and needs the owner.
 Business logic (`gym`, `gym_ask`, `engine`, `export`, `integrity`, `gym_reference`) contains no
 `sqlite3`, no network and no `os.environ`. Storage is `store.py` (and one use in `notes.py`), the model
 call is `anthropic.py`, environment reads are in `anthropic.py`, `__main__.py` and `desktop.py`.
-One exception: `gym_ask.MODEL`, `APPROVED` and `SCOPE` are module globals that `desktop.enable_model`
-assigns at startup (one writer, one reader). Passing them in would touch every test that saves and
-restores them; recorded as pending, not done. One API key lookup since commit 9e6c701 (fieldcraft branch
+One exception was `gym_ask.MODEL`, `APPROVED` and `SCOPE`, module globals assigned from three places.
+They now have one writer, `gym_ask.configure_model`, and a test fails any other assignment (seen failing on
+planted single and tuple assignments). They remain module state, read by one function; passing them down
+the request chain is not done. One API key lookup since commit 9e6c701 (fieldcraft branch
 `entropy/2026-11-27`, local).
