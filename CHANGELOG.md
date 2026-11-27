@@ -13,7 +13,21 @@ All notable changes to Rail are documented here.
   says never). Measured after: 323/323, seed fixed point byte-identical, `check.sh` 8 passed 0 failed.
   Recoverable from git history.
 
+### Fixed
+- **`file_exists`, `is_readable` and `is_writable` read a path cut out of a longer string as missing**
+  (2026-11-27). `access` reads a C string and `str_sub` does not NUL-terminate; `stat.rail` now
+  passes a copy. Found when `tour_check` moved to the stdlib `file_exists` and printed 91 false
+  "path does not exist" findings; with the fix it prints PASS.
+
 ### Changed
+- **The verify programs share one copy of their string helpers** (2026-11-27, round 3):
+  `tools/verify/lib.rail` holds `trim`, `rstrip_nl`, `drop_nl` and `nonempty`, and
+  `examples_check`, `stdlib_alone`, `tour_check` and `gen_status` import it. `starts_with` and
+  `file_exists` come from `stdlib/string.rail` and `stdlib/stat.rail`, not local copies.
+  `tour_check` keeps its own `rstrip_nl`: it takes a list of characters, a different function.
+- **`docs/STATUS.md` has a generated Runtime environment section** (round 3): the names come from
+  `runtime/arm64/data.s`, so the list of variables every program reads has one source and the drift
+  gate covers it.
 - **`codebuf.rail` moves from `tools/v5` to `stdlib`, where its importer already was** (2026-11-27,
   `docs/entropy/PROGRESS.md` round 2). `stdlib/macho.rail` imported `tools/v5/codebuf.rail`, a stdlib
   module depending on a tool; `asm.rail` and `link_lib.rail` used `cb_emit` and `cb_read` only through

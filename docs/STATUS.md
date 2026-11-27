@@ -32,6 +32,12 @@ ARM64 macOS (native) - Linux ARM64 - Linux x86_64. WebAssembly left on 2026-10-2
 `archive/tier3-step5-precut-2026-10-21`); Cortex-M4 and RISC-V rv32imc on 2026-10-19 (tag
 `archive/tier1-precut-2026-10-19`).
 
+## Runtime environment
+
+Variables every compiled program reads at start (`runtime/arm64/data.s`, the one source): `RAIL_ARENA_MB` `RAIL_ARENA_TRACE` `RAIL_GC_STRESS`.
+`RAIL_ARENA_MB` sets where the first collection happens; `RAIL_GC_STRESS=N` forces one every Nth allocation.
+Other `RAIL_*` names in the tree belong to one tool each and are read by that tool only.
+
 ## Known surprising behaviors
 
 Compilation proves a program is *accepted by the binary you run*, not that it is

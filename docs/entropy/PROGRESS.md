@@ -33,14 +33,13 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 
 1. Deleted eight unreferenced v5 prototypes (`CHANGELOG.md` Unreleased, Removed). Callers found: none.
 2. `codebuf.rail` moved to `stdlib` (the layering inversion), three uncalled functions deleted, seed rebuilt (fixed point, 323/323, `stdlib_alone` 62).
+3. Verify helpers deduplicated into `tools/verify/lib.rail`; stdlib `file_exists` NUL bug fixed; runtime env vars generated into STATUS.md. Scans done: stdlib has no import cycle and no stdlib-to-tools import.
 
 ## Task pool (evidence in brackets)
 
 - `tools/fleet/fleet_agent.rail`, `fleet_agent_v3.rail`, `fleet_agent_x86.rail`: 11 to 16 shared top-level names. Deferred until the daemon repoint.
-- `tools/verify/{examples_check,stdlib_alone,tour_check}.rail` share three to five helper names; no shared module. Candidate for one `tools/verify/lib.rail`.
-- Import cycles in stdlib: not yet measured.
 - `tools/test` (61 files, 10k lines) and `tools/fuzz` helpers: duplicate scan not yet done.
-- Config and env vars (`RAIL_ARENA_MB`, `RAIL_GC_STRESS`, others): authoritative list not yet built.
+- Same-meaning one-liners repeated in stdlib: `a_trim_line` (anthropic_client), `sk_trim_line` (slack_client), `par_rstrip_nl` (parallel) and `trim` in compile.rail and four tools. Each module must compile alone, so a shared home needs a stdlib module the clients import.
 
 ## Pending confirmation (needs the owner)
 

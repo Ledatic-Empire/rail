@@ -15,18 +15,17 @@
 -- the default arena since the allocator's next-fit of 2026-10-29; the same morning it took
 -- minutes) and costs nothing; `shell` passes no environment through, so it is in the command.
 
+import "stdlib/string.rail"
+import "stdlib/stat.rail"
+import "tools/verify/lib.rail"
+
 cat parts = join "" parts
 
-starts_with prefix s = if length prefix > length s then false else str_sub s 0 (length prefix) == prefix
 
 -- trailing newlines off
-rstrip_nl s = join "" (reverse (drop_nl (reverse (chars s))))
-drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs
 
 -- lines of a shell listing, the empty tail dropped
-nonempty xs = if xs == [] then [] else if head xs == "" then nonempty (tail xs) else cons (head xs) (nonempty (tail xs))
 
-file_exists p = rstrip_nl (shell (cat ["test -e '", p, "' && echo yes || echo no"])) == "yes"
 
 -- "examples/name.rail" -> "name"
 name_of path = str_sub path 9 (length path - 14)

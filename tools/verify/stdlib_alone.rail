@@ -11,10 +11,9 @@
 -- Run from the repo root:  ./rail_native run tools/verify/stdlib_alone.rail
 -- `shell` passes no environment through, so the arena setting is in the command.
 
+import "tools/verify/lib.rail"
+
 cat parts = join "" parts
-rstrip_nl s = join "" (reverse (drop_nl (reverse (chars s))))
-drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs
-nonempty xs = if xs == [] then [] else if head xs == "" then nonempty (tail xs) else cons (head xs) (nonempty (tail xs))
 ltrim s = if length s == 0 then s else if str_sub s 0 1 == " " then ltrim (str_sub s 1 (length s - 1)) else s
 last_of xs = if tail xs == [] then head xs else last_of (tail xs)
 

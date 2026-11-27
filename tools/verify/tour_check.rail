@@ -26,10 +26,13 @@
 -- A symbol that is renamed or removed fails this until the tour catches up: that is the
 -- gate's purpose (memory feedback_if_two_things_must_agree_compare_them).
 
+import "stdlib/string.rail"
+import "stdlib/stat.rail"
+import "tools/verify/lib.rail"
+
 import "stdlib/map.rail"
 
 cat parts = join "" parts
-trim s = head (split "\n" s)
 
 -- ---------------------------------------------------------------------------
 -- characters and words
@@ -82,7 +85,6 @@ lower_c c =
   if k < 65 then c else if k > 90 then c else char_from_int (k + 32)
 lower s = join "" (map lower_c (chars s))
 
-starts_with prefix s = if length prefix > length s then false else str_sub s 0 (length prefix) == prefix
 
 -- the chars before the first c of the string (the whole string if c is absent)
 before c s =
@@ -219,7 +221,6 @@ merge_tree m t = match t
 
 has_str s xs = if xs == [] then false else if head xs == s then true else has_str s (tail xs)
 
-file_exists p = trim (shell (cat ["test -e '", p, "' && echo yes || echo no"])) == "yes"
 
 -- labels and strings of the runtime assembly: `_name:` at the start of a line, `.global _name`
 add_asm_file m path =
@@ -464,4 +465,3 @@ check_docs docs syms want paths = if docs == [] then 0 else check_doc (head docs
 -- the shell result without its trailing newline
 trim_all s = rstrip_nl (chars s)
 rstrip_nl cs = join "" (reverse (drop_nl (reverse cs)))
-drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs
