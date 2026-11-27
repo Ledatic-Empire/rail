@@ -42,8 +42,7 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 ## Task pool (evidence in brackets)
 
 - `tools/fleet/fleet_agent.rail`, `fleet_agent_v3.rail`, `fleet_agent_x86.rail`: 11 to 16 shared top-level names. Deferred until the daemon repoint.
-- `tools/test` (61 files, 10k lines) and `tools/fuzz` helpers: duplicate scan not yet done.
-- Same-meaning one-liners repeated in stdlib: `a_trim_line` (anthropic_client), `sk_trim_line` (slack_client), `par_rstrip_nl` (parallel) and `trim` in compile.rail and four tools. Each module must compile alone, so a shared home needs a stdlib module the clients import.
+- Nothing open that is safe to do without the owner. Deferred by evidence: `tools/fleet` (daemon repoint), `compile.rail` restructuring (seed risk, no feature behind it; the tour gate already pins its shape).
 
 ## Pending confirmation (needs the owner)
 
