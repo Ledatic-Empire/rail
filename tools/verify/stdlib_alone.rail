@@ -7,7 +7,8 @@
 -- and a program importing one alone printed warnings and died at load. Every refusal is printed
 -- with the compiler's first error line; the last line is PASS or FAIL. Exit 0 iff PASS.
 -- Also a layering rule: a stdlib module imports only stdlib, never tools/ (the dependency runs
--- from tools to stdlib). Each offending file is printed and counts as a failure.
+-- from tools to stdlib), and `tools/v5` (assembler, linker) imports only stdlib and itself.
+-- Each offending file is printed and counts as a failure.
 -- And a naming rule: top-level names are one flat space, so no name is defined in two modules
 -- (a `foreign` declaration may repeat: it declares, it does not define).
 -- Run from the repo root:  ./rail_native run tools/verify/stdlib_alone.rail
@@ -44,8 +45,8 @@ check_module path =
 
 -- stdlib files that import from tools/; prints each, returns how many
 layering_breaks =
-  let hits = nonempty (split "\n" (shell "grep -lE '^[[:space:]]*import[[:space:]]+\"tools/' stdlib/*.rail"))
-  let _ = map (\p -> print (cat ["  FAIL ", p, ": stdlib imports from tools/"])) hits
+  let hits = nonempty (split "\n" (shell "grep -lE '^[[:space:]]*import[[:space:]]+\"tools/' stdlib/*.rail; grep -lE '^[[:space:]]*import[[:space:]]+\"tools/(compile|types|ast|attest|fleet|fuzz|test|verify|independence)' tools/v5/*.rail"))
+  let _ = map (\p -> print (cat ["  FAIL ", p, ": imports from a layer above it (stdlib imports no tool, tools/v5 imports only stdlib and itself)"])) hits
   length hits
 
 -- names defined at top level in more than one stdlib file; prints each, returns how many
