@@ -31,6 +31,10 @@ All notable changes to Rail are documented here.
   (2026-11-27, round 6), every rule tied to the gate that holds it. `stdlib_alone.rail`'s layering
   check now also fails a `tools/v5` file that imports anything but stdlib or `tools/v5` (seen failing on
   a planted `import "tools/verify/lib.rail"` in `arm64.rail`, then reverted).
+- **`stdlib_alone.rail` fails an import cycle** (round 6): `tsort` over every stdlib, `tools/v5` and
+  compiler import edge, run before any module is compiled because the compiler does not terminate on a
+  cycle (a planted `list` to `string` to `list` loop hung the first version of this gate for ten
+  minutes; the reordered gate prints the cycle and exits). Seen failing, then reverted.
 - **`sha256_hex_file` is defined once, in `stdlib/sha256.rail`** (2026-11-27, round 5). `tools/attest/attest.rail`
   and `tools/attest/verify.rail` each carried the same 19 lines; both now import it. The verifier already
   imported `sha256.rail`, so its trusted base is unchanged. The seed was rebuilt (1 more rebuild:

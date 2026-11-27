@@ -9,6 +9,7 @@
 -- Also a layering rule: a stdlib module imports only stdlib, never tools/ (the dependency runs
 -- from tools to stdlib), and `tools/v5` (assembler, linker) imports only stdlib and itself.
 -- Each offending file is printed and counts as a failure.
+-- And no import cycle (tsort over every stdlib, tools/v5 and top-level tools import edge).
 -- And a naming rule: top-level names are one flat space, so no name is defined in two modules
 -- (a `foreign` declaration may repeat: it declares, it does not define).
 -- Run from the repo root:  ./rail_native run tools/verify/stdlib_alone.rail
@@ -56,12 +57,23 @@ duplicate_names =
   let _ = map (\n -> print (cat ["  FAIL ", n, ": defined in more than one stdlib module"])) names
   length names
 
+-- import cycles among stdlib, tools/v5 and the compiler files; prints each, returns how many
+import_cycles =
+  let cmd = "grep -HoE '^import \"[^\"]+\"' stdlib/*.rail tools/v5/*.rail tools/*.rail | sed -E 's/^([^:]+):import \"(.*)\"/\\1 \\2/' | tsort 2>&1 >/dev/null"
+  let lines = nonempty (split "\n" (shell cmd))
+  let _ = map (\l -> print (cat ["  FAIL import cycle: ", l])) lines
+  length lines
+
 check_all paths n = if paths == [] then n else check_all (tail paths) (n + check_module (head paths))
 
 main =
   let paths = nonempty (split "\n" (shell "ls stdlib/*.rail"))
   let total = length paths
-  let fails = check_all paths 0 + layering_breaks + duplicate_names
+  -- static checks first: the compiler does not terminate on an import cycle, so a cycle
+  -- must be reported before any module is compiled
+  let cycles = import_cycles
+  let static_fails = layering_breaks + duplicate_names + cycles
+  let fails = static_fails + (if cycles == 0 then check_all paths 0 else 0)
   if fails == 0 then
     let _ = print (cat ["PASS stdlib_alone: ", show total, " modules compile when imported alone"])
     0

@@ -22,7 +22,7 @@ Programs that sit beside the compiler and import down only: `tools/verify` (gate
 | `tools/v5` imports only stdlib and itself | same |
 | No top-level name defined in two stdlib modules | same |
 | A stdlib module imports every module it uses, so it compiles alone | same |
-| No import cycle | none yet; none found by the scan in `docs/entropy/PROGRESS.md` |
+| No import cycle among stdlib, `tools/v5` and the compiler files (the compiler does not terminate on one, so this runs before any module is compiled) | same |
 
 ## Public interface of each layer
 

@@ -39,6 +39,8 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 5. `sha256_hex_file` moved to `stdlib/sha256.rail`, both attest copies deleted, seed rebuilt, check.sh 8/8 on the commit. `tools/attest` mapped: no import cycle, one other repeat (`basename`, two different bodies of one meaning, left).
 6. Remaining repeated bodies classified (ADR-5): the crypto, tls13 and API-client copies are accepted, module-prefixed and explained in `chacha20.rail`; `trim`, `drop_ws_left` in `diff_fuzz` and `rail_test` are two standalone programs, and `lk_section64`, `lk_nlist` follow `dyld_macho` (pending below).
 
+7. Import-cycle gate (`tsort`, runs first); `docs/ARCHITECTURE.md` written.
+
 ## Task pool (evidence in brackets)
 
 - `tools/fleet/fleet_agent.rail`, `fleet_agent_v3.rail`, `fleet_agent_x86.rail`: 11 to 16 shared top-level names. Deferred until the daemon repoint.
