@@ -24,3 +24,15 @@ fails on drift.
 ## ADR-4: prototypes with no caller are deleted, gates and fixtures are not (2026-11-27)
 Eight unreferenced v5 programs went. `SHIMS.md` keeps the assembler gates and `.s` fixtures.
 `dyld_macho.rail` stays while `link_lib.rail` and the tier 3 plan cite it.
+
+## ADR-5: small prefixed helper copies inside stdlib are accepted (2026-11-27)
+Context: `chacha20.rail` and `poly1305.rail` state they import nothing so they combine in `aead.rail`
+without import-diamond symbol collisions; every helper carries a module prefix (`cc_`, `po_`).
+The same shape appears in the tls13 modules (`rec_w_u16`, `ch_w_u16`, `rec_fail`, `cv_rk_fail`) and
+the two API clients (`a_esc`, `sk_esc`): four to eight lines, module-prefixed, no collision.
+Decision: a copy of at most about ten lines, prefixed to its module, stays when the alternative is a
+new import edge between modules that must each compile alone (`stdlib_alone.rail`). A same-named
+definition in two modules does not stay (ADR-1 gate). A longer body or a copy across the
+tool/stdlib line is moved to one home (round 5, `sha256_hex_file`).
+Review trigger: a fix applied to one copy that should have reached the others.
+
