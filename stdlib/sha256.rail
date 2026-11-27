@@ -14,6 +14,7 @@
 -- unless wrapped in PBKDF2/Argon2.
 
 import "stdlib/bytes.rail"
+import "stdlib/file.rail"
 
 -- ── Constants ─────────────────────────────────────────────────────────────
 -- K[t] round constants and H[0..7] initial hash values. FIPS 180-4 §4.2.2.
@@ -316,3 +317,27 @@ sha256_finalize_go h k_tbl pbuf plen total =
 
 sha256_finalize_hex st =
   bytes_to_hex (sha256_finalize st) 32
+
+-- SHA-256 over a file's raw bytes, as 64 hex characters (the one copy; attest.rail and
+-- verify.rail use it). `read_file_bytes` returns a string-like buffer whose arr_len reads its
+-- first bytes as the length, so any file with bytes >= 128 overran it: open the file
+-- explicitly to get the array form.
+sha256_hex_file path =
+  let fp = fopen path "rb"
+  let bytes = if fp == 0 then arr_new 0 0 else read_file_bytes_open fp path
+  let n = arr_len bytes
+  let h = sha256_h_init 0
+  let k_tbl = sha256_k_table 0
+  let state = arr_new 8 0
+  let end = sha_process_from bytes n h state k_tbl 0
+  let _ = sha_final_block bytes n h state k_tbl end
+  let out = arr_new 32 0
+  let _ = be32_write out 0 (arr_get h 0)
+  let _ = be32_write out 4 (arr_get h 1)
+  let _ = be32_write out 8 (arr_get h 2)
+  let _ = be32_write out 12 (arr_get h 3)
+  let _ = be32_write out 16 (arr_get h 4)
+  let _ = be32_write out 20 (arr_get h 5)
+  let _ = be32_write out 24 (arr_get h 6)
+  let _ = be32_write out 28 (arr_get h 7)
+  bytes_to_hex out 32
