@@ -67,3 +67,13 @@ Measured with `git ls-files`, a content hash per file and an AST hash per Python
 
 No repo in this list has a safe change whose value exceeds its risk. `plasma-lab/tools/refute` is the one
 large item and needs the owner.
+
+### Fieldcraft boundaries (measured 2026-11-27)
+
+Business logic (`gym`, `gym_ask`, `engine`, `export`, `integrity`, `gym_reference`) contains no
+`sqlite3`, no network and no `os.environ`. Storage is `store.py` (and one use in `notes.py`), the model
+call is `anthropic.py`, environment reads are in `anthropic.py`, `__main__.py` and `desktop.py`.
+One exception: `gym_ask.MODEL`, `APPROVED` and `SCOPE` are module globals that `desktop.enable_model`
+assigns at startup (one writer, one reader). Passing them in would touch every test that saves and
+restores them; recorded as pending, not done. One API key lookup since commit 9e6c701 (fieldcraft branch
+`entropy/2026-11-27`, local).
