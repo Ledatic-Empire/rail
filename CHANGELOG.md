@@ -27,6 +27,11 @@ All notable changes to Rail are documented here.
   "path does not exist" findings; with the fix it prints PASS.
 
 ### Changed
+- **`sha256_hex_file` is defined once, in `stdlib/sha256.rail`** (2026-11-27, round 5). `tools/attest/attest.rail`
+  and `tools/attest/verify.rail` each carried the same 19 lines; both now import it. The verifier already
+  imported `sha256.rail`, so its trusted base is unchanged. The seed was rebuilt (1 more rebuild:
+  `sha256.rail` is in the compiler's import tree), gen1 == gen2, `docs/STATUS.md` regenerated; `check.sh`
+  section 5 (the verifier on the signed release) and section 6 (its negative controls) pass.
 - **The verify programs share one copy of their string helpers** (2026-11-27, round 3):
   `tools/verify/lib.rail` holds `trim`, `rstrip_nl`, `drop_nl` and `nonempty`, and
   `examples_check`, `stdlib_alone`, `tour_check` and `gen_status` import it. `starts_with` and
