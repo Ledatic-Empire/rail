@@ -14,6 +14,13 @@ All notable changes to Rail are documented here.
   Recoverable from git history.
 
 ### Fixed
+- **Two stdlib names were defined in two modules** (2026-11-27, round 4). `json.rail` carried its own
+  copy of `drop` (identical to `list.rail`'s) and now imports `list.rail`; `tokenizer.rail`'s
+  `contains_char cs c` (a list scan, the opposite argument order and meaning to `string.rail`'s
+  `contains_char c s`) is `tok_has_char`, its only caller being the legacy vocab loop.
+  `stdlib_alone.rail` now fails any top-level name defined in more than one stdlib module (a
+  `foreign` declaration may repeat); seen failing on a planted `drop` in `bytes.rail`, then reverted.
+  `docs/site/stdlib.md` regenerated.
 - **`file_exists`, `is_readable` and `is_writable` read a path cut out of a longer string as missing**
   (2026-11-27). `access` reads a C string and `str_sub` does not NUL-terminate; `stat.rail` now
   passes a copy. Found when `tour_check` moved to the stdlib `file_exists` and printed 91 false

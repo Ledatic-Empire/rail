@@ -3,6 +3,8 @@
 -- Parses JSON strings into Rail values
 -- Representation: ["obj", pairs] | ["arr", items] | ["str", s] | ["num", n] | ["bool", b] | ["null"]
 
+import "stdlib/list.rail"
+
 -- Skip whitespace characters
 json_skip_ws cs =
   if cs == [] then []
@@ -203,8 +205,3 @@ json_encode_obj val =
   let pairs = map json_encode_pair (head (tail val))
   cat ["{", join ", " pairs, "}"]
 
--- Helper: drop first n elements from a list
-drop n xs =
-  if n <= 0 then xs
-  else if xs == [] then []
-  else drop (n - 1) (tail xs)
