@@ -1,5 +1,6 @@
 # Entropy reduction: progress, task pool, decisions
 
+Decisions: `docs/entropy/DECISIONS.md`.
 Branch `entropy/2026-11-27`, worktree `.claude/worktrees/entropy`, based on master c21b627.
 Not pushed. A human opens and merges the PR.
 
