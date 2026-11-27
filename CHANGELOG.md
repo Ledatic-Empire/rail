@@ -14,6 +14,12 @@ All notable changes to Rail are documented here.
   Recoverable from git history.
 
 ### Changed
+- **`codebuf.rail` moves from `tools/v5` to `stdlib`, where its importer already was** (2026-11-27,
+  `docs/entropy/PROGRESS.md` round 2). `stdlib/macho.rail` imported `tools/v5/codebuf.rail`, a stdlib
+  module depending on a tool; `asm.rail` and `link_lib.rail` used `cb_emit` and `cb_read` only through
+  that chain and now import it themselves. `make_codebuf`, `cb_size` and `cb_patch` had no caller and
+  are gone. Stdlib is 62 modules (`stdlib_alone.rail` PASS). The seed was rebuilt: 1,156,824 bytes,
+  gen1 == gen2, `docs/STATUS.md` regenerated.
 - **The float comparisons `<=.` and `>=.` are lexed and compiled** (2026-11-24, t336). `a <=. 0.25`
   was read as `<=` then an unexpected `.`, so rail-lab's lowbit `l11` (Inkling) did not build on
   master. Both go through `fcmp` like `<.` and `>.`; `op_base` maps them to `<=` and `>=`.

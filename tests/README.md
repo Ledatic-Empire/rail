@@ -83,7 +83,7 @@ In the order they appear in `run_tests`:
 | Runtime copy | `./rail_native run tools/gen_runtime.rail check` | `runtime/arm64/*.s` and the compiler's embedded copy agree |
 | Seed format | `bash tools/independence/seed_format_gate.sh` | a Python writer written from `docs/SEED_FORMAT.md` produces the bytes the Rail linker writes |
 | Every example | `./rail_native run tools/verify/examples_check.rail` | every program in `examples/` compiles, runs and prints the output committed under `examples/expected/` |
-| Every stdlib module alone | `./rail_native run tools/verify/stdlib_alone.rail` | each of the 61 modules compiles when it is the only import (a name its own imports do not bring is refused) |
+| Every stdlib module alone | `./rail_native run tools/verify/stdlib_alone.rail` | each of the 62 modules compiles when it is the only import (a name its own imports do not bring is refused) |
 | The reader's path | `./rail_native run tools/verify/tour_check.rail` | `docs/COMPILER_TOUR.md` cites symbols and paths that exist, in the compiler's banner order, and every quoted test count is the suite's |
 | The whole kit | `tools/verify/check.sh --quick` | the quick suite, the grammar, the live status matrix (`VERIFY.md`) |
 

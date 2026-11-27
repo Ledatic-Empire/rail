@@ -24,7 +24,7 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 | Area | Tracked files | Notes |
 |---|---|---|
 | `tools/compile.rail`, `types.rail`, `ast.rail` | 3 | 8,679 + 1,378 + 207 lines. The one compiler. |
-| `tools/v5` | 19 after round 1 | Live: `link_lib`, `asm`, `arm64`, `codebuf`. Gates and fixtures: kept. |
+| `tools/v5` | 18 after round 2 | Live: `link_lib`, `asm`, `arm64`. Gates and fixtures: kept. |
 | `stdlib` | 61 | Each module checked alone by `tools/verify/stdlib_alone.rail`. |
 | `tools/test`, `tools/fuzz`, `tools/verify` | 61, 79, 23 | Suite, differential fuzzer, gates. |
 | `tools/fleet`, `tools/attest` | 23, 26 | Four fleet agent variants; fleet is deferred. |
@@ -32,10 +32,10 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 ## Rounds
 
 1. Deleted eight unreferenced v5 prototypes (`CHANGELOG.md` Unreleased, Removed). Callers found: none.
+2. `codebuf.rail` moved to `stdlib` (the layering inversion), three uncalled functions deleted, seed rebuilt (fixed point, 323/323, `stdlib_alone` 62).
 
 ## Task pool (evidence in brackets)
 
-- Layering inversion: `stdlib/macho.rail` imports `tools/v5/codebuf.rail`; stdlib should not depend on tools. Needs a self-compile to prove the seed is unchanged.
 - `tools/fleet/fleet_agent.rail`, `fleet_agent_v3.rail`, `fleet_agent_x86.rail`: 11 to 16 shared top-level names. Deferred until the daemon repoint.
 - `tools/verify/{examples_check,stdlib_alone,tour_check}.rail` share three to five helper names; no shared module. Candidate for one `tools/verify/lib.rail`.
 - Import cycles in stdlib: not yet measured.

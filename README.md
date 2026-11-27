@@ -145,7 +145,7 @@ main =
 
 Full TLS 1.3 in Rail: x25519 key exchange, ECDSA and RSA certificate verification against the
 macOS trust store, hostname and validity checks, ChaCha20-Poly1305 records. Zero OpenSSL, zero
-curl. The stdlib is 61 modules in all, and the crypto in it (SHA-256/384/512, HMAC, HKDF,
+curl. The stdlib is 62 modules in all, and the crypto in it (SHA-256/384/512, HMAC, HKDF,
 ChaCha20-Poly1305, X25519, Ed25519, ECDSA P-256/P-384/P-521, RSA-PSS and PKCS1) is validated
 against RFC and NIST vectors in the suite. Not constant-time; see [Honest limits](#honest-limits).
 

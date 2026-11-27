@@ -68,7 +68,7 @@ x86-64 Linux runner, seven tests each, all passing since 2026-10-29.
 ## 3c. Every stdlib module stands on its own imports
 
 ```bash
-./rail_native run tools/verify/stdlib_alone.rail      # import each of the 61 modules alone; the last line is PASS
+./rail_native run tools/verify/stdlib_alone.rail      # import each of the 62 modules alone; the last line is PASS
 ```
 
 [`tools/verify/stdlib_alone.rail`](tools/verify/stdlib_alone.rail) compiles `import "stdlib/<m>.rail"`

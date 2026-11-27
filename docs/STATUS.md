@@ -9,9 +9,9 @@
 |---|---|---|
 | Release | v5.6.0 | `git describe --tags` |
 | Compiler | 8748 lines of Rail | `wc -l tools/compile.rail` |
-| Seed binary | 1156840 bytes | `wc -c rail_native` |
-| Seed sha256 | `9f1a1effb381b4ce392dc6edc3aab77b45116605090bfa75f3c85d56a82767f5` | `shasum -a 256 rail_native` |
-| Stdlib | 61 modules | `ls stdlib/*.rail \| wc -l` |
+| Seed binary | 1156824 bytes | `wc -c rail_native` |
+| Seed sha256 | `4385c1941dad6fdb36f6256aa90b3b0c5a69e5258f86cebf0b2ed3e60c189131` | `shasum -a 256 rail_native` |
+| Stdlib | 62 modules | `ls stdlib/*.rail \| wc -l` |
 | Non-Rail surface | 31 in-tree files | `SHIMS.md` |
 | Tests | runner self-reports N/N and exits 0 iff N == N | `./rail_native test; echo $?` |
 | Self-host | byte-identical fixed point | `RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self` |

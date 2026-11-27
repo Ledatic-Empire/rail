@@ -10,6 +10,7 @@
 --      section bases are assigned. Validated against `nm -n` of an as-built .o.
 import "tools/v5/asm.rail"
 import "stdlib/codesign.rail"
+import "stdlib/codebuf.rail"
 
 -- ===========================================================================
 -- M1 — data / bss / mod_init section walker.
