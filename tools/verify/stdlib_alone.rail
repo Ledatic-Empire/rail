@@ -6,6 +6,8 @@
 -- 2026-10-30, 18 of the 61 modules were: they leaned on names their importers happened to bring,
 -- and a program importing one alone printed warnings and died at load. Every refusal is printed
 -- with the compiler's first error line; the last line is PASS or FAIL. Exit 0 iff PASS.
+-- Also a layering rule: a stdlib module imports only stdlib, never tools/ (the dependency runs
+-- from tools to stdlib). Each offending file is printed and counts as a failure.
 -- Run from the repo root:  ./rail_native run tools/verify/stdlib_alone.rail
 -- `shell` passes no environment through, so the arena setting is in the command.
 
@@ -39,12 +41,18 @@ check_module path =
     let _ = print (cat ["  FAIL ", path, ": ", first_error lines])
     1
 
+-- stdlib files that import from tools/; prints each, returns how many
+layering_breaks =
+  let hits = nonempty (split "\n" (shell "grep -l '^import \"tools/' stdlib/*.rail"))
+  let _ = map (\p -> print (cat ["  FAIL ", p, ": stdlib imports from tools/"])) hits
+  length hits
+
 check_all paths n = if paths == [] then n else check_all (tail paths) (n + check_module (head paths))
 
 main =
   let paths = nonempty (split "\n" (shell "ls stdlib/*.rail"))
   let total = length paths
-  let fails = check_all paths 0
+  let fails = check_all paths 0 + layering_breaks
   if fails == 0 then
     let _ = print (cat ["PASS stdlib_alone: ", show total, " modules compile when imported alone"])
     0

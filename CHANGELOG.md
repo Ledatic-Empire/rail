@@ -20,6 +20,9 @@ All notable changes to Rail are documented here.
   that chain and now import it themselves. `make_codebuf`, `cb_size` and `cb_patch` had no caller and
   are gone. Stdlib is 62 modules (`stdlib_alone.rail` PASS). The seed was rebuilt: 1,156,824 bytes,
   gen1 == gen2, `docs/STATUS.md` regenerated.
+- **`stdlib_alone.rail` also refuses a stdlib module that imports from `tools/`** (2026-11-27). The
+  layering rule behind the `codebuf` move now fails CI the way a module that does not compile alone
+  does. Seen failing on a planted `import "tools/v5/arm64.rail"` in `stdlib/codebuf.rail`, then reverted.
 - **The float comparisons `<=.` and `>=.` are lexed and compiled** (2026-11-24, t336). `a <=. 0.25`
   was read as `<=` then an unexpected `.`, so rail-lab's lowbit `l11` (Inkling) did not build on
   master. Both go through `fcmp` like `<.` and `>.`; `op_base` maps them to `<=` and `>=`.
