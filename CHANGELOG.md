@@ -4,6 +4,15 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Removed
+- **Eight unreferenced v5 prototype programs** (2026-11-27, `docs/entropy/PROGRESS.md` round 1):
+  `tools/v5/{audit_1page_sign,audit_npage_sign,rail_emit_arith,rail_emit_exit,compile_macho,asm_to_macho,ffi_sqlite_demo,compile_elf}.rail`.
+  Each was a standalone `main` that nothing imported, ran or named outside comments; the in-process
+  linker (`link_lib.rail`, one link path since Tier 3 step 6) replaced them, and `dyld_macho.rail`
+  stays as the reference `link_lib.rail` cites. The assembler gates and `.s` fixtures stay (SHIMS.md
+  says never). Measured after: 323/323, seed fixed point byte-identical, `check.sh` 8 passed 0 failed.
+  Recoverable from git history.
+
 ### Changed
 - **The float comparisons `<=.` and `>=.` are lexed and compiled** (2026-11-24, t336). `a <=. 0.25`
   was read as `<=` then an unexpected `.`, so rail-lab's lowbit `l11` (Inkling) did not build on
