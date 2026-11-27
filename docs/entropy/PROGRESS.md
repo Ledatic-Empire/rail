@@ -50,3 +50,20 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 
 - Whether the `dyld_macho.rail` reference program should go too. `link_lib.rail` cites it in comments and `docs/rail-tier3-record-plan.md` names it, so it stays for now.
 - Four fleet agent variants: which is canonical is the owner's call.
+
+## Other repos under ~/projects (read-only triage, 2026-11-27)
+
+Measured with `git ls-files`, a content hash per file and an AST hash per Python function body.
+
+| Repo | Result |
+|---|---|
+| fieldcraft | 169 tests and `tools/review/pass.py` pass; 12 modules, no import cycle, no repeated function body. Left: key lookup in two places with different precedence, `free_port` twice, test setup repeated in four files. Not worth the regression risk on the revenue repo. |
+| plasma-lab | 2,413 of 2,893 files are duplicate content: `tools/refute` holds about 2,600 files, snapshots of the engine tree per refutation run. They are experiment records. Deleting them is the owner's call. |
+| rail-lab | 1,027 of 3,914 files duplicate; 2,658 are fuzz corpus. Research data, not code. |
+| compound, lab | Patch files and notes; 14 and 2 duplicate files. No code to restructure. |
+| clerk, ledatic-life, ledatic-arm, wyandottewater, pursue, ledatic-eco, rail-plasma, dns-sink, fusion-workbench, ledatic-site | 5 to 41 Python files each; no repeated function body of 4 or more statements anywhere. |
+| detroitsalsa | Three-line scene helpers repeated across scene scripts (`slab` x3, `glow`, `empty`): an art project, not a system. |
+| wish-you-were-here | Hands-off by the owner's rule. One test helper (`outbox`) repeated in two test files. Untouched. |
+
+No repo in this list has a safe change whose value exceeds its risk. `plasma-lab/tools/refute` is the one
+large item and needs the owner.
