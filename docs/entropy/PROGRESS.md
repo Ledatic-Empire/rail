@@ -84,3 +84,9 @@ the request chain is not done. One API key lookup since commit 9e6c701 (fieldcra
 - Found: the example plist `com.ledatic.tb_autojoin.plist.example` held merge-conflict markers and another job's label. Rebuilt from the installed daemon.
 - Found: deleting v2 `fleet_agent.rail` as a duplicate would have removed the only agent that runs on the Pi.
 - PR 202 CI: all checks passed before this round.
+
+## Round 9: ledatic-site (2026-11-27, branch `entropy/2026-11-27`, 5ce522c, local, not pushed)
+
+- Measured: 307 tracked files; the only byte-duplicates are 14 repeated screenshots under `docs/plans/shots` (records, left). The 15 section links in the top nav are identical across 21 pages; drift is only in the per-page CTA link and active markers. `tios.html` has its own nav by design.
+- Added `tests/nav_consistency_test.sh` (fails on a planted typo, exit 1). README drops the stale "eight pages".
+- Pending, owner: two KV upload implementations, `deploy.sh` (bulk, 968 lines) and `railgen/cf_deploy.rail` (one file plus cache purge). Different callers (cron generators versus manual pushes); merging them touches the live deploy path, so left. Uncommitted `sitemap.xml` in the main checkout belongs to another session and was not touched.
