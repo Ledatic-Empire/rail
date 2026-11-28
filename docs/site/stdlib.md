@@ -966,6 +966,18 @@ import "stdlib/<name>.rail"
 
 
 
+## `stdlib/codebuf.rail`
+
+### `cb_emit buf off instr32`
+
+> Emit a 32-bit ARM64 instruction at byte offset off.
+> ARM64 is little-endian: bits [7:0] go to off+0, [15:8]->+1, etc.
+
+### `cb_read buf off`
+
+> Read back a 32-bit instruction (for tests / debugging).
+
+
 ## `stdlib/codesign.rail`
 
 ### `cs_magic_embedded_signature`
@@ -2909,10 +2921,6 @@ import "stdlib/<name>.rail"
 ### `json_encode_obj val`
 
 
-### `drop n xs`
-
-> Helper: drop first n elements from a list
-
 
 ## `stdlib/list.rail`
 
@@ -4404,6 +4412,11 @@ import "stdlib/<name>.rail"
 
 ## `stdlib/stat.rail`
 
+### `cpath path`
+
+> The foreign call reads a C string, and a Rail string made by str_sub is not NUL-terminated
+> (2026-11-27: a path cut out of a line read as missing). join copies, and the copy is.
+
 ### `file_exists path`
 
 > Check if file exists (access with F_OK = 0)
@@ -4900,7 +4913,7 @@ import "stdlib/<name>.rail"
 
 > Local list_nth (tokenizer.rail is independent of tensor.rail).
 
-### `contains_char cs c`
+### `tok_has_char cs c`
 
 > Linear scan: is c already in cs?
 

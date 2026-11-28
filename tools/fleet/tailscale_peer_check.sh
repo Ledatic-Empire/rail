@@ -7,7 +7,6 @@
 #
 # Baseline file format (one Tailscale hostname per line):
 #   mini
-#   studio
 #   homem1air-2
 #   fleet0
 #

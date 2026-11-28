@@ -20,6 +20,7 @@
 -- Usage: ./rail_native run tools/attest/attest.rail <input> [output]
 
 import "stdlib/https_strict.rail"
+import "stdlib/sha256.rail"
 -- https_strict transitively pulls in everything we need: tls13_client →
 -- hkdf → hmac → sha256 → bytes (for be32_write / bytes_to_hex), plus
 -- x25519, sha512, dns. Importing any of those again here causes
@@ -37,30 +38,6 @@ sign_token_path_default _ = cat [getenv "HOME", "/.ledatic/witness/sign_token"]
 env_or env_key fallback =
   let v = getenv env_key
   if length (chars v) == 0 then fallback else v
-
--- ── SHA-256 over a file's raw bytes (handles NUL bytes via read_file_bytes).
--- Same pattern as verify.rail's local helper; kept local so attest.rail
--- has no hidden coupling to verify's internals.
-
-sha256_hex_file path =
-  let fp = fopen path "rb"
-  let bytes = if fp == 0 then arr_new 0 0 else read_file_bytes_open fp path
-  let n = arr_len bytes
-  let h = sha256_h_init 0
-  let k_tbl = sha256_k_table 0
-  let state = arr_new 8 0
-  let end = sha_process_from bytes n h state k_tbl 0
-  let _ = sha_final_block bytes n h state k_tbl end
-  let out = arr_new 32 0
-  let _ = be32_write out 0 (arr_get h 0)
-  let _ = be32_write out 4 (arr_get h 1)
-  let _ = be32_write out 8 (arr_get h 2)
-  let _ = be32_write out 12 (arr_get h 3)
-  let _ = be32_write out 16 (arr_get h 4)
-  let _ = be32_write out 20 (arr_get h 5)
-  let _ = be32_write out 24 (arr_get h 6)
-  let _ = be32_write out 28 (arr_get h 7)
-  bytes_to_hex out 32
 
 file_size_bytes path =
   read_file_size path

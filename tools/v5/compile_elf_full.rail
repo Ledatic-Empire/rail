@@ -1,8 +1,7 @@
 -- tools/v5/compile_elf_full.rail
 -- v5 Phase 5b — full Linux assembler + linker + ELF emitter driver.
 --
--- Replaces tools/v5/compile_elf.rail's tiny scope (single section, no
--- symbols) with the full pipeline: section-aware scan, symbol layout,
+-- The full pipeline: section-aware scan, symbol layout,
 -- adrp/:lo12: resolution, multi-segment ELF (text RX + data RW with
 -- BSS via memsz>filesz).
 --

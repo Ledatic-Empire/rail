@@ -29,6 +29,7 @@
 
 import "tools/v5/arm64.rail"
 import "stdlib/macho.rail"
+import "stdlib/codebuf.rail"
 
 -- ============================================================================
 -- Line / token helpers

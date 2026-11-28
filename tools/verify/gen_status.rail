@@ -8,10 +8,11 @@
 --
 -- Run from the repo root:  ./rail_native run tools/verify/gen_status.rail
 
--- `cat` and `trim` are defined locally (trim is a phantom builtin — declared but
--- not code-generated, so it links only if defined here; mirrors gen_site.rail).
+-- `cat` is defined locally; `trim` (a phantom builtin: declared, not code-generated, so a
+-- program must define it) comes from tools/verify/lib.rail.
+import "tools/verify/lib.rail"
+
 cat parts = join "" parts
-trim s = head (split "\n" s)
 
 -- Append one chunk to the output file (bump-allocator-safe: never builds the
 -- whole document in memory, the pattern the old site generator used).
@@ -63,6 +64,13 @@ main =
   let _ = w out "ARM64 macOS (native) - Linux ARM64 - Linux x86_64. WebAssembly left on 2026-10-21 (tag\n"
   let _ = w out "`archive/tier3-step5-precut-2026-10-21`); Cortex-M4 and RISC-V rv32imc on 2026-10-19 (tag\n"
   let _ = w out "`archive/tier1-precut-2026-10-19`).\n\n"
+
+  -- The runtime's environment variables have one source: the names its data section reads.
+  let env_names = trim (shell "grep -oE '\"RAIL_[A-Z_]+\"' runtime/arm64/data.s | tr -d '\"' | sort | sed 's/.*/`&`/' | paste -sd ' ' -")
+  let _ = w out "## Runtime environment\n\n"
+  let _ = w out (cat ["Variables every compiled program reads at start (`runtime/arm64/data.s`, the one source): ", env_names, ".\n"])
+  let _ = w out "`RAIL_ARENA_MB` sets where the first collection happens; `RAIL_GC_STRESS=N` forces one every Nth allocation.\n"
+  let _ = w out "Other `RAIL_*` names in the tree belong to one tool each and are read by that tool only.\n\n"
 
   let _ = w out "## Known surprising behaviors\n\n"
   let _ = w out "Compilation proves a program is *accepted by the binary you run*, not that it is\n"

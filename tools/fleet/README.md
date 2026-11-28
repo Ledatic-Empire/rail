@@ -1,7 +1,16 @@
 # tools/fleet
 
 Fleet-wide daemons and orchestration for the Rail compute fleet
-(Mini hub + Studio/Air spokes + Pi).
+(Mini hub, Air spoke, Pi).
+
+## Fleet agents: two targets, not two versions
+
+Each file is the agent for one platform. None replaces another.
+
+| File | Runs on | Why it exists |
+|---|---|---|
+| `fleet_agent_v3.rail` | The Macs (launchd `com.ledatic.fleet`, binary `~/.fleet/fleet_agent_v3`) | Direct TCP control plane, current. |
+| `fleet_agent.rail` (v2, CGI handler) | The Pi | v3 cannot be built on the Pi (cross-compile duplicate symbols, 416 MB RAM). Security fixes made to v3 must be ported here by hand, as 710cd72 was. |
 
 ## tb_autojoin — walk-away Thunderbolt bridge reconciler
 
@@ -23,7 +32,7 @@ within 30 s. Walk-away.
 ### Install (per node)
 
 ```bash
-echo "10.42.0.X" > ~/.fleet/tb-ip           # Mini=.1, Studio=.2, Air=.3 (leak-guard-allow: convention example)
+echo "10.42.0.X" > ~/.fleet/tb-ip           # Mini=.1, Air=.3 (leak-guard-allow: convention example)
 sudo cp tools/fleet/com.ledatic.tb_autojoin.plist /Library/LaunchDaemons/
 sudo chown root:wheel /Library/LaunchDaemons/com.ledatic.tb_autojoin.plist
 sudo chmod 644        /Library/LaunchDaemons/com.ledatic.tb_autojoin.plist

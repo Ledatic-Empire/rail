@@ -1,0 +1,13 @@
+-- tools/verify/lib.rail: the string helpers the verify programs share (one copy).
+-- A verify program imports this and defines none of these names itself.
+-- `cat` stays local to each program: the compiler exempts it from the builtin-name rule.
+
+-- first line of a shell result, newline dropped
+trim s = head (split "\n" s)
+
+-- a string without its trailing newlines
+rstrip_nl s = join "" (reverse (drop_nl (reverse (chars s))))
+drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs
+
+-- a list without its empty strings
+nonempty xs = if xs == [] then [] else if head xs == "" then nonempty (tail xs) else cons (head xs) (nonempty (tail xs))

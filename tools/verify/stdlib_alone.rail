@@ -6,13 +6,18 @@
 -- 2026-10-30, 18 of the 61 modules were: they leaned on names their importers happened to bring,
 -- and a program importing one alone printed warnings and died at load. Every refusal is printed
 -- with the compiler's first error line; the last line is PASS or FAIL. Exit 0 iff PASS.
+-- Also a layering rule: a stdlib module imports only stdlib, never tools/ (the dependency runs
+-- from tools to stdlib), and `tools/v5` (assembler, linker) imports only stdlib and itself.
+-- Each offending file is printed and counts as a failure.
+-- And no import cycle (tsort over every stdlib, tools/v5 and top-level tools import edge).
+-- And a naming rule: top-level names are one flat space, so no name is defined in two modules
+-- (a `foreign` declaration may repeat: it declares, it does not define).
 -- Run from the repo root:  ./rail_native run tools/verify/stdlib_alone.rail
 -- `shell` passes no environment through, so the arena setting is in the command.
 
+import "tools/verify/lib.rail"
+
 cat parts = join "" parts
-rstrip_nl s = join "" (reverse (drop_nl (reverse (chars s))))
-drop_nl cs = if cs == [] then [] else if head cs == "\n" then drop_nl (tail cs) else cs
-nonempty xs = if xs == [] then [] else if head xs == "" then nonempty (tail xs) else cons (head xs) (nonempty (tail xs))
 ltrim s = if length s == 0 then s else if str_sub s 0 1 == " " then ltrim (str_sub s 1 (length s - 1)) else s
 last_of xs = if tail xs == [] then head xs else last_of (tail xs)
 
@@ -39,12 +44,36 @@ check_module path =
     let _ = print (cat ["  FAIL ", path, ": ", first_error lines])
     1
 
+-- stdlib files that import from tools/; prints each, returns how many
+layering_breaks =
+  let hits = nonempty (split "\n" (shell "grep -lE '^[[:space:]]*import[[:space:]]+\"tools/' stdlib/*.rail; grep -lE '^[[:space:]]*import[[:space:]]+\"tools/(compile|types|ast|attest|fleet|fuzz|test|verify|independence)' tools/v5/*.rail"))
+  let _ = map (\p -> print (cat ["  FAIL ", p, ": imports from a layer above it (stdlib imports no tool, tools/v5 imports only stdlib and itself)"])) hits
+  length hits
+
+-- names defined at top level in more than one stdlib file; prints each, returns how many
+duplicate_names =
+  let cmd = "grep -HoE \"^[a-z_][A-Za-z0-9_']* \" stdlib/*.rail | sort -u | cut -d: -f2 | tr -d ' ' | grep -vxE 'foreign|import|type|let|if|else|match' | sort | uniq -d"
+  let names = nonempty (split "\n" (shell cmd))
+  let _ = map (\n -> print (cat ["  FAIL ", n, ": defined in more than one stdlib module"])) names
+  length names
+
+-- import cycles among stdlib, tools/v5 and the compiler files; prints each, returns how many
+import_cycles =
+  let cmd = "grep -HoE '^import \"[^\"]+\"' stdlib/*.rail tools/v5/*.rail tools/*.rail | sed -E 's/^([^:]+):import \"(.*)\"/\\1 \\2/' | tsort 2>&1 >/dev/null"
+  let lines = nonempty (split "\n" (shell cmd))
+  let _ = map (\l -> print (cat ["  FAIL import cycle: ", l])) lines
+  length lines
+
 check_all paths n = if paths == [] then n else check_all (tail paths) (n + check_module (head paths))
 
 main =
   let paths = nonempty (split "\n" (shell "ls stdlib/*.rail"))
   let total = length paths
-  let fails = check_all paths 0
+  -- static checks first: the compiler does not terminate on an import cycle, so a cycle
+  -- must be reported before any module is compiled
+  let cycles = import_cycles
+  let static_fails = layering_breaks + duplicate_names + cycles
+  let fails = static_fails + (if cycles == 0 then check_all paths 0 else 0)
   if fails == 0 then
     let _ = print (cat ["PASS stdlib_alone: ", show total, " modules compile when imported alone"])
     0

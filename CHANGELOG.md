@@ -4,7 +4,59 @@ All notable changes to Rail are documented here.
 
 ## Unreleased
 
+### Removed
+- **Eight unreferenced v5 prototype programs** (2026-11-27, `docs/entropy/PROGRESS.md` round 1):
+  `tools/v5/{audit_1page_sign,audit_npage_sign,rail_emit_arith,rail_emit_exit,compile_macho,asm_to_macho,ffi_sqlite_demo,compile_elf}.rail`.
+  Each was a standalone `main` that nothing imported, ran or named outside comments; the in-process
+  linker (`link_lib.rail`, one link path since Tier 3 step 6) replaced them, and `dyld_macho.rail`
+  stays as the reference `link_lib.rail` cites. The assembler gates and `.s` fixtures stay (SHIMS.md
+  says never). Measured after: 323/323, seed fixed point byte-identical, `check.sh` 8 passed 0 failed.
+  Recoverable from git history.
+
+### Fixed
+- **Two stdlib names were defined in two modules** (2026-11-27, round 4). `json.rail` carried its own
+  copy of `drop` (identical to `list.rail`'s) and now imports `list.rail`; `tokenizer.rail`'s
+  `contains_char cs c` (a list scan, the opposite argument order and meaning to `string.rail`'s
+  `contains_char c s`) is `tok_has_char`, its only caller being the legacy vocab loop.
+  `stdlib_alone.rail` now fails any top-level name defined in more than one stdlib module (a
+  `foreign` declaration may repeat); seen failing on a planted `drop` in `bytes.rail`, then reverted.
+  `docs/site/stdlib.md` regenerated.
+- **`file_exists`, `is_readable` and `is_writable` read a path cut out of a longer string as missing**
+  (2026-11-27). `access` reads a C string and `str_sub` does not NUL-terminate; `stat.rail` now
+  passes a copy. Found when `tour_check` moved to the stdlib `file_exists` and printed 91 false
+  "path does not exist" findings; with the fix it prints PASS.
+
 ### Changed
+- **`docs/ARCHITECTURE.md`: the layers, each layer's public interface and where a change goes**
+  (2026-11-27, round 6), every rule tied to the gate that holds it. `stdlib_alone.rail`'s layering
+  check now also fails a `tools/v5` file that imports anything but stdlib or `tools/v5` (seen failing on
+  a planted `import "tools/verify/lib.rail"` in `arm64.rail`, then reverted).
+- **`stdlib_alone.rail` fails an import cycle** (round 6): `tsort` over every stdlib, `tools/v5` and
+  compiler import edge, run before any module is compiled because the compiler does not terminate on a
+  cycle (a planted `list` to `string` to `list` loop hung the first version of this gate for ten
+  minutes; the reordered gate prints the cycle and exits). Seen failing, then reverted.
+- **`sha256_hex_file` is defined once, in `stdlib/sha256.rail`** (2026-11-27, round 5). `tools/attest/attest.rail`
+  and `tools/attest/verify.rail` each carried the same 19 lines; both now import it. The verifier already
+  imported `sha256.rail`, so its trusted base is unchanged. The seed was rebuilt (1 more rebuild:
+  `sha256.rail` is in the compiler's import tree), gen1 == gen2, `docs/STATUS.md` regenerated; `check.sh`
+  section 5 (the verifier on the signed release) and section 6 (its negative controls) pass.
+- **The verify programs share one copy of their string helpers** (2026-11-27, round 3):
+  `tools/verify/lib.rail` holds `trim`, `rstrip_nl`, `drop_nl` and `nonempty`, and
+  `examples_check`, `stdlib_alone`, `tour_check` and `gen_status` import it. `starts_with` and
+  `file_exists` come from `stdlib/string.rail` and `stdlib/stat.rail`, not local copies.
+  `tour_check` keeps its own `rstrip_nl`: it takes a list of characters, a different function.
+- **`docs/STATUS.md` has a generated Runtime environment section** (round 3): the names come from
+  `runtime/arm64/data.s`, so the list of variables every program reads has one source and the drift
+  gate covers it.
+- **`codebuf.rail` moves from `tools/v5` to `stdlib`, where its importer already was** (2026-11-27,
+  `docs/entropy/PROGRESS.md` round 2). `stdlib/macho.rail` imported `tools/v5/codebuf.rail`, a stdlib
+  module depending on a tool; `asm.rail` and `link_lib.rail` used `cb_emit` and `cb_read` only through
+  that chain and now import it themselves. `make_codebuf`, `cb_size` and `cb_patch` had no caller and
+  are gone. Stdlib is 62 modules (`stdlib_alone.rail` PASS). The seed was rebuilt: 1,156,824 bytes,
+  gen1 == gen2, `docs/STATUS.md` regenerated.
+- **`stdlib_alone.rail` also refuses a stdlib module that imports from `tools/`** (2026-11-27). The
+  layering rule behind the `codebuf` move now fails CI the way a module that does not compile alone
+  does. Seen failing on a planted `import "tools/v5/arm64.rail"` in `stdlib/codebuf.rail`, then reverted.
 - **The float comparisons `<=.` and `>=.` are lexed and compiled** (2026-11-24, t336). `a <=. 0.25`
   was read as `<=` then an unexpected `.`, so rail-lab's lowbit `l11` (Inkling) did not build on
   master. Both go through `fcmp` like `<.` and `>.`; `op_base` maps them to `<=` and `>=`.

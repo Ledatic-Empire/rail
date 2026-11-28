@@ -23,10 +23,10 @@ tok_nth n xs =
   else tok_nth (n - 1) (tail xs)
 
 -- Linear scan: is c already in cs?
-contains_char cs c =
+tok_has_char cs c =
   if length cs == 0 then false
   else if head cs == c then true
-  else contains_char (tail cs) c
+  else tok_has_char (tail cs) c
 
 -- Counted-scan variant: caller passes the vocab size, so no O(V) `length cs`
 -- per call. Called from the counted collect_unique loop — keeps the inner
@@ -44,7 +44,7 @@ collect_unique_old input acc =
   if length input == 0 then reverse acc
   else
     let c = head input
-    if contains_char acc c then collect_unique_old (tail input) acc
+    if tok_has_char acc c then collect_unique_old (tail input) acc
     else collect_unique_old (tail input) (cons c acc)
 
 build_vocab_old text =

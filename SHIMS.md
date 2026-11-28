@@ -17,7 +17,7 @@ nothing builds; it is not counted here).
 | `tools/linux_libc.s`, `tools/linux_data.s` | 2 | 38,937 | Pure-syscall libc (write, read, openat, mmap, exit, string ops) for cross-compiled Linux ARM64 binaries: no glibc. | Never: this is the Linux ABI boundary. |
 | `tools/x86_libc.s`, `tools/x86_rt.s` | 2 | 65,957 | The same boundary and the runtime for the x86_64 Linux backend (GC inner loop, lists, strings, tagged-int math by hand). | With the x86 backend, or when the ARM64 runtime is emitted from one source for both. |
 | `tools/v5/*.s` | 5 | 1,997 | Byte-verification fixtures for the v5 ELF assembler (`exit42`, `hello`, `fib`, `.bss`, the smallest program). Test input, not linked into anything. | Never: deleting them deletes the proof that the assembler is bit-correct. |
-| `tools/fleet/spi_lcd.c` | 1 | 4,571 | ST7789 SPI LCD driver for the fleet display on the Pi. | With `tools/fleet`, staged behind the owner's `tb_autojoin` plist repoint (Tier 2 step 3). |
+| `tools/fleet/spi_lcd.c` | 1 | 4,571 | ST7789 SPI LCD driver for the fleet display on the Pi. | Stays with `tools/fleet` (owner, 2026-11-27). |
 
 Not counted above, by design:
 

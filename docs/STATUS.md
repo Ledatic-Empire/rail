@@ -9,9 +9,9 @@
 |---|---|---|
 | Release | v5.6.0 | `git describe --tags` |
 | Compiler | 8748 lines of Rail | `wc -l tools/compile.rail` |
-| Seed binary | 1156840 bytes | `wc -c rail_native` |
-| Seed sha256 | `9f1a1effb381b4ce392dc6edc3aab77b45116605090bfa75f3c85d56a82767f5` | `shasum -a 256 rail_native` |
-| Stdlib | 61 modules | `ls stdlib/*.rail \| wc -l` |
+| Seed binary | 1173272 bytes | `wc -c rail_native` |
+| Seed sha256 | `d101e68dcea957adac56a9e9bd8b07da4270ecb0c84e8ee9a78587c0f52faf40` | `shasum -a 256 rail_native` |
+| Stdlib | 62 modules | `ls stdlib/*.rail \| wc -l` |
 | Non-Rail surface | 31 in-tree files | `SHIMS.md` |
 | Tests | runner self-reports N/N and exits 0 iff N == N | `./rail_native test; echo $?` |
 | Self-host | byte-identical fixed point | `RAIL_ARENA_MB=6000 ./rail_native self && cmp rail_native /tmp/rail_self` |
@@ -31,6 +31,12 @@ non-Rail files, each named in [`SHIMS.md`](../SHIMS.md).
 ARM64 macOS (native) - Linux ARM64 - Linux x86_64. WebAssembly left on 2026-10-21 (tag
 `archive/tier3-step5-precut-2026-10-21`); Cortex-M4 and RISC-V rv32imc on 2026-10-19 (tag
 `archive/tier1-precut-2026-10-19`).
+
+## Runtime environment
+
+Variables every compiled program reads at start (`runtime/arm64/data.s`, the one source): `RAIL_ARENA_MB` `RAIL_ARENA_TRACE` `RAIL_GC_STRESS`.
+`RAIL_ARENA_MB` sets where the first collection happens; `RAIL_GC_STRESS=N` forces one every Nth allocation.
+Other `RAIL_*` names in the tree belong to one tool each and are read by that tool only.
 
 ## Known surprising behaviors
 

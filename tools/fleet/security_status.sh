@@ -8,7 +8,6 @@ set -u
 
 NODES=(
   "mini:localhost"
-  "studio:studio"
   "air:<peer-user>@<peer-host>"
   # "pi:<witness-user>@<witness-host>"   # Pi has no pf / different surface; skipped
 )
