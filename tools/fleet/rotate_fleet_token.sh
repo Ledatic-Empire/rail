@@ -7,7 +7,7 @@
 # Flow:
 #   1. Generate new 64-hex token.
 #   2. Stamp Mini's ~/.fleet/token (backup prior).
-#   3. ssh-push to Studio, Air, Pi (one at a time).  After each push,
+#   3. ssh-push to Air, Pi (one at a time).  After each push,
 #      hit that node's /health with the new token.  On failure, roll
 #      back using the backup.
 #   4. Print before/after MD5 fingerprints so humans can sanity-check.

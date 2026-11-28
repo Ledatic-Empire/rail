@@ -43,7 +43,7 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 
 ## Task pool (evidence in brackets)
 
-- `tools/fleet` agents: closed. Not duplicates: v3 on the Macs, v2 on the Pi (v3 cannot build there), x86 for Windows. The 11 to 16 shared names are the per-platform copies; documented in `tools/fleet/README.md`, not merged.
+- `tools/fleet` agents: closed. Not duplicates: v3 on the Macs, v2 on the Pi (v3 cannot build there). The 11 to 16 shared names are the per-platform copies; documented in `tools/fleet/README.md`, not merged.
 - Nothing open that is safe to do without the owner. Deferred by evidence: `tools/fleet` (daemon repoint), `compile.rail` restructuring (seed risk, no feature behind it; the tour gate already pins its shape).
 
 ## Pending confirmation (needs the owner)
@@ -90,3 +90,4 @@ the request chain is not done. One API key lookup since commit 9e6c701 (fieldcra
 - Measured: 307 tracked files; the only byte-duplicates are 14 repeated screenshots under `docs/plans/shots` (records, left). The 15 section links in the top nav are identical across 21 pages; drift is only in the per-page CTA link and active markers. `tios.html` has its own nav by design.
 - Added `tests/nav_consistency_test.sh` (fails on a planted typo, exit 1). README drops the stale "eight pages".
 - Pending, owner: two KV upload implementations, `deploy.sh` (bulk, 968 lines) and `railgen/cf_deploy.rail` (one file plus cache purge). Different callers (cron generators versus manual pushes); merging them touches the live deploy path, so left. Uncommitted `sitemap.xml` in the main checkout belongs to another session and was not touched.
+- Round 10: only the Mini, Air and Pi exist (owner, 2026-11-27; Studio sold 2026-10-13). Deleted the x86/Windows agent (no node, no caller) and the Studio entries in the fleet scripts.
