@@ -9,7 +9,7 @@ Not pushed. A human opens and merges the PR.
 - Seed `rail_native` must stay at its fixed point. A round that edits `tools/compile.rail`, its
   imports or `runtime/` rebuilds it and regenerates `docs/STATUS.md` in the same commit.
 - `releases/`, `builds/`, `selfhost/` and `docs/history` are records. Not touched.
-- `tools/fleet` waits on the owner's daemon repoint (CLAUDE.md). Not touched.
+- `tools/fleet` stays (owner, 2026-11-27). Round 8 fixed its example plist and documented the agents.
 - `SHIMS.md` says the `tools/v5/*.s` fixtures and gate diffs are never deleted.
 
 ## Gate (run after every batch)
@@ -43,13 +43,12 @@ bash tools/verify/check.sh                                  # passed 8, failed 0
 
 ## Task pool (evidence in brackets)
 
-- `tools/fleet/fleet_agent.rail`, `fleet_agent_v3.rail`, `fleet_agent_x86.rail`: 11 to 16 shared top-level names. Deferred until the daemon repoint.
+- `tools/fleet` agents: closed. Not duplicates: v3 on the Macs, v2 on the Pi (v3 cannot build there), x86 for Windows. The 11 to 16 shared names are the per-platform copies; documented in `tools/fleet/README.md`, not merged.
 - Nothing open that is safe to do without the owner. Deferred by evidence: `tools/fleet` (daemon repoint), `compile.rail` restructuring (seed risk, no feature behind it; the tour gate already pins its shape).
 
 ## Pending confirmation (needs the owner)
 
-- Whether the `dyld_macho.rail` reference program should go too. `link_lib.rail` cites it in comments and `docs/rail-tier3-record-plan.md` names it, so it stays for now.
-- Four fleet agent variants: which is canonical is the owner's call.
+- Decided 2026-11-27: `dyld_macho.rail` stays (owner: keep if useful; it has citations). Open (superseded): whether it should go. `link_lib.rail` cites it in comments and `docs/rail-tier3-record-plan.md` names it, so it stays for now.
 
 ## Other repos under ~/projects (read-only triage, 2026-11-27)
 
@@ -78,3 +77,10 @@ They now have one writer, `gym_ask.configure_model`, and a test fails any other 
 planted single and tuple assignments). They remain module state, read by one function; passing them down
 the request chain is not done. One API key lookup since commit 9e6c701 (fieldcraft branch
 `entropy/2026-11-27`, local).
+
+## Round 8 (2026-11-27)
+
+- Owner answers: fleet stays and the daemon is being adjusted; `dyld_macho` stays; `plasma-lab/tools/refute` archived (plasma-lab branch `entropy/2026-11-27`, 2920c29, archive on the SSD with a verified manifest, its gate passes); fieldcraft `gym_ask` settings left as module state with one writer; next repo is `ledatic-site`.
+- Found: the example plist `com.ledatic.tb_autojoin.plist.example` held merge-conflict markers and another job's label. Rebuilt from the installed daemon.
+- Found: deleting v2 `fleet_agent.rail` as a duplicate would have removed the only agent that runs on the Pi.
+- PR 202 CI: all checks passed before this round.

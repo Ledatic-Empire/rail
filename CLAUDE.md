@@ -135,7 +135,7 @@ Rail is the compiler + stdlib. A few things that used to live here moved out on 
 `gpu_map`, the stdlib ML stack (`tensor`, `transformer`, `optim`, `checkpoint`, `infer_kv`, the `jit_*` modules),
 `jit/`, the wasm backend with `rail safe`, `tools/{bitexact,tls,auth,audit,deploy}`: cut 2026-10-21 in Tier 3
 step 5, tag `archive/tier3-step5-precut-2026-10-21` (`docs/rail-tier3-record-plan.md`). The site generators are
-`ledatic-site/railgen/`. `tools/fleet` leaves once the owner repoints the `tb_autojoin` root daemon.
+`ledatic-site/railgen/`. `tools/fleet` stays (owner, 2026-11-27): the root daemon `tb_autojoin` still runs from it and is being adjusted.
 
 ## Cross-compile (Linux ARM64 for Pi Zero / similar)
 

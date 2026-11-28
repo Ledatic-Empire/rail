@@ -3,6 +3,16 @@
 Fleet-wide daemons and orchestration for the Rail compute fleet
 (Mini hub + Studio/Air spokes + Pi).
 
+## Fleet agents: three targets, not three versions
+
+Each file is the agent for one platform. None replaces another.
+
+| File | Runs on | Why it exists |
+|---|---|---|
+| `fleet_agent_v3.rail` | The Macs (launchd `com.ledatic.fleet`, binary `~/.fleet/fleet_agent_v3`) | Direct TCP control plane, current. |
+| `fleet_agent.rail` (v2, CGI handler) | The Pi | v3 cannot be built on the Pi (cross-compile duplicate symbols, 416 MB RAM). Security fixes made to v3 must be ported here by hand, as 710cd72 was. |
+| `fleet_agent_x86.rail` | x86_64 and Windows nodes | Separate target. |
+
 ## tb_autojoin — walk-away Thunderbolt bridge reconciler
 
 `tb_autojoin.sh` + `com.ledatic.tb_autojoin.plist`.
